@@ -1,0 +1,15 @@
+//
+//  ExerciseTagPivotDomain.swift
+//  fitness-app
+//
+//  Created by Dominic Kish on 1/26/26.
+//
+import Foundation
+
+struct ExerciseTagPivotDomain {
+    var id: Int64?
+    var exerciseId: Int64
+    var exerciseTagId: Int64
+    var createdAt: Date
+    var updatedAt: Date
+}

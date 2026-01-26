@@ -1,0 +1,28 @@
+//
+//  AppShellCoordinator.swift
+//  fitness-app
+//
+//  Created by Dominic Kish on 1/25/26.
+//
+
+import SwiftUI
+import Combine
+
+
+final class AppShellCoordinator: ObservableObject {
+    @Published var currentStep: AppShellStep = .dashboard
+}
+
+enum AppShellStep {
+    case task
+    case profile
+    case profileEdit
+    case profilePassword
+    case profileTheme
+    case premium
+    case dashboard
+    case calendar
+    case exercise
+    case workout
+    case session
+}

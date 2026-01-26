@@ -6,41 +6,48 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B04287BE2F26B43200EB052A /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = B04287BD2F26B43200EB052A /* GRDB */; };
+		B04287E92F2705EE00EB052A /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = B04287E82F2705EE00EB052A /* KeychainAccess */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
-		B05EFFAD2F24974300B96702 /* fitness-app.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "fitness-app.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B002AECA2F2695B60011607A /* fitness-app.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "fitness-app.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		B05EFFAF2F24974300B96702 /* fitness-app */ = {
+		B002AECC2F2695B60011607A /* src */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "fitness-app";
+			path = src;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		B05EFFAA2F24974300B96702 /* Frameworks */ = {
+		B002AEC72F2695B60011607A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B04287E92F2705EE00EB052A /* KeychainAccess in Frameworks */,
+				B04287BE2F26B43200EB052A /* GRDB in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		B05EFFA42F24974300B96702 = {
+		B002AEC12F2695B60011607A = {
 			isa = PBXGroup;
 			children = (
-				B05EFFAF2F24974300B96702 /* fitness-app */,
-				B05EFFAE2F24974300B96702 /* Products */,
+				B002AECC2F2695B60011607A /* src */,
+				B002AECB2F2695B60011607A /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		B05EFFAE2F24974300B96702 /* Products */ = {
+		B002AECB2F2695B60011607A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				B05EFFAD2F24974300B96702 /* fitness-app.app */,
+				B002AECA2F2695B60011607A /* fitness-app.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,64 +55,70 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		B05EFFAC2F24974300B96702 /* fitness-app */ = {
+		B002AEC92F2695B60011607A /* fitness-app */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = B05EFFB82F24974400B96702 /* Build configuration list for PBXNativeTarget "fitness-app" */;
+			buildConfigurationList = B002AED52F2695B70011607A /* Build configuration list for PBXNativeTarget "fitness-app" */;
 			buildPhases = (
-				B05EFFA92F24974300B96702 /* Sources */,
-				B05EFFAA2F24974300B96702 /* Frameworks */,
-				B05EFFAB2F24974300B96702 /* Resources */,
+				B002AEC62F2695B60011607A /* Sources */,
+				B002AEC72F2695B60011607A /* Frameworks */,
+				B002AEC82F2695B60011607A /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				B05EFFAF2F24974300B96702 /* fitness-app */,
+				B002AECC2F2695B60011607A /* src */,
 			);
 			name = "fitness-app";
 			packageProductDependencies = (
+				B04287BD2F26B43200EB052A /* GRDB */,
+				B04287E82F2705EE00EB052A /* KeychainAccess */,
 			);
 			productName = "fitness-app";
-			productReference = B05EFFAD2F24974300B96702 /* fitness-app.app */;
+			productReference = B002AECA2F2695B60011607A /* fitness-app.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		B05EFFA52F24974300B96702 /* Project object */ = {
+		B002AEC22F2695B60011607A /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
-					B05EFFAC2F24974300B96702 = {
+					B002AEC92F2695B60011607A = {
 						CreatedOnToolsVersion = 26.2;
 					};
 				};
 			};
-			buildConfigurationList = B05EFFA82F24974300B96702 /* Build configuration list for PBXProject "fitness-app" */;
+			buildConfigurationList = B002AEC52F2695B60011607A /* Build configuration list for PBXProject "fitness-app" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = B05EFFA42F24974300B96702;
+			mainGroup = B002AEC12F2695B60011607A;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B04287BC2F26B43200EB052A /* XCRemoteSwiftPackageReference "GRDB" */,
+				B04287E72F2705EE00EB052A /* XCRemoteSwiftPackageReference "KeychainAccess" */,
+			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = B05EFFAE2F24974300B96702 /* Products */;
+			productRefGroup = B002AECB2F2695B60011607A /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				B05EFFAC2F24974300B96702 /* fitness-app */,
+				B002AEC92F2695B60011607A /* fitness-app */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		B05EFFAB2F24974300B96702 /* Resources */ = {
+		B002AEC82F2695B60011607A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -115,7 +128,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		B05EFFA92F24974300B96702 /* Sources */ = {
+		B002AEC62F2695B60011607A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -125,7 +138,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		B05EFFB62F24974400B96702 /* Debug */ = {
+		B002AED32F2695B70011607A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -177,16 +190,18 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
 		};
-		B05EFFB72F24974400B96702 /* Release */ = {
+		B002AED42F2695B70011607A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -232,119 +247,132 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
-		B05EFFB92F24974400B96702 /* Debug */ = {
+		B002AED62F2695B70011607A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.fitness-app";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
-				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				XROS_DEPLOYMENT_TARGET = 26.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
-		B05EFFBA2F24974400B96702 /* Release */ = {
+		B002AED72F2695B70011607A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.fitness-app";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
-				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				XROS_DEPLOYMENT_TARGET = 26.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		B05EFFA82F24974300B96702 /* Build configuration list for PBXProject "fitness-app" */ = {
+		B002AEC52F2695B60011607A /* Build configuration list for PBXProject "fitness-app" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				B05EFFB62F24974400B96702 /* Debug */,
-				B05EFFB72F24974400B96702 /* Release */,
+				B002AED32F2695B70011607A /* Debug */,
+				B002AED42F2695B70011607A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		B05EFFB82F24974400B96702 /* Build configuration list for PBXNativeTarget "fitness-app" */ = {
+		B002AED52F2695B70011607A /* Build configuration list for PBXNativeTarget "fitness-app" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				B05EFFB92F24974400B96702 /* Debug */,
-				B05EFFBA2F24974400B96702 /* Release */,
+				B002AED62F2695B70011607A /* Debug */,
+				B002AED72F2695B70011607A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B04287BC2F26B43200EB052A /* XCRemoteSwiftPackageReference "GRDB" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/groue/GRDB.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.0.0;
+			};
+		};
+		B04287E72F2705EE00EB052A /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kishikawakatsumi/KeychainAccess";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B04287BD2F26B43200EB052A /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B04287BC2F26B43200EB052A /* XCRemoteSwiftPackageReference "GRDB" */;
+			productName = GRDB;
+		};
+		B04287E82F2705EE00EB052A /* KeychainAccess */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B04287E72F2705EE00EB052A /* XCRemoteSwiftPackageReference "KeychainAccess" */;
+			productName = KeychainAccess;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = B05EFFA52F24974300B96702 /* Project object */;
+	rootObject = B002AEC22F2695B60011607A /* Project object */;
 }

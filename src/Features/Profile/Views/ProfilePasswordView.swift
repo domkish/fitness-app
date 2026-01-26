@@ -1,0 +1,125 @@
+//
+//  ProfilePassword.swift
+//  fitness-app
+//
+//  Created by Dominic Kish on 1/25/26.
+//
+import SwiftUI
+import GRDB
+
+struct ProfilePasswordView: View {
+    @ObservedObject var coordinator: AppShellCoordinator
+    @EnvironmentObject var authCoordinator: AuthCoordinator
+    @StateObject private var viewModel: ProfilePasswordViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    init(coordinator: AppShellCoordinator) {
+        self.coordinator = coordinator
+        let tempDBQueue = try! DatabaseQueue() // in-memory DB for initialization
+        let tempUserRepo = UserRepository(dbQueue: tempDBQueue)
+        let tempAuthService = AuthService(userRepository: tempUserRepo)
+        _viewModel = StateObject(wrappedValue: ProfilePasswordViewModel(authService: tempAuthService))
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                AppColors.background
+                    .ignoresSafeArea() // Full-screen background
+
+                GeometryReader { geometry in
+                    ScrollView {
+                        VStack(spacing: 30) {
+
+                            // MARK: - Password Card
+                            VStack(spacing: 20) {
+                                Text("Change Password")
+                                    .font(.title2)
+                                    .bold()
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                // Password Fields
+                                SecureFieldCard(title: "Current Password", text: $viewModel.currentPassword)
+                                SecureFieldCard(title: "New Password", text: $viewModel.newPassword)
+                                SecureFieldCard(title: "Confirm New Password", text: $viewModel.confirmPassword)
+
+                                // Error Message
+                                if let error = viewModel.errorMessage {
+                                    Text(error)
+                                        .foregroundColor(.red)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.top, 5)
+                                }
+
+                                // Change Password Button
+                                Button {
+                                    Task {
+                                        await viewModel.saveChanges()
+                                        if viewModel.errorMessage == nil { dismiss() }
+                                    }
+                                } label: {
+                                    Text("Change Password")
+                                        .bold()
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(viewModel.canSave ? AppColors.primary : Color.gray)
+                                        .cornerRadius(14)
+                                }
+                                .disabled(!viewModel.canSave || viewModel.isSaving)
+                            }
+                            .padding()
+                            .background(AppColors.surface)
+                            .cornerRadius(16)
+                            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+
+                            Spacer()
+                        }
+                        .padding()
+                        // Full-height using GeometryReader
+                        .frame(maxWidth: .infinity, minHeight: geometry.size.height)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct SecureFieldCard: View {
+    let title: String
+    @Binding var text: String
+    @State private var isSecured: Bool = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .foregroundColor(AppColors.textDefault)
+
+            HStack {
+                if isSecured {
+                    SecureField(title, text: $text)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+                        .disableAutocorrection(true)
+                        .frame(maxWidth: .infinity)
+                        .textContentType(.password)
+                } else {
+                    TextField(title, text: $text)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+                        .disableAutocorrection(true)
+                        .frame(maxWidth: .infinity)
+                        .textContentType(.password)
+                }
+
+                Button(action: { isSecured.toggle() }) {
+                    Image(systemName: self.isSecured ? "eye.slash" : "eye")
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding()
+            .background(AppColors.surface.opacity(0.9))
+            .cornerRadius(12)
+        }
+    }
+}
