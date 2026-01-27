@@ -8,11 +8,35 @@ import GRDB
 import Foundation
 
 struct ExerciseTagRecord: Codable, FetchableRecord, PersistableRecord {
+    static let databaseTableName = "exercise_tags"
+    
     var id: Int64?
     var name: String
     var type: String
     var createdAt: Date
     var updatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case type
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+
+    init(
+        id: Int64? = nil,
+        name: String,
+        type: String,
+        createdAt: Date,
+        updatedAt: Date
+    ) {
+        self.id = id
+        self.name = name
+        self.type = type
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
 
     // Domain → Record initializer
     init(from domain: ExerciseTagDomain) {
@@ -57,3 +81,4 @@ extension ExerciseTagRecord {
             .deleteAll(db)
     }
 }
+

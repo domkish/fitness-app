@@ -8,6 +8,8 @@ import GRDB
 import Foundation
 
 struct UnitRecord: Codable, FetchableRecord, PersistableRecord {
+    static let databaseTableName = "units"
+    
     var id: Int64?
     var type: Int?          // 1 = imperial, 0 = metric (nullable)
     var name: String

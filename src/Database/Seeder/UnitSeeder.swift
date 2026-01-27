@@ -22,8 +22,8 @@ struct UnitSeeder {
             ["type": 1, "name": "yard", "abbreviation": "yd"],
 
             // Mass / Weight
-            ["type": 0, "name": "kg", "abbreviation": "kg"],
-            ["type": 1, "name": "lbs", "abbreviation": "lbs"],
+            ["type": 0, "name": "kilograms", "abbreviation": "kg"],
+            ["type": 1, "name": "pounds", "abbreviation": "lbs"],
 
             // Volume
             ["type": 0, "name": "liter", "abbreviation": "L"],

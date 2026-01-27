@@ -6,7 +6,7 @@
 //
 import SwiftUI
 
-struct ExerciseDomain: Identifiable {
+struct ExerciseDomain: Identifiable, Codable {
     var id: Int64?
     var userId: Int
     var name: String
@@ -14,6 +14,18 @@ struct ExerciseDomain: Identifiable {
     var deletedAt: Date?
     var createdAt: Date
     var updatedAt: Date
+    var tags: [ExerciseTagDomain] = []
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case name
+        case locked
+        case deletedAt = "deleted_at"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case tags
+    }
 
     init(from record: ExerciseRecord) {
         self.id = record.id

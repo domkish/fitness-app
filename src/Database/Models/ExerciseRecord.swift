@@ -8,6 +8,8 @@ import GRDB
 import Foundation
 
 struct ExerciseRecord: Codable, FetchableRecord, PersistableRecord {
+    static let databaseTableName = "exercises"
+    
     var id: Int64?
     var userId: Int64
     var name: String
@@ -15,7 +17,35 @@ struct ExerciseRecord: Codable, FetchableRecord, PersistableRecord {
     var deletedAt: Date?
     var createdAt: Date
     var updatedAt: Date
-
+    
+    init(
+        id: Int64? = nil,
+        userId: Int64,
+        name: String,
+        locked: Bool,
+        deletedAt: Date? = nil,
+        createdAt: Date,
+        updatedAt: Date
+    ) {
+        self.id = id
+        self.userId = userId
+        self.name = name
+        self.locked = locked
+        self.deletedAt = deletedAt
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case name
+        case locked
+        case deletedAt = "deleted_at"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+    
     // Domain → Record initializer
     init(from domain: ExerciseDomain) {
         self.id = domain.id
@@ -85,3 +115,4 @@ extension ExerciseRecord {
             .deleteAll(db)
     }
 }
+

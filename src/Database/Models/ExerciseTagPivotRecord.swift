@@ -8,12 +8,21 @@ import GRDB
 import Foundation
 
 struct ExerciseTagPivotRecord: Codable, FetchableRecord, PersistableRecord {
+    static let databaseTableName = "exercise_tag_pivots"
     var id: Int64?
     var exerciseId: Int64
     var exerciseTagId: Int64
     var createdAt: Date
     var updatedAt: Date
-
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case exerciseId = "exercise_id"
+        case exerciseTagId = "exercise_tag_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+    
     // Domain initializer
     init(from domain: ExerciseTagPivotDomain) {
         self.id = domain.id

@@ -26,6 +26,7 @@ struct fitness_appApp: App {
             let dbService = try DatabaseService(path: dbURL.path)
             try dbService.setupDatabase() // resetFirst: true
             dbQueue = dbService.dbQueue
+            DatabaseQueueProvider.shared.dbQueue = dbQueue
         } catch {
             fatalError("Failed to initialize database: \(error)")
         }

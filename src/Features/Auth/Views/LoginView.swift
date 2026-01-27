@@ -21,8 +21,13 @@ struct LoginView: View {
             Text("Login").font(.largeTitle).bold()
 
             TextField("Email", text: $repo.email)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.emailAddress)
                 .autocorrectionDisabled(true)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
+                .onChange(of: repo.email) { newValue in
+                    repo.email = newValue.lowercased()
+                }
 
             SecureField("Password", text: $repo.password)
                 .textFieldStyle(.roundedBorder)

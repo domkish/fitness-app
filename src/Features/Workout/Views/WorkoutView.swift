@@ -11,14 +11,6 @@ struct WorkoutView: View {
     @ObservedObject var coordinator: AppShellCoordinator
     
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Workout Routines")
-                .font(.title)
-                .bold()
-            
-            Text("This is where your main app content goes.")
-                .multilineTextAlignment(.center)
-                .padding()
-        }
+        
     }
 }
