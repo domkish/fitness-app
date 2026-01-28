@@ -179,6 +179,18 @@ final class WorkoutRepository {
         }
     }
 
+    /// Deletes a workout block if it has no exercises attached
+    func deleteBlockIfEmpty(blockId: Int64) throws -> Bool {
+        try dbQueue.write { db in
+            // Check for attached exercises
+            let count: Int = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM workout_exercises WHERE workout_block_id = ? AND deleted_at IS NULL", arguments: [blockId]) ?? 0
+            guard count == 0 else { return false }
+            // Safe to delete the block
+            _ = try WorkoutBlockRecord.deleteOne(db, key: blockId)
+            return true
+        }
+    }
+
     // MARK: - Exercises in Blocks
     struct ExerciseInBlockRow: FetchableRecord, Decodable { let id: Int64; let exerciseId: Int64; let name: String; let blockId: Int64; let sortOrder: Int; let unit: String? }
 
@@ -293,6 +305,53 @@ final class WorkoutRepository {
                     name: name,
                     color: "primary",
                     description: description,
+                    deletedAt: nil,
+                    createdAt: now,
+                    updatedAt: now
+                )
+                try rec.insert(db)
+            }
+        }
+    }
+
+    /// Clones a workout block and all its exercises into a new block
+    func cloneBlock(blockId: Int64) throws {
+        try dbQueue.write { db in
+            // Load source block
+            guard let src = try WorkoutBlockRecord.fetchOne(db, key: blockId) else { return }
+            // Compute next sort order within the same workout
+            let maxOrder: Int = try Int.fetchOne(db, sql: "SELECT MAX(sort_order) FROM workout_blocks WHERE workout_id = ?", arguments: [src.workoutId]) ?? 0
+            let now = Date()
+            // Create new block
+            var newBlock = WorkoutBlockRecord(
+                id: nil,
+                userId: src.userId,
+                workoutId: src.workoutId,
+                name: src.name + " Copy",
+                description: src.description,
+                difficulty: src.difficulty,
+                sortOrder: maxOrder + 1,
+                deletedAt: nil,
+                createdAt: now,
+                updatedAt: now
+            )
+            try newBlock.insert(db)
+            let newBlockId = newBlock.id ?? Int64(db.lastInsertedRowID)
+            // Fetch exercises in source block
+            struct SrcEx: FetchableRecord, Decodable { let id: Int64; let exerciseId: Int64; let sortOrder: Int; let unit: String? }
+            let rows = try SrcEx.fetchAll(db, sql: "SELECT id, exercise_id AS exerciseId, sort_order AS sortOrder, unit FROM workout_exercises WHERE workout_block_id = ? AND deleted_at IS NULL ORDER BY sort_order ASC", arguments: [blockId])
+            // Determine next sort order per insertion
+            var order = 0
+            for r in rows {
+                order += 1
+                var rec = WorkoutExerciseRecord(
+                    id: nil,
+                    workoutId: src.workoutId,
+                    workoutBlockId: newBlockId,
+                    exerciseId: r.exerciseId,
+                    userId: src.userId,
+                    unit: r.unit,
+                    sortOrder: order,
                     deletedAt: nil,
                     createdAt: now,
                     updatedAt: now

@@ -38,6 +38,8 @@ struct WorkoutInfoView: View {
     @State private var blockDescriptions: [Int64: String] = [:]
     @State private var blockDescriptionSaveTasks: [Int64: Task<Void, Never>] = [:]
     @State private var isShowingBlocksInfo: Bool = false
+    
+    @State private var showDeleteBlockInfo: Bool = false
 
     init(workoutId: Int64? = nil, onDismiss: @escaping () -> Void = {}) {
         let db = DatabaseQueueProvider.shared.dbQueue
@@ -204,7 +206,35 @@ struct WorkoutInfoView: View {
                                     }
                                     
                                     HStack {
+                                        let canDelete = (exercisesByBlock[bid]?.isEmpty ?? true) && (blocks.count > 1)
+                                        if canDelete {
+                                            Button(role: .destructive) {
+                                                Task { await deleteBlockIfEmpty(bid) }
+                                            } label: {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: "trash")
+                                                }
+                                                .padding(.vertical, 6)
+                                                .padding(.horizontal, 10)
+                                                .background(AppColors.surface)
+                                                .cornerRadius(8)
+                                            }
+                                        } else {
+                                            Button {
+                                                showDeleteBlockInfo = true
+                                            } label: {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: "trash")
+                                                }
+                                                .padding(.vertical, 6)
+                                                .padding(.horizontal, 10)
+                                                .foregroundColor(AppColors.muted)
+                                                .cornerRadius(8)
+                                            }
+                                        }
+
                                         Spacer()
+
                                         Button {
                                             if editingBlocks.contains(bid) { editingBlocks.remove(bid) } else { editingBlocks.insert(bid) }
                                         } label: {
@@ -217,6 +247,11 @@ struct WorkoutInfoView: View {
                                             .background(AppColors.surface)
                                             .cornerRadius(8)
                                         }
+                                    }
+                                    .alert("Cannot Delete Block", isPresented: $showDeleteBlockInfo) {
+                                        Button("OK", role: .cancel) {}
+                                    } message: {
+                                        Text("You can only remove blocks if there are no exercises tied to them. At least one block is required per workout.")
                                     }
                                 }
                             }
@@ -581,6 +616,20 @@ struct WorkoutInfoView: View {
             await loadExercisesForBlocks()
         } catch {
             print("[WorkoutInfo] Failed to attach exercise: \(error)")
+        }
+    }
+    
+    private func deleteBlockIfEmpty(_ blockId: Int64) async {
+        do {
+            let deleted = try workoutRepo.deleteBlockIfEmpty(blockId: blockId)
+            if deleted {
+                await loadBlocks()
+            } else {
+                // Optionally show a message; keeping it quiet for now
+                print("[WorkoutInfo] Cannot delete block: it has exercises.")
+            }
+        } catch {
+            print("[WorkoutInfo] Failed to delete block: \(error)")
         }
     }
 }
