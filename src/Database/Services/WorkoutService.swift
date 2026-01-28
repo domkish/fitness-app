@@ -33,12 +33,15 @@ final class WorkoutService {
         }
         let now = Date()
 
+        let availableColors = ["primary", "secondary", "success", "warning", "error", "important"]
+        let randomColor = availableColors.randomElement() ?? "primary"
+
         // Create workout
         let workout = WorkoutDomain(
             id: nil,
             userId: user.id,
             name: trimmed,
-            color: "primary",
+            color: randomColor,
             description: nil,
             deletedAt: nil,
             createdAt: now,

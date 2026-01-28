@@ -141,6 +141,11 @@ final class WorkoutRepository {
         }
     }
 
+    private func randomColorForNewWorkout() -> String {
+        let colors = ["primary", "secondary", "success", "warning", "error", "important"]
+        return colors.randomElement() ?? "primary"
+    }
+
     // MARK: - Blocks CRUD
     func fetchBlocks(forWorkoutId workoutId: Int64) throws -> [WorkoutBlockDomain] {
         try dbQueue.read { db in
@@ -290,11 +295,12 @@ final class WorkoutRepository {
         }
     }
 
-    func saveWorkout(id: Int64?, userId: Int64, name: String, description: String?) throws {
+    func saveWorkout(id: Int64?, userId: Int64, name: String, description: String?, color: String) throws {
         try dbQueue.write { db in
             let now = Date()
             if let wid = id, var rec = try WorkoutRecord.fetchOne(db, key: wid) {
                 rec.name = name
+                rec.color = color
                 rec.description = description
                 rec.updatedAt = now
                 try rec.update(db)
@@ -303,7 +309,7 @@ final class WorkoutRepository {
                     id: nil,
                     userId: userId,
                     name: name,
-                    color: "primary",
+                    color: color,
                     description: description,
                     deletedAt: nil,
                     createdAt: now,

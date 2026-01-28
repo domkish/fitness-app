@@ -19,6 +19,7 @@ struct WorkoutInfoView: View {
 
     @State private var name: String = ""
     @State private var description: String = ""
+    @State private var colorIdentity: String = "primary"
     @State private var isSaving = false
     @State private var errorMessage: String?
     @State private var blocks: [WorkoutBlockDomain] = []
@@ -87,6 +88,49 @@ struct WorkoutInfoView: View {
                                 isUserEdited = true
                                 scheduleAutosave()
                             }
+                        
+                        Text("Color Identity").bold()
+                        HStack(spacing: 10) {
+                            ForEach(["primary","secondary","success","warning","error","important"], id: \.self) { key in
+                                let isSelected = (key == colorIdentity)
+                                let color = appColor(for: key)
+                                Button(action: {
+                                    colorIdentity = key
+                                    isUserEdited = true
+                                    scheduleAutosave()
+                                }) {
+                                    Rectangle()
+                                        .fill(color)
+                                        .frame(width: 32, height: 32)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(isSelected ? Color.white : Color.clear, lineWidth: 2)
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+                                        )
+                                        .cornerRadius(6)
+                                        .overlay(
+                                            Group {
+                                                if isSelected {
+                                                    Image(systemName: "checkmark.circle.fill")
+                                                        .foregroundColor(.white)
+                                                        .shadow(color: Color.black.opacity(0.25), radius: 2, x: 0, y: 1)
+                                                        .background(
+                                                            Circle().fill(Color.accentColor)
+                                                        )
+                                                        .frame(width: 18, height: 18)
+                                                        .offset(x: 10, y: -10)
+                                                }
+                                            }
+                                        )
+                                        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(Text("Select \(key) color"))
+                            }
+                        }
                     }
                     .padding()
                     .background(AppColors.surface)
@@ -425,7 +469,8 @@ struct WorkoutInfoView: View {
                 id: workoutId,
                 userId: Int64(user.id),
                 name: name,
-                description: description.isEmpty ? nil : description
+                description: description.isEmpty ? nil : description,
+                color: colorIdentity
             )
         } catch {
             errorMessage = "Failed to save workout: \(error.localizedDescription)"
@@ -438,6 +483,7 @@ struct WorkoutInfoView: View {
             if let record = try workoutRepo.fetchWorkout(id: workoutId) {
                 self.name = record.name
                 self.description = record.description ?? ""
+                self.colorIdentity = record.color
             }
         } catch {
             self.errorMessage = "Failed to load workout: \(error.localizedDescription)"
@@ -710,6 +756,18 @@ struct WorkoutInfoView: View {
             }
         } catch {
             print("[WorkoutInfo] Failed to copy block: \(error)")
+        }
+    }
+    
+    private func appColor(for key: String) -> Color {
+        switch key {
+        case "primary": return AppColors.primary
+        case "secondary": return AppColors.secondary
+        case "success": return AppColors.success
+        case "warning": return AppColors.warning
+        case "error": return AppColors.error
+        case "important": return AppColors.important
+        default: return AppColors.primary
         }
     }
 }

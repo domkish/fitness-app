@@ -37,7 +37,7 @@ struct WorkoutRecord: Codable, FetchableRecord, PersistableRecord {
         self.id = domain.id
         self.userId = Int64(domain.userId)
         self.name = domain.name
-        self.color = "primary"
+        self.color = domain.color
         self.description = domain.description
         self.deletedAt = domain.deletedAt
         self.createdAt = domain.createdAt
