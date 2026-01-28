@@ -195,14 +195,14 @@ struct WorkoutInfoView: View {
                                         .listStyle(.plain)
                                         .environment(\.editMode, .constant(editingBlocks.contains(bid) ? EditMode.active : EditMode.inactive))
                                         .scrollContentBackground(.hidden)
-                                        .frame(minHeight: CGFloat(items.count) * 48.0 + 8.0, maxHeight: min(CGFloat(items.count) * 56.0 + 16.0, 320))
+                                        .scrollDisabled(true)
+                                        .frame(height: CGFloat(items.count) * 56.0 + 16.0)
                                         .background(AppColors.surface)
                                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                                         .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
                                         .padding(.top, 4)
                                     }
                                     
-                                    // Footer: Reorder toggle
                                     HStack {
                                         Spacer()
                                         Button {
