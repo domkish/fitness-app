@@ -122,14 +122,6 @@ struct WorkoutInfoView: View {
                                             .padding()
                                             .frame(maxWidth: 320)
                                         }
-                                        // Alert fallback for compact environments where popover may not appear
-                                        .alert("What are blocks?", isPresented: $isShowingBlocksInfo) {
-                                            Button("OK", role: .cancel) { }
-                                        } message: {
-                                            Text("Blocks are a way to establish groups of exercises. Standard workouts may use one block, but circuit training could use several.")
-                                        }
-                                        
-                                        
                                     }
                                     Spacer()
                                     let maxPerBlock = isPremiumUser ? 10 : 5
@@ -270,7 +262,6 @@ struct WorkoutInfoView: View {
                                         } label: {
                                             HStack(spacing: 6) {
                                                 Image(systemName: editingBlocks.contains(bid) ? "checkmark.circle" : "arrow.up.arrow.down.circle")
-                                                Text(editingBlocks.contains(bid) ? "Done" : "Reorder").bold()
                                             }
                                             .padding(.vertical, 6)
                                             .padding(.horizontal, 10)
@@ -278,10 +269,16 @@ struct WorkoutInfoView: View {
                                             .cornerRadius(8)
                                         }
                                     }
-                                    .alert("Cannot Delete Block", isPresented: $showDeleteBlockInfo) {
-                                        Button("OK", role: .cancel) {}
-                                    } message: {
-                                        Text("You can only remove blocks if there are no exercises tied to them. At least one block is required per workout.")
+                                    .popover(isPresented: $showDeleteBlockInfo, arrowEdge: .top) {
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            Text("Cannot Delete Block")
+                                                .font(.headline)
+                                            Text("You can only remove blocks if there are no exercises tied to them. At least one block is required per workout.")
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .padding()
+                                        .frame(maxWidth: 320)
                                     }
                                 }
                             }
