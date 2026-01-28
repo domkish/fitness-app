@@ -17,13 +17,13 @@ struct WorkoutView: View {
 
     // State
     @State private var workouts: [WorkoutDomain] = []
-    @State private var searchText: String = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var isShowingAddPopup = false
     @State private var newWorkoutName: String = ""
     @State private var navigateToWorkoutId: Int64?
     @State private var shouldNavigateToDetail = false
+    @State private var isPremiumUser: Bool = false
 
     init(coordinator: AppShellCoordinator) {
         self.coordinator = coordinator
@@ -44,13 +44,19 @@ struct WorkoutView: View {
 
                     // Header with Add button (constrained to same horizontal padding as table)
                     HStack {
-                        Text("Workouts")
+                        Text("Workout Routines")
                             .font(.title)
                             .bold()
                         Spacer()
                         Button {
-                            newWorkoutName = ""
-                            isShowingAddPopup = true
+                            let maxWorkouts = isPremiumUser ? 20 : 4
+                            if workouts.count >= maxWorkouts {
+                                // Provide lightweight feedback; you can replace with an alert if preferred
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            } else {
+                                newWorkoutName = ""
+                                isShowingAddPopup = true
+                            }
                         } label: {
                             Image(systemName: "plus")
                                 .font(.headline)
@@ -59,7 +65,8 @@ struct WorkoutView: View {
                                 .background(AppColors.surface)
                                 .cornerRadius(8)
                         }
-                        .accessibilityLabel("Add Workout")
+                        .accessibilityLabel("Add Workout Routine")
+                        .disabled(workouts.count >= (isPremiumUser ? 20 : 4))
                     }
                     .padding(.horizontal)
 
@@ -80,7 +87,6 @@ struct WorkoutView: View {
 
                     // Table container styled like ExerciseView
                     VStack(spacing: 0) {
-                        // Content body matching ExerciseView’s List presentation
                         if isLoading {
                             HStack { Spacer(); ProgressView(); Spacer() }
                                 .padding()
@@ -97,45 +103,60 @@ struct WorkoutView: View {
                                     .buttonStyle(.bordered)
                             }
                             .padding()
-                        } else if filteredWorkouts.isEmpty {
+                        } else if workouts.isEmpty {
                             VStack(spacing: 8) {
                                 Image(systemName: "dumbbell.fill")
                                     .font(.system(size: 44))
                                     .foregroundColor(.secondary)
-                                Text(searchText.isEmpty ? "No Workouts Yet" : "No Results")
+                                Text("No Workout Routines Yet")
                                     .font(.title3).bold()
-                                Text(searchText.isEmpty
-                                     ? "Tap + to add your first workout."
-                                     : "Try a different search.")
+                                Text("Tap + to add your first routine.")
                                     .foregroundColor(.secondary)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                         } else {
-                            List {
-                                Section() {
-                                    ForEach(filteredWorkouts, id: \._id) { workout in
-                                        let row = HStack(alignment: .center, spacing: 12) {
-                                            Text(workout.name)
-                                                .foregroundColor(.primary)
-                                                .frame(maxWidth: .infinity, alignment: .leading)
-                                        }
-                                        .padding(.vertical, 4)
-
+                            ScrollView {
+                                VStack(spacing: 10) {
+                                    ForEach(workouts, id: \._id) { workout in
+                                        let c = colorForKey(workout.color)
                                         NavigationLink {
                                             WorkoutInfoView(workoutId: workout.id)
-                                        } label: { row }
+                                        } label: {
+                                            VStack(alignment: .leading, spacing: 8) {
+                                                HStack(spacing: 10) {
+                                                    Circle()
+                                                        .fill(c)
+                                                        .frame(width: 14, height: 14)
+                                                    Text(workout.name)
+                                                        .font(.headline)
+                                                        .foregroundColor(c)
+                                                    Spacer()
+                                                    Image(systemName: "chevron.right")
+                                                        .foregroundColor(c)
+                                                        .font(.headline)
+                                                }
+                                            }
+                                            .padding(12)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 0)
+                                                    .fill(c.opacity(0.1))
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 0)
+                                                    .stroke(c.opacity(0.6), lineWidth: 1)
+                                            )
+                                        }
+                                        .buttonStyle(.plain)
                                     }
                                 }
+                                .padding(.horizontal)
+                                .padding(.vertical, 8)
                             }
-                            .listStyle(.plain)
                         }
                     }
-                    .background(AppColors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
-                    .padding([.horizontal, .bottom])
-                    .padding(.bottom, 100)
+
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
@@ -146,8 +167,8 @@ struct WorkoutView: View {
                         .onTapGesture { withAnimation { isShowingAddPopup = false } }
 
                     VStack(spacing: 16) {
-                        Text("New Workout").font(.headline)
-                        TextField("Workout name", text: $newWorkoutName)
+                        Text("New Workout Routine").font(.headline)
+                        TextField("Routine name", text: $newWorkoutName)
                             .textFieldStyle(.roundedBorder)
                             .padding(.horizontal)
                         HStack {
@@ -165,56 +186,23 @@ struct WorkoutView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
                 }
-
-                // Floating bottom search bar to mirror ExerciseView
-                VStack {
-                    Spacer()
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.secondary)
-                        TextField("Search workouts", text: $searchText)
-                            .textFieldStyle(.roundedBorder)
-                        if !searchText.isEmpty {
-                            Button {
-                                searchText = ""
-                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.secondary)
-                                    .imageScale(.medium)
-                                    .accessibilityLabel("Clear search")
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(AppColors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
-                    .padding(.horizontal)
-                    .padding(.bottom, 34)
-                }
             }
             .ignoresSafeArea(.keyboard, edges: .bottom)
-            .onChange(of: searchText) { newValue in
-                Task {
-                    try? await Task.sleep(nanoseconds: 250_000_000)
-                    guard newValue == searchText else { return }
-                    await loadWorkouts()
-                }
-            }
-            .task { await loadWorkouts() }
+            .task { await loadCurrentUserPremium(); await loadWorkouts() }
         }
     }
 
-    // MARK: - Derived
+    // MARK: - Helpers
 
-    private var filteredWorkouts: [WorkoutDomain] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return workouts }
-        let lower = trimmed.lowercased()
-        return workouts.filter { workout in
-            workout.name.lowercased().contains(lower) ||
-            (workout.description?.lowercased().contains(lower) ?? false)
+    private func colorForKey(_ key: String?) -> Color {
+        switch key ?? "primary" {
+        case "primary": return AppColors.primary
+        case "secondary": return AppColors.secondary
+        case "success": return AppColors.success
+        case "warning": return AppColors.warning
+        case "error": return AppColors.error
+        case "important": return AppColors.important
+        default: return AppColors.primary
         }
     }
 
@@ -254,6 +242,16 @@ struct WorkoutView: View {
             await loadWorkouts()
         } catch {
             print("[WorkoutView] Failed to create workout and default block: \(error)")
+        }
+    }
+
+    private func loadCurrentUserPremium() async {
+        do {
+            if let user = try await userRepo.fetchUser() {
+                await MainActor.run { self.isPremiumUser = user.isPremium }
+            }
+        } catch {
+            print("[WorkoutView] Failed to load current user premium: \(error)")
         }
     }
 }

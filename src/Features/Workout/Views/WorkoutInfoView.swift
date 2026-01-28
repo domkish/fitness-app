@@ -30,6 +30,8 @@ struct WorkoutInfoView: View {
     @State private var isUserEdited = false
     @State private var isPremiumUser: Bool = false
     @State private var showExerciseLimitInfo: Bool = false
+    
+    @State private var confirmDeleteRoutine: Bool = false
 
     @State private var isPresentingExercisePicker: Bool = false
     @State private var targetBlockIdForAdd: Int64?
@@ -40,9 +42,10 @@ struct WorkoutInfoView: View {
 
     @State private var blockDescriptions: [Int64: String] = [:]
     @State private var blockDescriptionSaveTasks: [Int64: Task<Void, Never>] = [:]
-    @State private var isShowingBlocksInfo: Bool = false
     
-    @State private var showDeleteBlockInfo: Bool = false
+    @State private var infoPopoverBlockId: Int64? = nil
+    @State private var deletePopoverBlockId: Int64? = nil
+    
     @State private var showBlockLimitInfo: Bool = false
 
     init(workoutId: Int64? = nil, onDismiss: @escaping () -> Void = {}) {
@@ -61,7 +64,7 @@ struct WorkoutInfoView: View {
                 VStack(spacing: 24) {
                     // Header
                     HStack {
-                        Text("Workout Info")
+                        Text("Routine Info")
                             .font(.title)
                             .bold()
                         Spacer()
@@ -70,7 +73,7 @@ struct WorkoutInfoView: View {
 
                     // Name card
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Workout Name").bold()
+                        Text("Routine Name").bold()
                         TextField("Required", text: $name)
                             .background(AppColors.formDefault)
                             .textFieldStyle(.roundedBorder)
@@ -80,7 +83,7 @@ struct WorkoutInfoView: View {
                             }
                         
                         Text("Notes").bold()
-                        TextField("Workout notes...", text: $description, axis: .vertical)
+                        TextField("Routine notes...", text: $description, axis: .vertical)
                             .background(AppColors.formDefault)
                             .foregroundColor(AppColors.muted)
                             .textFieldStyle(.roundedBorder)
@@ -144,7 +147,7 @@ struct WorkoutInfoView: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
                                     HStack(spacing: 6) {
-                                        Button(action: { isShowingBlocksInfo.toggle() }) {
+                                        Button(action: { infoPopoverBlockId = (block.id ?? -1) }) {
                                             Image(systemName: "info")
                                                 .resizable()
                                                 .scaledToFit()
@@ -154,12 +157,14 @@ struct WorkoutInfoView: View {
                                                 .background(RoundedRectangle(cornerRadius: 4).fill(AppColors.primary))
                                                 .accessibilityLabel("About exercise blocks")
                                         }
-                                        // Popover for larger/regular width devices
-                                        .popover(isPresented: $isShowingBlocksInfo, arrowEdge: .top) {
+                                        .popover(isPresented: Binding<Bool>(
+                                            get: { infoPopoverBlockId == (block.id ?? -1) },
+                                            set: { newVal in if !newVal { infoPopoverBlockId = nil } }
+                                        ), arrowEdge: .top) {
                                             VStack(alignment: .leading, spacing: 8) {
                                                 Text("Exercise Blocks")
                                                     .font(.headline)
-                                                Text("Blocks are a way to establish groups of exercises. Standard workouts may use one block, but circuit training could use several.")
+                                                Text("Blocks are a way to establish groups of exercises. Standard routines may use one block, but circuit training could use several.")
                                                     .font(.subheadline)
                                                     .foregroundColor(.secondary)
                                             }
@@ -272,7 +277,7 @@ struct WorkoutInfoView: View {
                                             }
                                         } else {
                                             Button {
-                                                showDeleteBlockInfo = true
+                                                deletePopoverBlockId = (block.id ?? -1)
                                             } label: {
                                                 HStack(spacing: 6) {
                                                     Image(systemName: "trash")
@@ -313,11 +318,14 @@ struct WorkoutInfoView: View {
                                             .cornerRadius(8)
                                         }
                                     }
-                                    .popover(isPresented: $showDeleteBlockInfo, arrowEdge: .top) {
+                                    .popover(isPresented: Binding<Bool>(
+                                        get: { deletePopoverBlockId == (block.id ?? -1) },
+                                        set: { newVal in if !newVal { deletePopoverBlockId = nil } }
+                                    ), arrowEdge: .top) {
                                         VStack(alignment: .leading, spacing: 8) {
                                             Text("Cannot Delete Block")
                                                 .font(.headline)
-                                            Text("You can only remove blocks if there are no exercises tied to them. At least one block is required per workout.")
+                                            Text("You can only remove blocks if there are no exercises tied to them. At least one block is required per routine.")
                                                 .font(.subheadline)
                                                 .foregroundColor(.secondary)
                                         }
@@ -355,10 +363,37 @@ struct WorkoutInfoView: View {
                         .alert("Block Limit Reached", isPresented: $showBlockLimitInfo) {
                             Button("OK", role: .cancel) {}
                         } message: {
-                            Text("You've reached the maximum of \(maxBlocks) blocks for this workout. Upgrade to premium for higher limits.")
+                            Text("You've reached the maximum of \(maxBlocks) blocks for this routine. Upgrade to premium for higher limits.")
                         }
                     }
                     .padding(.horizontal)
+                    
+                    // Delete routine button
+                    if workoutId != nil {
+                        Button(role: .destructive) {
+                            confirmDeleteRoutine = true
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Text("Delete Routine")
+                                    .bold()
+                                Spacer()
+                            }
+                            .padding()
+                            .background(AppColors.error.opacity(0.1))
+                            .cornerRadius(12)
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                        .alert("Delete Routine?", isPresented: $confirmDeleteRoutine) {
+                            Button("Cancel", role: .cancel) {}
+                            Button("Delete", role: .destructive) {
+                                Task { await deleteRoutine() }
+                            }
+                        } message: {
+                            Text("This will remove this routine from being added to your calendar again. All past workout sessions that used this routine will remain saved.")
+                        }
+                    }
 
                     // Error message
                     if let errorMessage = errorMessage {
@@ -473,7 +508,7 @@ struct WorkoutInfoView: View {
                 color: colorIdentity
             )
         } catch {
-            errorMessage = "Failed to save workout: \(error.localizedDescription)"
+            errorMessage = "Failed to save routine: \(error.localizedDescription)"
         }
     }
 
@@ -486,7 +521,7 @@ struct WorkoutInfoView: View {
                 self.colorIdentity = record.color
             }
         } catch {
-            self.errorMessage = "Failed to load workout: \(error.localizedDescription)"
+            self.errorMessage = "Failed to load routine: \(error.localizedDescription)"
         }
     }
     
@@ -756,6 +791,20 @@ struct WorkoutInfoView: View {
             }
         } catch {
             print("[WorkoutInfo] Failed to copy block: \(error)")
+        }
+    }
+    
+    private func deleteRoutine() async {
+        guard let wid = workoutId else { return }
+        do {
+            try workoutRepo.delete(id: wid)
+            await MainActor.run {
+                dismiss()
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Failed to delete routine: \(error.localizedDescription)"
+            }
         }
     }
     
