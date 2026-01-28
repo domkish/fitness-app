@@ -71,3 +71,4 @@ extension WorkoutBlockDomain {
     }
 }
 
+extension WorkoutBlockDomain { var _id: Int64 { id ?? -1 } }

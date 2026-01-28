@@ -94,5 +94,13 @@ final class ExerciseRepository {
             }
         }
     }
+
+    struct ExerciseIdNameRow: FetchableRecord, Decodable { let id: Int64; let name: String }
+    func fetchAllIdName() throws -> [ExerciseIdNameRow] {
+        try dbQueue.read { db in
+            let sql = "SELECT id, name FROM exercises WHERE deleted_at IS NULL ORDER BY name ASC"
+            return try ExerciseIdNameRow.fetchAll(db, sql: sql)
+        }
+    }
 }
 

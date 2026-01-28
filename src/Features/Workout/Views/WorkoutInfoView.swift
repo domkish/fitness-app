@@ -12,6 +12,7 @@ struct WorkoutInfoView: View {
 
     private let dbQueue = DatabaseQueueProvider.shared.dbQueue
     private let workoutRepo: WorkoutRepository
+    private let exerciseRepo: ExerciseRepository
     private let userRepo: UserRepository
     private let workoutId: Int64?
     private let onDismiss: () -> Void
@@ -41,6 +42,7 @@ struct WorkoutInfoView: View {
     init(workoutId: Int64? = nil, onDismiss: @escaping () -> Void = {}) {
         let db = DatabaseQueueProvider.shared.dbQueue
         self.workoutRepo = WorkoutRepository(dbQueue: db)
+        self.exerciseRepo = ExerciseRepository(dbQueue: db)
         self.userRepo = UserRepository(dbQueue: db)
         self.workoutId = workoutId
         self.onDismiss = onDismiss
@@ -344,17 +346,12 @@ struct WorkoutInfoView: View {
                 errorMessage = "No current user found."
                 return
             }
-            let now = Date()
-            if let wid = workoutId {
-                try await dbQueue.write { db in
-                    try db.execute(sql: "UPDATE workouts SET name = ?, description = ?, color = ?, updated_at = ? WHERE id = ?", arguments: [name, description.isEmpty ? nil : description, "primary", now, wid])
-                }
-            } else {
-                try await dbQueue.write { db in
-                    try db.execute(sql: "INSERT INTO workouts (user_id, name, color, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)", arguments: [user.id, name, "primary", description.isEmpty ? nil : description, now, now])
-                }
-            }
-            // Removed auto-dismiss; view stays open after save
+            try workoutRepo.saveWorkout(
+                id: workoutId,
+                userId: Int64(user.id),
+                name: name,
+                description: description.isEmpty ? nil : description
+            )
         } catch {
             errorMessage = "Failed to save workout: \(error.localizedDescription)"
         }
@@ -363,11 +360,9 @@ struct WorkoutInfoView: View {
     private func loadIfNeeded() async {
         guard let workoutId = workoutId else { return }
         do {
-            try await dbQueue.read { db in
-                if let record = try WorkoutRecord.fetchOne(db, key: workoutId) {
-                    self.name = record.name
-                    self.description = record.description ?? ""
-                }
+            if let record = try workoutRepo.fetchWorkout(id: workoutId) {
+                self.name = record.name
+                self.description = record.description ?? ""
             }
         } catch {
             self.errorMessage = "Failed to load workout: \(error.localizedDescription)"
@@ -377,22 +372,15 @@ struct WorkoutInfoView: View {
     private func loadBlocks() async {
         guard let workoutId = workoutId else { return }
         do {
-            try await dbQueue.read { db in
-                let recs = try WorkoutBlockRecord
-                    .filter(WorkoutBlockRecord.Columns.workoutId == workoutId)
-                    .order(WorkoutBlockRecord.Columns.sortOrder.asc)
-                    .fetchAll(db)
-                self.blocks = recs.map { WorkoutBlockDomain(from: $0) }
-
-                // Seed/edit cache with current descriptions
-                var newCache: [Int64: String] = [:]
-                for b in self.blocks {
-                    if let bid = b.id {
-                        newCache[bid] = b.description ?? ""
-                    }
+            let recs = try workoutRepo.fetchBlocks(forWorkoutId: workoutId)
+            self.blocks = recs
+            var newCache: [Int64: String] = [:]
+            for b in self.blocks {
+                if let bid = b.id {
+                    newCache[bid] = b.description ?? ""
                 }
-                self.blockDescriptions.merge(newCache) { _, new in new }
             }
+            self.blockDescriptions.merge(newCache) { _, new in new }
             Task { await loadExercisesForBlocks() }
         } catch {
             print("[WorkoutInfo] Failed to load blocks: \(error)")
@@ -403,10 +391,8 @@ struct WorkoutInfoView: View {
         guard let workoutId = workoutId else { return }
         do {
             let now = Date()
-            // Determine next sort order
             let nextOrder = (blocks.map { $0.sortOrder }.max() ?? 0) + 1
-            let user = try await userRepo.fetchUser()
-            guard let currentUser = user else { return }
+            guard let currentUser = try await userRepo.fetchUser() else { return }
             let newBlock = WorkoutBlockDomain(
                 id: nil,
                 userId: Int64(currentUser.id),
@@ -419,13 +405,10 @@ struct WorkoutInfoView: View {
                 createdAt: now,
                 updatedAt: now
             )
-            try await dbQueue.write { db in
-                var rec = WorkoutBlockRecord(from: newBlock)
-                try rec.insert(db)
-            }
+            try workoutRepo.createBlock(newBlock)
             await loadBlocks()
             await loadExercisesForBlocks()
-            await MainActor.run { 
+            await MainActor.run {
                 isUserEdited = true
                 scheduleAutosave()
             }
@@ -438,13 +421,7 @@ struct WorkoutInfoView: View {
         guard let id = blockId else { return }
         Task {
             do {
-                try await dbQueue.write { db in
-                    if var rec = try WorkoutBlockRecord.fetchOne(db, key: id) {
-                        rec.name = newName
-                        rec.updatedAt = Date()
-                        try rec.update(db)
-                    }
-                }
+                try workoutRepo.updateBlockName(blockId: id, to: newName)
                 await MainActor.run {
                     isUserEdited = true
                     scheduleAutosave()
@@ -457,13 +434,7 @@ struct WorkoutInfoView: View {
     
     private func persistBlockDescription(blockId: Int64, to newValue: String) async {
         do {
-            try await dbQueue.write { db in
-                if var rec = try WorkoutBlockRecord.fetchOne(db, key: blockId) {
-                    rec.description = newValue.isEmpty ? nil : newValue
-                    rec.updatedAt = Date()
-                    try rec.update(db)
-                }
-            }
+            try workoutRepo.updateBlockDescription(blockId: blockId, to: newValue)
             await MainActor.run {
                 isUserEdited = true
                 scheduleAutosave()
@@ -522,11 +493,8 @@ struct WorkoutInfoView: View {
 
     private func loadExercises() async {
         do {
-            try await dbQueue.read { db in
-                struct RowEx: FetchableRecord, Decodable { let id: Int64; let name: String }
-                let rows = try RowEx.fetchAll(db, sql: "SELECT id, name FROM exercises WHERE deleted_at IS NULL ORDER BY name ASC")
-                self.exerciseItems = rows.map { ExerciseItem(id: $0.id, name: $0.name) }
-            }
+            let rows = try exerciseRepo.fetchAllIdName()
+            self.exerciseItems = rows.map { ExerciseItem(id: $0.id, name: $0.name) }
         } catch {
             print("[WorkoutInfo] Failed to load exercises: \(error)")
         }
@@ -535,44 +503,17 @@ struct WorkoutInfoView: View {
     private func loadExercisesForBlocks() async {
         guard let workoutId = workoutId else { return }
         do {
-            try await dbQueue.read { db in
-                // Fetch all exercises joined to their block for this workout
-                struct RowExInBlock: FetchableRecord, Decodable {
-                    let id: Int64
-                    let exerciseId: Int64
-                    let name: String
-                    let blockId: Int64
-                    let sortOrder: Int
-                    let unit: String?
-                }
-                let sql = """
-                SELECT we.id AS id,
-                       we.exercise_id AS exerciseId,
-                       e.name AS name,
-                       we.workout_block_id AS blockId,
-                       we.sort_order AS sortOrder,
-                       we.unit AS unit
-                FROM workout_exercises AS we
-                JOIN exercises AS e ON e.id = we.exercise_id
-                WHERE we.workout_id = ? AND we.deleted_at IS NULL AND e.deleted_at IS NULL
-                ORDER BY we.workout_block_id ASC, we.sort_order ASC
-                """
-                let rows = try RowExInBlock.fetchAll(db, sql: sql, arguments: [workoutId])
-                var grouped: [Int64: [ExerciseInBlock]] = [:]
-                for r in rows {
-                    grouped[r.blockId, default: []].append(ExerciseInBlock(id: r.id, exerciseId: r.exerciseId, name: r.name, unit: r.unit, sortOrder: r.sortOrder))
-                }
-                for (key, var arr) in grouped {
-                    arr.sort { $0.sortOrder < $1.sortOrder }
-                    grouped[key] = arr
-                }
-                self.exercisesByBlock = grouped
-                
-                let exerciseIds = Set(grouped.values.flatMap { $0.map { $0.exerciseId } })
-                Task { await loadUnitsForExercises(Array(exerciseIds)) }
-                
-                print("[WorkoutInfo] Loaded exercises for blocks: \(grouped.map { "\($0.key):\($0.value.count)" }.joined(separator: ", "))")
+            let groupedRows = try workoutRepo.fetchExercisesByBlock(forWorkoutId: workoutId)
+            var grouped: [Int64: [ExerciseInBlock]] = [:]
+            for (key, rows) in groupedRows {
+                grouped[key] = rows.map { ExerciseInBlock(id: $0.id, exerciseId: $0.exerciseId, name: $0.name, unit: $0.unit, sortOrder: $0.sortOrder) }
             }
+            self.exercisesByBlock = grouped
+
+            let exerciseIds = Set(grouped.values.flatMap { $0.map { $0.exerciseId } })
+            Task { await loadUnitsForExercises(Array(exerciseIds)) }
+
+            print("[WorkoutInfo] Loaded exercises for blocks: \(grouped.map { "\($0.key):\($0.value.count)" }.joined(separator: ", "))")
         } catch {
             print("[WorkoutInfo] Failed to load exercises for blocks: \(error)")
         }
@@ -581,22 +522,8 @@ struct WorkoutInfoView: View {
     private func loadUnitsForExercises(_ exerciseIds: [Int64]) async {
         guard !exerciseIds.isEmpty else { return }
         do {
-            try await dbQueue.read { db in
-                struct RowUnit: FetchableRecord, Decodable { let exerciseId: Int64; let abbreviation: String }
-                let placeholders = exerciseIds.map { _ in "?" }.joined(separator: ",")
-                let sql = """
-                SELECT eup.exercise_id AS exerciseId,
-                       u.abbreviation AS abbreviation
-                FROM exercise_unit_pivots AS eup
-                JOIN units AS u ON u.id = eup.unit_id
-                WHERE eup.exercise_id IN (\(placeholders))
-                ORDER BY CASE WHEN (SELECT is_imperial FROM users LIMIT 1) = 1 THEN (u.type = '1') ELSE (u.type = '0') END DESC, u.id ASC
-                """
-                let rows = try RowUnit.fetchAll(db, sql: sql, arguments: StatementArguments(exerciseIds))
-                var map: [Int64: [String]] = [:]
-                for r in rows { map[r.exerciseId, default: []].append(r.abbreviation) }
-                self.unitsByExercise = map
-            }
+            let map = try workoutRepo.loadUnitsForExercises(exerciseIds)
+            self.unitsByExercise = map
         } catch {
             print("[WorkoutInfo] Failed to load units: \(error)")
         }
@@ -604,16 +531,9 @@ struct WorkoutInfoView: View {
 
     private func deleteExercises(ids: [Int64], forBlock blockId: Int64) async {
         do {
-            try await dbQueue.write { db in
-                let now = Date()
-                var args = StatementArguments()
-                args += [now]
-                for id in ids { args += [id] }
-                let placeholders = ids.map { _ in "?" }.joined(separator: ",")
-                try db.execute(sql: "UPDATE workout_exercises SET deleted_at = ? WHERE id IN (\(placeholders))", arguments: args)
-            }
+            try workoutRepo.deleteExercises(ids: ids)
             await loadExercisesForBlocks()
-            await MainActor.run { 
+            await MainActor.run {
                 isUserEdited = true
                 scheduleAutosave()
             }
@@ -625,13 +545,9 @@ struct WorkoutInfoView: View {
     private func persistOrder(forBlock blockId: Int64, items: [ExerciseInBlock]) async {
         let updates = items.enumerated().map { (idx, ex) -> (Int, Int64) in (idx + 1, ex.id) }
         do {
-            try await dbQueue.write { db in
-                for (order, id) in updates {
-                    try db.execute(sql: "UPDATE workout_exercises SET sort_order = ? WHERE id = ?", arguments: [order, id])
-                }
-            }
+            try workoutRepo.updateExerciseOrder(forBlockId: blockId, items: updates)
             await loadExercisesForBlocks()
-            await MainActor.run { 
+            await MainActor.run {
                 isUserEdited = true
                 scheduleAutosave()
             }
@@ -642,11 +558,9 @@ struct WorkoutInfoView: View {
 
     private func updateWorkoutExerciseUnit(workoutExerciseId: Int64, to unit: String?) async {
         do {
-            try await dbQueue.write { db in
-                try db.execute(sql: "UPDATE workout_exercises SET unit = ?, updated_at = ? WHERE id = ?", arguments: [unit, Date(), workoutExerciseId])
-            }
+            try workoutRepo.updateWorkoutExerciseUnit(id: workoutExerciseId, to: unit)
             await loadExercisesForBlocks()
-            await MainActor.run { 
+            await MainActor.run {
                 isUserEdited = true
                 scheduleAutosave()
             }
@@ -658,29 +572,8 @@ struct WorkoutInfoView: View {
     private func didSelectExercise(_ item: ExerciseItem) async {
         guard let blockId = targetBlockIdForAdd, let workoutId = workoutId else { return }
         do {
-            // Determine next sort order for exercises in this block
-            let nextOrder: Int = try await dbQueue.read { db in
-                let maxOrder: Int? = try Int.fetchOne(db, sql: "SELECT MAX(sort_order) FROM workout_exercises WHERE workout_block_id = ?", arguments: [blockId])
-                return (maxOrder ?? 0) + 1
-            }
-            let now = Date()
             guard let currentUser = try? await userRepo.fetchUser() else { return }
-            var rec = WorkoutExerciseRecord(
-                id: nil,
-                workoutId: workoutId,
-                workoutBlockId: blockId,
-                exerciseId: item.id,
-                userId: Int64(currentUser.id),
-                unit: nil,
-                sortOrder: nextOrder,
-                deletedAt: nil,
-                createdAt: now,
-                updatedAt: now
-            )
-            try await dbQueue.write { db in
-                try rec.insert(db)
-            }
-            // Dismiss picker
+            try workoutRepo.addExercise(toBlockId: blockId, workoutId: workoutId, exerciseId: item.id, userId: Int64(currentUser.id))
             await MainActor.run {
                 isPresentingExercisePicker = false
                 targetBlockIdForAdd = nil
@@ -691,5 +584,4 @@ struct WorkoutInfoView: View {
         }
     }
 }
-private extension WorkoutBlockDomain { var _id: Int64 { id ?? -1 } }
 

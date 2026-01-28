@@ -140,4 +140,166 @@ final class WorkoutRepository {
             return exerciseRecords.map { ExerciseDomain(from: $0) }
         }
     }
+
+    // MARK: - Blocks CRUD
+    func fetchBlocks(forWorkoutId workoutId: Int64) throws -> [WorkoutBlockDomain] {
+        try dbQueue.read { db in
+            try WorkoutBlockRecord
+                .filter(WorkoutBlockRecord.Columns.workoutId == workoutId)
+                .order(WorkoutBlockRecord.Columns.sortOrder.asc)
+                .fetchAll(db)
+                .map { WorkoutBlockDomain(from: $0) }
+        }
+    }
+
+    func createBlock(_ block: WorkoutBlockDomain) throws {
+        try dbQueue.write { db in
+            var rec = WorkoutBlockRecord(from: block)
+            try rec.insert(db)
+        }
+    }
+
+    func updateBlockName(blockId: Int64, to newName: String) throws {
+        try dbQueue.write { db in
+            if var rec = try WorkoutBlockRecord.fetchOne(db, key: blockId) {
+                rec.name = newName
+                rec.updatedAt = Date()
+                try rec.update(db)
+            }
+        }
+    }
+
+    func updateBlockDescription(blockId: Int64, to newDescription: String?) throws {
+        try dbQueue.write { db in
+            if var rec = try WorkoutBlockRecord.fetchOne(db, key: blockId) {
+                rec.description = (newDescription?.isEmpty == true) ? nil : newDescription
+                rec.updatedAt = Date()
+                try rec.update(db)
+            }
+        }
+    }
+
+    // MARK: - Exercises in Blocks
+    struct ExerciseInBlockRow: FetchableRecord, Decodable { let id: Int64; let exerciseId: Int64; let name: String; let blockId: Int64; let sortOrder: Int; let unit: String? }
+
+    func fetchExercisesByBlock(forWorkoutId workoutId: Int64) throws -> [Int64: [ExerciseInBlockRow]] {
+        try dbQueue.read { db in
+            let sql = """
+            SELECT we.id AS id,
+                   we.exercise_id AS exerciseId,
+                   e.name AS name,
+                   we.workout_block_id AS blockId,
+                   we.sort_order AS sortOrder,
+                   we.unit AS unit
+            FROM workout_exercises AS we
+            JOIN exercises AS e ON e.id = we.exercise_id
+            WHERE we.workout_id = ? AND we.deleted_at IS NULL AND e.deleted_at IS NULL
+            ORDER BY we.workout_block_id ASC, we.sort_order ASC
+            """
+            let rows = try ExerciseInBlockRow.fetchAll(db, sql: sql, arguments: [workoutId])
+            var grouped: [Int64: [ExerciseInBlockRow]] = [:]
+            for r in rows { grouped[r.blockId, default: []].append(r) }
+            for (k, var arr) in grouped { arr.sort { $0.sortOrder < $1.sortOrder }; grouped[k] = arr }
+            return grouped
+        }
+    }
+
+    func addExercise(toBlockId blockId: Int64, workoutId: Int64, exerciseId: Int64, userId: Int64) throws {
+        try dbQueue.write { db in
+            let nextOrder: Int = try Int.fetchOne(db, sql: "SELECT MAX(sort_order) FROM workout_exercises WHERE workout_block_id = ?", arguments: [blockId]) ?? 0
+            var rec = WorkoutExerciseRecord(
+                id: nil,
+                workoutId: workoutId,
+                workoutBlockId: blockId,
+                exerciseId: exerciseId,
+                userId: userId,
+                unit: nil,
+                sortOrder: nextOrder + 1,
+                deletedAt: nil,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            try rec.insert(db)
+        }
+    }
+
+    func deleteExercises(ids: [Int64]) throws {
+        guard !ids.isEmpty else { return }
+        try dbQueue.write { db in
+            let now = Date()
+            var args = StatementArguments()
+            args += [now]
+            for id in ids { args += [id] }
+            let placeholders = ids.map { _ in "?" }.joined(separator: ",")
+            try db.execute(sql: "UPDATE workout_exercises SET deleted_at = ? WHERE id IN (\(placeholders))", arguments: args)
+        }
+    }
+
+    func updateExerciseOrder(forBlockId blockId: Int64, items: [(order: Int, id: Int64)]) throws {
+        try dbQueue.write { db in
+            for (order, id) in items {
+                try db.execute(sql: "UPDATE workout_exercises SET sort_order = ? WHERE id = ?", arguments: [order, id])
+            }
+        }
+    }
+
+    func updateWorkoutExerciseUnit(id workoutExerciseId: Int64, to unit: String?) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "UPDATE workout_exercises SET unit = ?, updated_at = ? WHERE id = ?", arguments: [unit, Date(), workoutExerciseId])
+        }
+    }
+
+    // MARK: - Units lookup
+    struct UnitAbbrevRow: FetchableRecord, Decodable { let exerciseId: Int64; let abbreviation: String }
+
+    func loadUnitsForExercises(_ exerciseIds: [Int64]) throws -> [Int64: [String]] {
+        guard !exerciseIds.isEmpty else { return [:] }
+        return try dbQueue.read { db in
+            let placeholders = exerciseIds.map { _ in "?" }.joined(separator: ",")
+            let sql = """
+            SELECT eup.exercise_id AS exerciseId,
+                   u.abbreviation AS abbreviation
+            FROM exercise_unit_pivots AS eup
+            JOIN units AS u ON u.id = eup.unit_id
+            WHERE eup.exercise_id IN (\(placeholders))
+            ORDER BY CASE WHEN (SELECT is_imperial FROM users LIMIT 1) = 1 THEN (u.type = '1') ELSE (u.type = '0') END DESC, u.id ASC
+            """
+            let rows = try UnitAbbrevRow.fetchAll(db, sql: sql, arguments: StatementArguments(exerciseIds))
+            var map: [Int64: [String]] = [:]
+            for r in rows { map[r.exerciseId, default: []].append(r.abbreviation) }
+            return map
+        }
+    }
+
+    // MARK: - Workout load/save for Info screen
+    func fetchWorkout(id: Int64) throws -> WorkoutRecord? {
+        try dbQueue.read { db in
+            try WorkoutRecord.fetchOne(db, key: id)
+        }
+    }
+
+    func saveWorkout(id: Int64?, userId: Int64, name: String, description: String?) throws {
+        try dbQueue.write { db in
+            let now = Date()
+            if let wid = id, var rec = try WorkoutRecord.fetchOne(db, key: wid) {
+                rec.name = name
+                rec.description = description
+                rec.updatedAt = now
+                try rec.update(db)
+            } else {
+                var rec = WorkoutRecord(
+                    id: nil,
+                    userId: userId,
+                    name: name,
+                    color: "primary",
+                    description: description,
+                    deletedAt: nil,
+                    createdAt: now,
+                    updatedAt: now
+                )
+                try rec.insert(db)
+            }
+        }
+    }
 }
+
