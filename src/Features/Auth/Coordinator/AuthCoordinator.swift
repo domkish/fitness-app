@@ -27,10 +27,11 @@ final class AuthCoordinator: ObservableObject {
         do {
             // Require a valid token AND a non-system user
             if let token = TokenStore.token, !token.isEmpty,
-               let savedUser = try userRepository.fetchUser(),
+               let savedUser = try await userRepository.fetchUser(),
                savedUser.id != 0 { // ignore system user
                 self.currentUser = savedUser
                 self.currentStep = .done
+                self.userRepository.setCurrentUserId(savedUser.id)
             } else {
                 self.currentStep = .login
             }
@@ -52,6 +53,7 @@ final class AuthCoordinator: ObservableObject {
             let user = try await authService.login(email: email, password: password)
             await MainActor.run {
                 self.currentUser = user
+                self.userRepository.setCurrentUserId(user.id)
                 self.finishAuth()
             }
         } catch {
@@ -64,6 +66,7 @@ final class AuthCoordinator: ObservableObject {
             let user = try await authService.register(email: email, password: password)
             await MainActor.run {
                 self.currentUser = user
+                self.userRepository.setCurrentUserId(user.id)
                 self.finishAuth()
             }
         } catch {

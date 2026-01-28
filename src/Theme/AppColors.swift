@@ -16,6 +16,7 @@ struct AppColors {
     // Text
     static let textDefault = Color("Default")
     static let textNav = Color("NavText")
+    static let muted = Color("Muted")
     
     // Brand
     static let primary = Color("Primary")

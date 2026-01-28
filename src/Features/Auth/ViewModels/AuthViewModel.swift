@@ -19,9 +19,9 @@ final class AuthViewModel: ObservableObject {
         self.userRepository = userRepository
     }
 
-    func loadCurrentUser() {
+    func loadCurrentUser() async {
         do {
-            currentUser = try userRepository.fetchUser()
+            currentUser = try await userRepository.fetchUser()
         } catch {
             currentUser = nil
         }

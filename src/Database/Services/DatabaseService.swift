@@ -37,6 +37,9 @@ final class DatabaseService {
         migrator.registerExerciseTagPivotMigrations()
         migrator.registerUnitMigrations()
         migrator.registerExerciseUnitPivotMigrations()
+        migrator.registerWorkoutMigrations()
+        migrator.registerWorkoutBlockMigrations()
+        migrator.registerWorkoutExerciseMigrations()
         
         // Run migrations
         try migrator.migrate(dbQueue)
