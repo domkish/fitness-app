@@ -27,6 +27,8 @@ struct WorkoutInfoView: View {
     @State private var editingBlocks: Set<Int64> = []
     @State private var saveDebounceTask: Task<Void, Never>? = nil
     @State private var isUserEdited = false
+    @State private var isPremiumUser: Bool = false
+    @State private var showExerciseLimitInfo: Bool = false
 
     @State private var isPresentingExercisePicker: Bool = false
     @State private var targetBlockIdForAdd: Int64?
@@ -40,6 +42,7 @@ struct WorkoutInfoView: View {
     @State private var isShowingBlocksInfo: Bool = false
     
     @State private var showDeleteBlockInfo: Bool = false
+    @State private var showBlockLimitInfo: Bool = false
 
     init(workoutId: Int64? = nil, onDismiss: @escaping () -> Void = {}) {
         let db = DatabaseQueueProvider.shared.dbQueue
@@ -129,12 +132,18 @@ struct WorkoutInfoView: View {
                                         
                                     }
                                     Spacer()
+                                    let maxPerBlock = isPremiumUser ? 10 : 5
+                                    let currentCount = (exercisesByBlock[block.id ?? -1]?.count) ?? 0
                                     Button {
-                                        targetBlockIdForAdd = block.id
-                                        Task {
-                                            await loadExercises()
-                                            await MainActor.run {
-                                                isPresentingExercisePicker = true
+                                        if currentCount >= maxPerBlock {
+                                            showExerciseLimitInfo = true
+                                        } else {
+                                            targetBlockIdForAdd = block.id
+                                            Task {
+                                                await loadExercises()
+                                                await MainActor.run {
+                                                    isPresentingExercisePicker = true
+                                                }
                                             }
                                         }
                                     } label: {
@@ -146,6 +155,12 @@ struct WorkoutInfoView: View {
                                         .padding(.horizontal, 10)
                                         .background(AppColors.surface)
                                         .cornerRadius(8)
+                                    }
+                                    .disabled(currentCount >= maxPerBlock)
+                                    .alert("Exercise Limit Reached", isPresented: $showExerciseLimitInfo) {
+                                        Button("OK", role: .cancel) {}
+                                    } message: {
+                                        Text("You've reached the maximum of \(maxPerBlock) exercises for this block. Upgrade to premium for higher limits.")
                                     }
                                 }
                                 if let bid = block.id {
@@ -233,6 +248,21 @@ struct WorkoutInfoView: View {
                                             }
                                         }
 
+                                        // Copy block button (only on last block)
+                                        if let lastBlock = blocks.sorted(by: { $0.sortOrder < $1.sortOrder }).last, lastBlock.id == bid {
+                                            Button {
+                                                Task { await copyBlock(bid) }
+                                            } label: {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: "doc.on.doc")
+                                                }
+                                                .padding(.vertical, 6)
+                                                .padding(.horizontal, 10)
+                                                .background(AppColors.surface)
+                                                .cornerRadius(8)
+                                            }
+                                        }
+
                                         Spacer()
 
                                         Button {
@@ -261,8 +291,14 @@ struct WorkoutInfoView: View {
                             .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                         }
 
+                        let maxBlocks = isPremiumUser ? 5 : 2
+                        let currentBlocks = blocks.count
                         Button {
-                            Task { await addBlock() }
+                            if currentBlocks >= maxBlocks {
+                                showBlockLimitInfo = true
+                            } else {
+                                Task { await addBlock() }
+                            }
                         } label: {
                             HStack {
                                 Image(systemName: "plus")
@@ -273,6 +309,12 @@ struct WorkoutInfoView: View {
                             .background(AppColors.surface)
                             .cornerRadius(16)
                             .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                        }
+                        .disabled(currentBlocks >= maxBlocks)
+                        .alert("Block Limit Reached", isPresented: $showBlockLimitInfo) {
+                            Button("OK", role: .cancel) {}
+                        } message: {
+                            Text("You've reached the maximum of \(maxBlocks) blocks for this workout. Upgrade to premium for higher limits.")
                         }
                     }
                     .padding(.horizontal)
@@ -352,6 +394,7 @@ struct WorkoutInfoView: View {
             }
         }
         .task {
+            await loadCurrentUserPremium()
             await loadIfNeeded()
             await loadBlocks()
             await loadExercises()
@@ -403,6 +446,18 @@ struct WorkoutInfoView: View {
             self.errorMessage = "Failed to load workout: \(error.localizedDescription)"
         }
     }
+    
+    private func loadCurrentUserPremium() async {
+        do {
+            if let user = try await userRepo.fetchUser() {
+                await MainActor.run {
+                    self.isPremiumUser = user.isPremium
+                }
+            }
+        } catch {
+            print("[WorkoutInfo] Failed to load current user premium: \(error)")
+        }
+    }
 
     private func loadBlocks() async {
         guard let workoutId = workoutId else { return }
@@ -424,6 +479,11 @@ struct WorkoutInfoView: View {
 
     private func addBlock() async {
         guard let workoutId = workoutId else { return }
+        let maxBlocks = isPremiumUser ? 5 : 2
+        if blocks.count >= maxBlocks {
+            await MainActor.run { showBlockLimitInfo = true }
+            return
+        }
         do {
             let now = Date()
             let nextOrder = (blocks.map { $0.sortOrder }.max() ?? 0) + 1
@@ -606,6 +666,15 @@ struct WorkoutInfoView: View {
 
     private func didSelectExercise(_ item: ExerciseItem) async {
         guard let blockId = targetBlockIdForAdd, let workoutId = workoutId else { return }
+        let maxPerBlock = isPremiumUser ? 10 : 5
+        let currentCount = exercisesByBlock[blockId]?.count ?? 0
+        if currentCount >= maxPerBlock {
+            await MainActor.run {
+                showExerciseLimitInfo = true
+                isPresentingExercisePicker = false
+            }
+            return
+        }
         do {
             guard let currentUser = try? await userRepo.fetchUser() else { return }
             try workoutRepo.addExercise(toBlockId: blockId, workoutId: workoutId, exerciseId: item.id, userId: Int64(currentUser.id))
@@ -630,6 +699,20 @@ struct WorkoutInfoView: View {
             }
         } catch {
             print("[WorkoutInfo] Failed to delete block: \(error)")
+        }
+    }
+    
+    private func copyBlock(_ blockId: Int64) async {
+        do {
+            try workoutRepo.cloneBlock(blockId: blockId)
+            await loadBlocks()
+            await loadExercisesForBlocks()
+            await MainActor.run {
+                isUserEdited = true
+                scheduleAutosave()
+            }
+        } catch {
+            print("[WorkoutInfo] Failed to copy block: \(error)")
         }
     }
 }
