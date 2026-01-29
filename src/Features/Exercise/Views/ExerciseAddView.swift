@@ -52,6 +52,7 @@ struct ExerciseAddView: View {
                         Text("Add Exercise")
                             .font(.title)
                             .bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                         Spacer()
                     }
                     .padding(.horizontal)
@@ -59,8 +60,14 @@ struct ExerciseAddView: View {
                     // Name card (required)
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Exercise Name").bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                         TextField("Required", text: $name)
-                            .textFieldStyle(.roundedBorder)
+                            .foregroundColor(themeManager.currentTheme.textDefault)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 12)
+                            .background(themeManager.currentTheme.background)
+                            .cornerRadius(10)
+                            .autocorrectionDisabled(true)
                     }
                     .padding()
                     .background(themeManager.currentTheme.surface)
@@ -72,6 +79,7 @@ struct ExerciseAddView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text("Unit(s)").bold()
+                                .foregroundColor(themeManager.currentTheme.textDefault)
                             Spacer()
                         }
                         NavigationLink {
@@ -80,6 +88,7 @@ struct ExerciseAddView: View {
                                 items: _unitRowsStorage.map { ($0.id, $0.name) },
                                 selection: $selectedUnitTagIDs
                             )
+                            .environmentObject(themeManager)
                         } label: {
                             HStack {
                                 Text(unitsSummary)
@@ -301,6 +310,7 @@ struct UnitRowWrapper: Identifiable {
 
 // MARK: - Reusable Multi-Select Screen
 struct MultiSelectListView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     let title: String
     let items: [(id: Int64, name: String)]
     let nameTransform: ((String) -> String)?
@@ -318,17 +328,21 @@ struct MultiSelectListView: View {
             Button(action: { toggle(item.id) }) {
                 HStack {
                     Text((nameTransform?(item.name) ?? item.name).capitalized)
-                        .foregroundColor(.primary)
+                        .foregroundColor(themeManager.currentTheme.textDefault)
                     Spacer()
                     if selection.contains(item.id) {
                         Image(systemName: "checkmark")
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                     }
                 }
             }
+            .listRowBackground(themeManager.currentTheme.surface)
         }
         .navigationTitle(title)
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(themeManager.currentTheme.surface)
+        .foregroundColor(themeManager.currentTheme.textDefault)
     }
 
     private func toggle(_ id: Int64) {
@@ -342,6 +356,7 @@ struct MultiSelectListView: View {
 
 // A compact row that shows a field title and a selection summary, and navigates to MultiSelectListView
 struct MultiSelectFieldRow: View {
+    @EnvironmentObject var themeManager: ThemeManager
     let title: String
     let items: [ExerciseTagRecord]
     let nameTransform: ((String) -> String)?
@@ -365,6 +380,7 @@ struct MultiSelectFieldRow: View {
                 selection: $selection,
                 nameTransform: nameTransform
             )
+            .environmentObject(themeManager)
         } label: {
             HStack {
                 Text(title).bold()
@@ -391,6 +407,7 @@ struct MultiSelectFieldRow: View {
 }
 
 struct UnitsMultiSelectFieldRow: View {
+    @EnvironmentObject var themeManager: ThemeManager
     let title: String
     let items: [UnitRowWrapper]
     @Binding var selection: Set<Int64>
@@ -401,6 +418,7 @@ struct UnitsMultiSelectFieldRow: View {
                 items: items.map { ($0.id, $0.name) },
                 selection: $selection
             )
+            .environmentObject(themeManager)
         } label: {
             HStack {
                 Text(title).bold()

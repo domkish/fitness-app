@@ -38,6 +38,7 @@ struct ProfilePasswordView: View {
                                     .font(.title2)
                                     .bold()
                                     .frame(maxWidth: .infinity, alignment: .leading)
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
 
                                 // Password Fields
                                 SecureFieldCard(title: "Current Password", text: $viewModel.currentPassword)
@@ -64,6 +65,7 @@ struct ProfilePasswordView: View {
                                         .foregroundColor(.white)
                                         .frame(maxWidth: .infinity)
                                         .padding()
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
                                         .background(viewModel.canSave ? themeManager.currentTheme.primary : Color.gray)
                                         .cornerRadius(14)
                                 }
@@ -105,6 +107,10 @@ struct SecureFieldCard: View {
                         .disableAutocorrection(true)
                         .frame(maxWidth: .infinity)
                         .textContentType(.password)
+                        .padding()
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+                        .background(themeManager.currentTheme.background)
+                        .cornerRadius(12)
                 } else {
                     TextField(title, text: $text)
                         .textInputAutocapitalization(.never)
@@ -112,6 +118,10 @@ struct SecureFieldCard: View {
                         .disableAutocorrection(true)
                         .frame(maxWidth: .infinity)
                         .textContentType(.password)
+                        .padding()
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+                        .background(themeManager.currentTheme.background)
+                        .cornerRadius(12)
                 }
 
                 Button(action: { isSecured.toggle() }) {

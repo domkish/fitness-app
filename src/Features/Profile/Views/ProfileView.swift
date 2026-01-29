@@ -97,6 +97,7 @@ struct ProfileView: View {
                             NavigationLink {
                                 ProfileEditView(coordinator: coordinator)
                                     .environmentObject(authCoordinator)
+                                    .environmentObject(themeManager)
                             } label: {
                                 HStack {
                                     Text("Edit Profile")
@@ -113,6 +114,7 @@ struct ProfileView: View {
                             NavigationLink {
                                 ProfilePasswordView(coordinator: coordinator)
                                     .environmentObject(authCoordinator)
+                                    .environmentObject(themeManager)
                             } label: {
                                 HStack {
                                     Text("Change Password")

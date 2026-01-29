@@ -6,6 +6,7 @@ struct ExerciseInfoView: View {
     let locked: Bool
 
     @EnvironmentObject var themeManager: ThemeManager
+    @StateObject private var fallbackThemeManager = ThemeManager()
 
     // Dependencies
     private let dbQueue = DatabaseQueueProvider.shared.dbQueue
@@ -35,6 +36,12 @@ struct ExerciseInfoView: View {
     @State private var errorMessage: String?
     @State private var didLoad = false
 
+    private var effectiveThemeManager: ThemeManager {
+        let mirror = Mirror(reflecting: _themeManager)
+        if mirror.children.isEmpty { return fallbackThemeManager }
+        return themeManager
+    }
+
     init(exerciseId: Int64, locked: Bool) {
         self.exerciseId = exerciseId
         self.locked = locked
@@ -45,7 +52,7 @@ struct ExerciseInfoView: View {
 
     var body: some View {
         ZStack {
-            AppColors.background.ignoresSafeArea()
+            effectiveThemeManager.currentTheme.background.ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 24) {
                     // Header
@@ -53,10 +60,11 @@ struct ExerciseInfoView: View {
                         Text("Exercise Info")
                             .font(.title)
                             .bold()
+                            .foregroundColor(effectiveThemeManager.currentTheme.textDefault)
                         Spacer()
                         if locked {
                             Image(systemName: "lock.fill")
-                                .foregroundColor(themeManager.currentTheme.muted)
+                                .foregroundColor(effectiveThemeManager.currentTheme.muted)
                                 .imageScale(.small)
                                 .accessibilityLabel("Locked")
                         }
@@ -66,18 +74,24 @@ struct ExerciseInfoView: View {
                     // Name card
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Exercise Name").bold()
+                            .foregroundColor(effectiveThemeManager.currentTheme.textDefault)
                         if locked {
                             Text(name)
-                                .foregroundColor(themeManager.currentTheme.textDefault)
+                                .foregroundColor(effectiveThemeManager.currentTheme.textDefault)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.vertical, 6)
                         } else {
                             TextField("Required", text: $name)
-                                .textFieldStyle(.roundedBorder)
+                                .foregroundColor(themeManager.currentTheme.textDefault)
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 12)
+                                .background(themeManager.currentTheme.background)
+                                .cornerRadius(10)
+                                .autocorrectionDisabled(true)
                         }
                     }
                     .padding()
-                    .background(themeManager.currentTheme.surface)
+                    .background(effectiveThemeManager.currentTheme.surface)
                     .cornerRadius(16)
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .padding(.horizontal)
@@ -86,12 +100,13 @@ struct ExerciseInfoView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text("Unit(s)").bold()
+                                .foregroundColor(themeManager.currentTheme.textDefault)
                             Spacer()
                         }
                         if locked {
                             HStack {
                                 Text(unitsSummary)
-                                    .foregroundColor(themeManager.currentTheme.muted)
+                                    .foregroundColor(effectiveThemeManager.currentTheme.muted)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .contentShape(Rectangle())
@@ -102,33 +117,34 @@ struct ExerciseInfoView: View {
                                     items: _unitRowsStorage.map { ($0.id, $0.name) },
                                     selection: $selectedUnitTagIDs
                                 )
+                                .environmentObject(themeManager)
                             } label: {
                                 HStack {
                                     Text(unitsSummary)
-                                        .foregroundColor(themeManager.currentTheme.muted)
+                                        .foregroundColor(effectiveThemeManager.currentTheme.muted)
                                     Spacer()
-                                    Image(systemName: "chevron.right").foregroundColor(themeManager.currentTheme.muted)
+                                    Image(systemName: "chevron.right").foregroundColor(effectiveThemeManager.currentTheme.muted)
                                 }
                                 .contentShape(Rectangle())
                             }
                         }
                         Rectangle()
-                            .fill(themeManager.currentTheme.muted.opacity(0.3))
+                            .fill(effectiveThemeManager.currentTheme.muted.opacity(0.3))
                             .frame(height: 1)
                             .overlay(
                                 Rectangle()
                                     .stroke(style: StrokeStyle(lineWidth: 1, dash: [4]))
-                                    .foregroundColor(themeManager.currentTheme.background)
+                                    .foregroundColor(effectiveThemeManager.currentTheme.background)
                             )
                             .padding(.vertical, 6)
                         if !locked {
                             Text("Select the unit(s) of measurement you'd be tracking for this exercise.")
                                 .font(.footnote)
-                                .foregroundColor(themeManager.currentTheme.muted)
+                                .foregroundColor(effectiveThemeManager.currentTheme.muted)
                         }
                     }
                     .padding()
-                    .background(themeManager.currentTheme.surface)
+                    .background(effectiveThemeManager.currentTheme.surface)
                     .cornerRadius(16)
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .padding(.horizontal)
@@ -140,10 +156,10 @@ struct ExerciseInfoView: View {
                                 Text("Advanced Options").bold()
                                 Spacer()
                                 Image(systemName: showAdvanced ? "chevron.up" : "chevron.down")
-                                    .foregroundColor(themeManager.currentTheme.muted)
+                                    .foregroundColor(effectiveThemeManager.currentTheme.muted)
                             }
                             .padding()
-                            .background(themeManager.currentTheme.surface)
+                            .background(effectiveThemeManager.currentTheme.surface)
                         }
                         if showAdvanced {
                             VStack(alignment: .leading, spacing: 16) {
@@ -155,7 +171,7 @@ struct ExerciseInfoView: View {
                                     .disabled(locked)
                             }
                             .padding()
-                            .background(themeManager.currentTheme.surface)
+                            .background(effectiveThemeManager.currentTheme.surface)
                         }
                     }
                     .cornerRadius(16)
@@ -179,7 +195,7 @@ struct ExerciseInfoView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background((name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedUnitTagIDs.isEmpty) ? Color.gray.opacity(0.3) : themeManager.currentTheme.surface)
+                            .background((name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedUnitTagIDs.isEmpty) ? Color.gray.opacity(0.3) : effectiveThemeManager.currentTheme.surface)
                             .cornerRadius(12)
                         }
                         .padding(.horizontal)

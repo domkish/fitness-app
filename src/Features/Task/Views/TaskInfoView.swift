@@ -44,6 +44,7 @@ struct TaskInfoView: View {
                         Text("Task Info")
                             .font(.title)
                             .bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                         Spacer()
                     }
                     .padding(.horizontal)
@@ -51,9 +52,13 @@ struct TaskInfoView: View {
                     // Name card
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Task Name").bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                         TextField("Required", text: $name)
-                            .background(themeManager.currentTheme.formDefault)
-                            .textFieldStyle(.roundedBorder)
+                            .foregroundColor(themeManager.currentTheme.textDefault)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 12)
+                            .background(themeManager.currentTheme.background)
+                            .cornerRadius(10)
                             .autocorrectionDisabled(true)
                             .onChange(of: name) { _ in
                                 isUserEdited = true
@@ -69,6 +74,7 @@ struct TaskInfoView: View {
                     // Days of week card
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Days").bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                         HStack(spacing: 8) {
                             presetButton(title: "Every day") { setDays(everyDay: true) }
                             presetButton(title: "Weekdays") { setDays(weekdays: true) }
@@ -97,12 +103,14 @@ struct TaskInfoView: View {
                     // Date range card
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Active Date Range (Optional)").bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
 
                         VStack(alignment: .leading, spacing: 8) {
                             Toggle(isOn: Binding<Bool>(
                                 get: { startedAt != nil },
                                 set: { newVal in startedAt = newVal ? Date() : nil; isUserEdited = true; scheduleAutosave() }
-                            )) { Text("Starts at") }
+                            )) { Text("Starts at")
+                                .foregroundColor(themeManager.currentTheme.textDefault) }
                             .tint(themeManager.currentTheme.primary)
                             if let binding = optionalDateBinding($startedAt), startedAt != nil {
                                 DatePicker("", selection: binding, displayedComponents: [.date])
@@ -119,7 +127,8 @@ struct TaskInfoView: View {
                             Toggle(isOn: Binding<Bool>(
                                 get: { endsAt != nil },
                                 set: { newVal in endsAt = newVal ? Date() : nil; isUserEdited = true; scheduleAutosave() }
-                            )) { Text("Ends at") }
+                            )) { Text("Ends at")
+                                .foregroundColor(themeManager.currentTheme.textDefault) }
                             .tint(themeManager.currentTheme.primary)
                             if let binding = optionalDateBinding($endsAt), endsAt != nil {
                                 DatePicker("", selection: binding, displayedComponents: [.date])
@@ -185,7 +194,7 @@ struct TaskInfoView: View {
     private func dayToggle(_ label: String, isOn: Binding<Bool>) -> some View {
         Toggle(isOn: isOn) {
             Text(label)
-                .foregroundColor(isOn.wrappedValue ? themeManager.currentTheme.primary : .primary)
+                .foregroundColor(isOn.wrappedValue ? themeManager.currentTheme.primary : themeManager.currentTheme.textDefault)
                 .fontWeight(isOn.wrappedValue ? .semibold : .regular)
         }
         .tint(themeManager.currentTheme.primary)
@@ -197,6 +206,7 @@ struct TaskInfoView: View {
                 .font(.footnote)
                 .padding(.vertical, 6)
                 .padding(.horizontal, 10)
+                .foregroundColor(themeManager.currentTheme.primary)
                 .background(themeManager.currentTheme.surface)
                 .cornerRadius(8)
         }

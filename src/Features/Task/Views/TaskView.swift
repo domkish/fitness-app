@@ -394,6 +394,7 @@ struct TaskView: View {
                         Group {
                             if let id = navigateToTaskId {
                                 TaskInfoView(taskId: id)
+                                    .environmentObject(themeManager)
                             } else {
                                 Text("Loading…").hidden()
                             }
@@ -411,6 +412,7 @@ struct TaskView: View {
             }
             .navigationDestination(for: Int64.self) { taskId in
                 TaskInfoView(taskId: taskId)
+                    .environmentObject(themeManager)
             }
             .task {
                 await loadCurrentUserPremium()

@@ -34,6 +34,7 @@ struct ExerciseView: View {
                         Spacer()
                         NavigationLink {
                             ExerciseAddView()
+                                .environmentObject(themeManager)
                         } label: {
                             Image(systemName: "plus")
                                 .font(.headline)
@@ -64,9 +65,11 @@ struct ExerciseView: View {
                             .foregroundColor(themeManager.currentTheme.secondary)
 
                         TextField("Search exercises", text: $searchText)
-                            .textFieldStyle(.roundedBorder)
                             .foregroundColor(themeManager.currentTheme.textDefault)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
                             .background(themeManager.currentTheme.formDefault)
+                            .cornerRadius(10)
 
                         if !searchText.isEmpty {
                             Button {
@@ -89,6 +92,7 @@ struct ExerciseView: View {
                     .padding(.bottom, 34)
                 }
             }
+            .background(themeManager.currentTheme.surface)
             .ignoresSafeArea(.keyboard, edges: .bottom)
             .onChange(of: searchText) { newValue in
                 Task {
@@ -107,7 +111,7 @@ struct ExerciseView: View {
     // MARK: - Table Body
     private var tableBody: some View {
         List {
-            Section() {
+            Section {
                 ForEach(viewModel.exercises) { exercise in
                     let row = HStack(alignment: .center, spacing: 12) {
                         if !exercise.locked {
@@ -116,14 +120,19 @@ struct ExerciseView: View {
                                 .imageScale(.small)
                                 .accessibilityLabel("Custom exercise")
                         }
+
                         Text(exercise.name)
                             .foregroundColor(themeManager.currentTheme.textDefault)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .background(themeManager.currentTheme.surface)
                     .padding(.vertical, 4)
+                    .listRowBackground(themeManager.currentTheme.surface)
 
-                    let destination = ExerciseInfoView(exerciseId: exercise.exerciseId, locked: exercise.locked)
+                    let destination = ExerciseInfoView(
+                        exerciseId: exercise.exerciseId,
+                        locked: exercise.locked
+                    )
+                    .environmentObject(themeManager)
 
                     if exercise.locked {
                         NavigationLink(destination: destination) { row }
@@ -131,7 +140,9 @@ struct ExerciseView: View {
                         NavigationLink(destination: destination) { row }
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
-                                    Task { await viewModel.deleteRow(with: exercise.exerciseId) }
+                                    Task {
+                                        await viewModel.deleteRow(with: exercise.exerciseId)
+                                    }
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -141,6 +152,7 @@ struct ExerciseView: View {
 
                 if viewModel.canLoadMore {
                     HStack { Spacer(); ProgressView(); Spacer() }
+                        .listRowBackground(themeManager.currentTheme.surface)
                         .onAppear {
                             Task { await viewModel.loadMore(search: searchText) }
                         }
@@ -148,6 +160,7 @@ struct ExerciseView: View {
 
                 if viewModel.isLoadingInitial {
                     HStack { Spacer(); ProgressView(); Spacer() }
+                        .listRowBackground(themeManager.currentTheme.surface)
                 } else if viewModel.exercises.isEmpty {
                     VStack(spacing: 8) {
                         Text("No exercises found").bold()
@@ -156,11 +169,16 @@ struct ExerciseView: View {
                             .foregroundColor(themeManager.currentTheme.textDefault)
                             .multilineTextAlignment(.center)
                     }
+                    .listRowBackground(themeManager.currentTheme.surface)
                 }
             }
+            .listRowBackground(themeManager.currentTheme.surface)
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(themeManager.currentTheme.surface)
     }
+
 }
 
 // MARK: - ViewModel + Models

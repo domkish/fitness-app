@@ -40,8 +40,7 @@ struct WorkoutView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                themeManager.currentTheme.background
-                    .ignoresSafeArea()
+                themeManager.currentTheme.background.ignoresSafeArea()
 
                 VStack(spacing: 30) {
                     Spacer().frame(height: 100)
@@ -104,6 +103,7 @@ struct WorkoutView: View {
                         destination: {
                             if let id = navigateToWorkoutId {
                                 WorkoutInfoView(workoutId: id)
+                                    .environmentObject(themeManager)
                             } else {
                                 // Return a concrete placeholder view to satisfy ViewBuilder
                                 Text("Loading…").hidden()
@@ -158,6 +158,7 @@ struct WorkoutView: View {
                                             let c = colorForKey(workout.color)
                                             NavigationLink {
                                                 WorkoutInfoView(workoutId: workout.id)
+                                                    .environmentObject(themeManager)
                                             } label: {
                                                 VStack(alignment: .leading, spacing: 8) {
                                                     HStack(spacing: 10) {

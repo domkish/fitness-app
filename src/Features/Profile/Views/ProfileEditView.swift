@@ -11,8 +11,8 @@ import Combine
 
 struct ProfileEditView: View {
     @ObservedObject var coordinator: AppShellCoordinator
+    @EnvironmentObject private var themeManager: ThemeManager
     @EnvironmentObject var authCoordinator: AuthCoordinator
-    @EnvironmentObject var themeManager: ThemeManager
     @Environment(\.dismiss) private var dismiss
 
     @StateObject private var viewModel: ProfileEditViewModel
@@ -59,6 +59,7 @@ struct ProfileEditView: View {
                                 Text("Edit Profile")
                                     .font(.title2)
                                     .bold()
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
                                     .frame(maxWidth: .infinity, alignment: .leading)
 
                                 // Name
@@ -68,7 +69,8 @@ struct ProfileEditView: View {
 
                                     TextField("Your name", text: $viewModel.name)
                                         .padding()
-                                        .background(themeManager.currentTheme.surface.opacity(0.9))
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                        .background(themeManager.currentTheme.background)
                                         .cornerRadius(12)
                                 }
 

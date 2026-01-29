@@ -65,5 +65,19 @@ public struct UserRepository {
             _ = try UserRecord.deleteAll(db)
         }
     }
+
+    // MARK: - Diagnostics
+    func diagnosticsLog(_ tag: String = "UserRepository") {
+        do {
+            try dbQueue.read { db in
+                let usersTableCount = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'") ?? 0
+                let hasUsersTable = (usersTableCount > 0)
+                let schemaVersion: Int = try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
+                print("[\(tag)] DB diagnostics — users exists? \(hasUsersTable), schemaVersion: \(schemaVersion)")
+            }
+        } catch {
+            print("[\(tag)] DB diagnostics failed: \(error)")
+        }
+    }
 }
 

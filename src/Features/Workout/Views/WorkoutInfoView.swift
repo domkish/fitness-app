@@ -9,7 +9,16 @@ import GRDB
 
 struct WorkoutInfoView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject private var themeManager: ThemeManager
+    @StateObject private var fallbackThemeManager = ThemeManager()
+
+    private var effectiveThemeManager: ThemeManager {
+        // Use environment themeManager if injected; otherwise fallback
+        // Mirror-based check to avoid touching an uninjected EnvironmentObject
+        let mirror = Mirror(reflecting: _themeManager)
+        if mirror.children.isEmpty { return fallbackThemeManager }
+        return themeManager
+    }
 
     private let dbQueue = DatabaseQueueProvider.shared.dbQueue
     private let workoutRepo: WorkoutRepository
@@ -60,7 +69,7 @@ struct WorkoutInfoView: View {
 
     var body: some View {
         ZStack {
-            themeManager.currentTheme.background.ignoresSafeArea()
+            effectiveThemeManager.currentTheme.background.ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 24) {
                     // Header
@@ -68,6 +77,7 @@ struct WorkoutInfoView: View {
                         Text("Routine Info")
                             .font(.title)
                             .bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                         Spacer()
                     }
                     .padding(.horizontal)
@@ -75,25 +85,35 @@ struct WorkoutInfoView: View {
                     // Name card
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Routine Name").bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                         TextField("Required", text: $name)
-                            .background(themeManager.currentTheme.formDefault)
-                            .textFieldStyle(.roundedBorder)
+                            .foregroundColor(themeManager.currentTheme.textDefault)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 12)
+                            .background(themeManager.currentTheme.background)
+                            .cornerRadius(10)
+                            .autocorrectionDisabled(true)
                             .onChange(of: name) { _ in
                                 isUserEdited = true
                                 scheduleAutosave()
                             }
                         
                         Text("Notes").bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                         TextField("Routine notes...", text: $description, axis: .vertical)
-                            .background(themeManager.currentTheme.formDefault)
-                            .foregroundColor(themeManager.currentTheme.muted)
-                            .textFieldStyle(.roundedBorder)
+                            .foregroundColor(themeManager.currentTheme.textDefault)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 12)
+                            .background(themeManager.currentTheme.background)
+                            .cornerRadius(10)
+                            .autocorrectionDisabled(true)
                             .onChange(of: description) { _ in
                                 isUserEdited = true
                                 scheduleAutosave()
                             }
                         
                         Text("Color Identity").bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                         HStack(spacing: 10) {
                             ForEach(["primary","secondary","success","warning","error","important"], id: \.self) { key in
                                 let isSelected = (key == colorIdentity)
@@ -137,7 +157,7 @@ struct WorkoutInfoView: View {
                         }
                     }
                     .padding()
-                    .background(themeManager.currentTheme.surface)
+                    .background(effectiveThemeManager.currentTheme.surface)
                     .cornerRadius(16)
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .padding(.horizontal)
@@ -155,7 +175,7 @@ struct WorkoutInfoView: View {
                                                 .frame(width: 12, height: 12)
                                                 .foregroundColor(.white)
                                                 .padding(6)
-                                                .background(RoundedRectangle(cornerRadius: 4).fill(themeManager.currentTheme.primary))
+                                                .background(RoundedRectangle(cornerRadius: 4).fill(effectiveThemeManager.currentTheme.primary))
                                                 .accessibilityLabel("About exercise blocks")
                                         }
                                         .popover(isPresented: Binding<Bool>(
@@ -195,7 +215,7 @@ struct WorkoutInfoView: View {
                                         }
                                         .padding(.vertical, 6)
                                         .padding(.horizontal, 10)
-                                        .background(themeManager.currentTheme.surface)
+                                        .background(effectiveThemeManager.currentTheme.surface)
                                         .cornerRadius(8)
                                     }
                                     .disabled(currentCount >= maxPerBlock)
@@ -219,12 +239,20 @@ struct WorkoutInfoView: View {
                                             }
                                         }
                                     ))
-                                    .background(themeManager.currentTheme.formDefault)
-                                    .foregroundColor(themeManager.currentTheme.muted)
-                                    .textFieldStyle(.roundedBorder)
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
+                                    .padding(.vertical, 10)
+                                    .padding(.horizontal, 12)
+                                    .background(themeManager.currentTheme.background)
+                                    .cornerRadius(10)
+                                    .autocorrectionDisabled(true)
                                 } else {
                                     TextField("Block notes...", text: .constant(block.description ?? ""))
-                                        .textFieldStyle(.roundedBorder)
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                        .padding(.vertical, 10)
+                                        .padding(.horizontal, 12)
+                                        .background(themeManager.currentTheme.background)
+                                        .cornerRadius(10)
+                                        .autocorrectionDisabled(true)
                                 }
                                 
                                 // Exercises in this block
@@ -233,7 +261,7 @@ struct WorkoutInfoView: View {
                                     if items.isEmpty {
                                         VStack(alignment: .leading, spacing: 8) {
                                             Text("No exercises yet")
-                                                .foregroundColor(themeManager.currentTheme.muted)
+                                                .foregroundColor(effectiveThemeManager.currentTheme.textDefault)
                                                 .font(.footnote)
                                         }
                                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -256,7 +284,7 @@ struct WorkoutInfoView: View {
                                         .scrollContentBackground(.hidden)
                                         .scrollDisabled(true)
                                         .frame(height: CGFloat(items.count) * 56.0 + 16.0)
-                                        .background(themeManager.currentTheme.surface)
+                                        .background(effectiveThemeManager.currentTheme.surface)
                                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                                         .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
                                         .padding(.top, 4)
@@ -273,7 +301,7 @@ struct WorkoutInfoView: View {
                                                 }
                                                 .padding(.vertical, 6)
                                                 .padding(.horizontal, 10)
-                                                .background(themeManager.currentTheme.surface)
+                                                .background(effectiveThemeManager.currentTheme.surface)
                                                 .cornerRadius(8)
                                             }
                                         } else {
@@ -285,7 +313,7 @@ struct WorkoutInfoView: View {
                                                 }
                                                 .padding(.vertical, 6)
                                                 .padding(.horizontal, 10)
-                                                .foregroundColor(themeManager.currentTheme.muted)
+                                                .foregroundColor(effectiveThemeManager.currentTheme.muted)
                                                 .cornerRadius(8)
                                             }
                                         }
@@ -300,7 +328,7 @@ struct WorkoutInfoView: View {
                                                 }
                                                 .padding(.vertical, 6)
                                                 .padding(.horizontal, 10)
-                                                .background(themeManager.currentTheme.surface)
+                                                .background(effectiveThemeManager.currentTheme.surface)
                                                 .cornerRadius(8)
                                             }
                                         }
@@ -315,7 +343,7 @@ struct WorkoutInfoView: View {
                                             }
                                             .padding(.vertical, 6)
                                             .padding(.horizontal, 10)
-                                            .background(themeManager.currentTheme.surface)
+                                            .background(effectiveThemeManager.currentTheme.surface)
                                             .cornerRadius(8)
                                         }
                                     }
@@ -336,7 +364,7 @@ struct WorkoutInfoView: View {
                                 }
                             }
                             .padding()
-                            .background(themeManager.currentTheme.surface)
+                            .background(effectiveThemeManager.currentTheme.surface)
                             .cornerRadius(16)
                             .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                         }
@@ -381,7 +409,7 @@ struct WorkoutInfoView: View {
                                 Spacer()
                             }
                             .padding()
-                            .background(themeManager.currentTheme.error.opacity(0.1))
+                            .background(effectiveThemeManager.currentTheme.error.opacity(0.1))
                             .cornerRadius(12)
                         }
                         .padding(.horizontal)
@@ -412,7 +440,7 @@ struct WorkoutInfoView: View {
         .sheet(isPresented: $isPresentingExercisePicker) {
             NavigationStack {
                 ZStack {
-                    themeManager.currentTheme.background.ignoresSafeArea()
+                    effectiveThemeManager.currentTheme.background.ignoresSafeArea()
                     // List of exercises filtered by search
                     List {
                         ForEach(filteredExerciseItems, id: \.id) { item in
@@ -421,22 +449,30 @@ struct WorkoutInfoView: View {
                             }) {
                                 HStack {
                                     Text(item.name)
-                                        .foregroundColor(.primary)
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
                                     Spacer()
                                 }
                             }
                         }
+                        .listRowBackground(themeManager.currentTheme.surface)
                     }
                     .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .background(themeManager.currentTheme.surface)
 
                     // Floating bottom search bar
                     VStack {
                         Spacer()
                         HStack(spacing: 8) {
                             Image(systemName: "magnifyingglass")
-                                .foregroundColor(.secondary)
+                                .foregroundColor(themeManager.currentTheme.secondary)
                             TextField("Search exercises", text: $exerciseSearchText)
-                                .textFieldStyle(.roundedBorder)
+                                .foregroundColor(themeManager.currentTheme.textDefault)
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .background(themeManager.currentTheme.formDefault)
+                                .border(themeManager.currentTheme.textDefault)
+                                .cornerRadius(10)
                             if !exerciseSearchText.isEmpty {
                                 Button {
                                     exerciseSearchText = ""
@@ -450,14 +486,13 @@ struct WorkoutInfoView: View {
                             }
                         }
                         .padding()
-                        .background(themeManager.currentTheme.surface)
+                        .background(effectiveThemeManager.currentTheme.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                         .padding(.horizontal)
                         .padding(.bottom, 34)
                     }
                 }
-                .navigationTitle("Select Exercise")
                 .ignoresSafeArea(.keyboard, edges: .bottom)
                 .onChange(of: exerciseSearchText) { newValue in
                     // Debounce ~250ms
@@ -467,6 +502,7 @@ struct WorkoutInfoView: View {
                         await filterExercises()
                     }
                 }
+                .foregroundColor(themeManager.currentTheme.textDefault)
                 .task { await filterExercises() }
             }
         }
@@ -623,7 +659,7 @@ struct WorkoutInfoView: View {
         let options = unitsByExercise[ex.exerciseId] ?? []
         HStack(spacing: 8) {
             Text(ex.name)
-                .foregroundColor(.primary)
+                .foregroundColor(themeManager.currentTheme.textDefault)
             Spacer()
             if !options.isEmpty {
                 let selection = Binding<String>(
@@ -641,7 +677,7 @@ struct WorkoutInfoView: View {
                 .labelsHidden()
             }
         }
-        .listRowBackground(themeManager.currentTheme.surface)
+        .listRowBackground(effectiveThemeManager.currentTheme.surface)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
                 Task { await deleteExercises(ids: [ex.id], forBlock: bid) }
@@ -821,13 +857,13 @@ struct WorkoutInfoView: View {
     
     private func appColor(for key: String) -> Color {
         switch key {
-        case "primary": return themeManager.currentTheme.primary
-        case "secondary": return themeManager.currentTheme.secondary
-        case "success": return themeManager.currentTheme.success
-        case "warning": return themeManager.currentTheme.warning
-        case "error": return themeManager.currentTheme.error
-        case "important": return themeManager.currentTheme.important
-        default: return themeManager.currentTheme.primary
+        case "primary": return effectiveThemeManager.currentTheme.primary
+        case "secondary": return effectiveThemeManager.currentTheme.secondary
+        case "success": return effectiveThemeManager.currentTheme.success
+        case "warning": return effectiveThemeManager.currentTheme.warning
+        case "error": return effectiveThemeManager.currentTheme.error
+        case "important": return effectiveThemeManager.currentTheme.important
+        default: return effectiveThemeManager.currentTheme.primary
         }
     }
 }

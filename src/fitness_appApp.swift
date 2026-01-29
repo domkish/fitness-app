@@ -25,9 +25,21 @@ struct fitness_appApp: App {
             )
             let dbURL = supportURL.appendingPathComponent("fitness.sqlite")
             let dbService = try DatabaseService(path: dbURL.path)
-            try dbService.setupDatabase(resetFirst: false) // resetFirst: false
+            try dbService.setupDatabase(resetFirst: true) // resetFirst: false
             dbQueue = dbService.dbQueue
             DatabaseQueueProvider.shared.dbQueue = dbQueue
+            
+            // Verify shared dbQueue is migrated
+            do {
+                try dbQueue.read { db in
+                    let usersTableCount = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'") ?? 0
+                    let hasUsersTable = (usersTableCount > 0)
+                    let schemaVersion: Int = try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
+                    print("✅ App init — shared dbQueue set. users exists? \(hasUsersTable), schemaVersion: \(schemaVersion)")
+                }
+            } catch {
+                print("⚠️ App init — shared dbQueue diagnostics failed: \(error)")
+            }
         } catch {
             fatalError("Failed to initialize database: \(error)")
         }

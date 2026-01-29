@@ -9,8 +9,8 @@ import SwiftUI
 struct AppShellView: View {
     @StateObject private var coordinator = AppShellCoordinator()
     @State private var isMenuOpen = false
-    @StateObject private var themeManager = ThemeManager()
     @EnvironmentObject var authCoordinator: AuthCoordinator
+    @EnvironmentObject var themeManager: ThemeManager
     
     var body: some View {
         GeometryReader { geo in
@@ -81,7 +81,6 @@ struct AppShellView: View {
             }
             .animation(.easeInOut, value: isMenuOpen)
             .ignoresSafeArea()
-            .environmentObject(themeManager)
             .onReceive(authCoordinator.$currentUser) {
                 themeManager.update(for: $0?.theme)
             }
@@ -94,42 +93,52 @@ struct AppShellView: View {
         switch coordinator.currentStep {
         case .dashboard:
             DashboardView(coordinator: coordinator)
+                .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
 
         case .calendar:
             CalendarView(coordinator: coordinator)
+                .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
 
         case .exercise:
             ExerciseView(coordinator: coordinator)
+                .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
 
         case .workout:
             WorkoutView(coordinator: coordinator)
+                .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
 
         case .session:
             SessionView(coordinator: coordinator)
+                .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
 
         case .profile:
             ProfileView(coordinator: coordinator)
+                .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
             
         case .profileEdit:
             ProfileEditView(coordinator: coordinator)
+                .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
             
         case .profilePassword:
             ProfilePasswordView(coordinator: coordinator)
+                .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
             
         case .task:
             TaskView(coordinator: coordinator)
+                .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
             
         case .premium:
             PremiumView(coordinator: coordinator)
+                .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
         }
     }

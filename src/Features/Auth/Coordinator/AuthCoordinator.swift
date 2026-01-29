@@ -25,10 +25,12 @@ final class AuthCoordinator: ObservableObject {
         self.authService = authService
         self.userRepository = userRepository
         Task { await restoreSavedUser() }
+        userRepository.diagnosticsLog("AuthCoordinator.init")
     }
 
     // MARK: - Async Restore
     private func restoreSavedUser() async {
+        userRepository.diagnosticsLog("AuthCoordinator.restoreSavedUser")
         do {
             // Require a valid token AND a non-system user
             if let token = TokenStore.token, !token.isEmpty,
