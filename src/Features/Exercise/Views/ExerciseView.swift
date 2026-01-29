@@ -12,6 +12,7 @@ import GRDB
 struct ExerciseView: View {
     @ObservedObject var coordinator: AppShellCoordinator
     @EnvironmentObject var authCoordinator: AuthCoordinator
+    @EnvironmentObject var themeManager: ThemeManager
 
     @StateObject private var viewModel = ExerciseListViewModel()
     @State private var searchText: String = ""
@@ -19,7 +20,7 @@ struct ExerciseView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AppColors.background
+                themeManager.currentTheme.background
                     .ignoresSafeArea()
 
                 VStack(spacing: 30) {
@@ -29,6 +30,7 @@ struct ExerciseView: View {
                         Text("Exercise Library")
                             .font(.title)
                             .bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                         Spacer()
                         NavigationLink {
                             ExerciseAddView()
@@ -37,7 +39,7 @@ struct ExerciseView: View {
                                 .font(.headline)
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 12)
-                                .background(AppColors.surface)
+                                .background(themeManager.currentTheme.surface)
                                 .cornerRadius(8)
                         }
                     }
@@ -46,8 +48,9 @@ struct ExerciseView: View {
                     // Table container styled like ProfileView cards
                     VStack(spacing: 0) {
                         tableBody
+                        .background(themeManager.currentTheme.surface)
                     }
-                    .background(AppColors.surface)
+                    .background(themeManager.currentTheme.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .padding([.horizontal, .bottom])
@@ -58,10 +61,12 @@ struct ExerciseView: View {
                     Spacer()
                     HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass")
-                            .foregroundColor(.secondary)
+                            .foregroundColor(themeManager.currentTheme.secondary)
 
                         TextField("Search exercises", text: $searchText)
                             .textFieldStyle(.roundedBorder)
+                            .foregroundColor(themeManager.currentTheme.textDefault)
+                            .background(themeManager.currentTheme.formDefault)
 
                         if !searchText.isEmpty {
                             Button {
@@ -69,14 +74,15 @@ struct ExerciseView: View {
                                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(themeManager.currentTheme.secondary)
                                     .imageScale(.medium)
                                     .accessibilityLabel("Clear search")
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
                             }
                         }
                     }
                     .padding()
-                    .background(AppColors.surface)
+                    .background(themeManager.currentTheme.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .padding(.horizontal)
@@ -106,14 +112,15 @@ struct ExerciseView: View {
                     let row = HStack(alignment: .center, spacing: 12) {
                         if !exercise.locked {
                             Image(systemName: "circle.fill")
-                                .foregroundColor(AppColors.primary)
+                                .foregroundColor(themeManager.currentTheme.primary)
                                 .imageScale(.small)
                                 .accessibilityLabel("Custom exercise")
                         }
                         Text(exercise.name)
-                            .foregroundColor(.primary)
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .background(themeManager.currentTheme.surface)
                     .padding(.vertical, 4)
 
                     let destination = ExerciseInfoView(exerciseId: exercise.exerciseId, locked: exercise.locked)
@@ -146,7 +153,7 @@ struct ExerciseView: View {
                         Text("No exercises found").bold()
                         Text("If you expect data, verify the current user is set and the app is using the correct database file.")
                             .font(.footnote)
-                            .foregroundColor(AppColors.textDefault)
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                             .multilineTextAlignment(.center)
                     }
                 }

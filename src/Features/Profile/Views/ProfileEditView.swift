@@ -12,6 +12,7 @@ import Combine
 struct ProfileEditView: View {
     @ObservedObject var coordinator: AppShellCoordinator
     @EnvironmentObject var authCoordinator: AuthCoordinator
+    @EnvironmentObject var themeManager: ThemeManager
     @Environment(\.dismiss) private var dismiss
 
     @StateObject private var viewModel: ProfileEditViewModel
@@ -46,7 +47,7 @@ struct ProfileEditView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AppColors.background
+                themeManager.currentTheme.background
                     .ignoresSafeArea() // Full-screen background
 
                 GeometryReader { geometry in
@@ -63,18 +64,18 @@ struct ProfileEditView: View {
                                 // Name
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Name")
-                                        .foregroundColor(AppColors.textDefault)
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
 
                                     TextField("Your name", text: $viewModel.name)
                                         .padding()
-                                        .background(AppColors.surface.opacity(0.9))
+                                        .background(themeManager.currentTheme.surface.opacity(0.9))
                                         .cornerRadius(12)
                                 }
 
                                 // Preferred Units
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Preferred Units")
-                                        .foregroundColor(AppColors.textDefault)
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
 
                                     Picker("Units", selection: $viewModel.isImperial) {
                                         Text("Metric").tag(false)
@@ -94,13 +95,13 @@ struct ProfileEditView: View {
                                         .bold()
                                         .frame(maxWidth: .infinity)
                                         .padding()
-                                        .background(AppColors.primary)
+                                        .background(themeManager.currentTheme.primary)
                                         .cornerRadius(14)
                                 }
                                 .disabled(viewModel.name.trimmingCharacters(in: .whitespaces).isEmpty)
                             }
                             .padding()
-                            .background(AppColors.surface)
+                            .background(themeManager.currentTheme.surface)
                             .cornerRadius(16)
                             .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
 

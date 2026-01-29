@@ -11,7 +11,12 @@ import Combine
 final class AuthCoordinator: ObservableObject {
 
     @Published var currentStep: AuthStep = .login
-    @Published var currentUser: User?
+    @Published var currentUser: User? {
+        didSet {
+            // Broadcast theme change so app root can react immediately if needed
+            NotificationCenter.default.post(name: .userThemeDidChange, object: currentUser?.theme)
+        }
+    }
 
     let authService: AuthServicing
     let userRepository: UserRepository
@@ -150,3 +155,6 @@ final class AuthCoordinator: ObservableObject {
     }
 }
 
+extension Notification.Name {
+    static let userThemeDidChange = Notification.Name("userThemeDidChange")
+}

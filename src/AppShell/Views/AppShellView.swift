@@ -31,14 +31,12 @@ struct AppShellView: View {
                         VStack(spacing: 6) {
                             ForEach(0..<3, id: \.self) { _ in
                                 Rectangle()
-                                    .fill(Color.primary)
+                                    .fill(themeManager.currentTheme.textDefault)
                                     .frame(width: 25, height: 3)
                                     .cornerRadius(1.5)
                             }
                         }
                         .padding(8)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
                     }
 
                     Spacer()
@@ -52,9 +50,8 @@ struct AppShellView: View {
                     } label: {
                         Image(systemName: "person.crop.circle.fill")
                             .font(.system(size: 34))
-                            .foregroundColor(.primary)
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                             .padding(6)
-                            .background(.ultraThinMaterial)
                             .clipShape(Circle())
                     }
                 }
@@ -125,10 +122,6 @@ struct AppShellView: View {
             
         case .profilePassword:
             ProfilePasswordView(coordinator: coordinator)
-                .environmentObject(authCoordinator)
-            
-        case .profileTheme:
-            ProfileThemeView(coordinator: coordinator)
                 .environmentObject(authCoordinator)
             
         case .task:

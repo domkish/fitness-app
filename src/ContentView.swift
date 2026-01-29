@@ -9,12 +9,13 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var authCoordinator: AuthCoordinator
+    @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
         AuthCoordinatorView()
             .animation(.default, value: authCoordinator.currentStep)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(AppColors.background)
+            .background(themeManager.currentTheme.background)
             .edgesIgnoringSafeArea(.all)
     }
 }

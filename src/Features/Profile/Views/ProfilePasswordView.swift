@@ -10,6 +10,7 @@ import GRDB
 struct ProfilePasswordView: View {
     @ObservedObject var coordinator: AppShellCoordinator
     @EnvironmentObject var authCoordinator: AuthCoordinator
+    @EnvironmentObject var themeManager: ThemeManager
     @StateObject private var viewModel: ProfilePasswordViewModel
     @Environment(\.dismiss) private var dismiss
 
@@ -24,7 +25,7 @@ struct ProfilePasswordView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AppColors.background
+                themeManager.currentTheme.background
                     .ignoresSafeArea() // Full-screen background
 
                 GeometryReader { geometry in
@@ -63,13 +64,13 @@ struct ProfilePasswordView: View {
                                         .foregroundColor(.white)
                                         .frame(maxWidth: .infinity)
                                         .padding()
-                                        .background(viewModel.canSave ? AppColors.primary : Color.gray)
+                                        .background(viewModel.canSave ? themeManager.currentTheme.primary : Color.gray)
                                         .cornerRadius(14)
                                 }
                                 .disabled(!viewModel.canSave || viewModel.isSaving)
                             }
                             .padding()
-                            .background(AppColors.surface)
+                            .background(themeManager.currentTheme.surface)
                             .cornerRadius(16)
                             .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
 
@@ -89,11 +90,12 @@ struct SecureFieldCard: View {
     let title: String
     @Binding var text: String
     @State private var isSecured: Bool = true
+    @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .foregroundColor(AppColors.textDefault)
+                .foregroundColor(themeManager.currentTheme.textDefault)
 
             HStack {
                 if isSecured {
@@ -118,7 +120,7 @@ struct SecureFieldCard: View {
                 }
             }
             .padding()
-            .background(AppColors.surface.opacity(0.9))
+            .background(themeManager.currentTheme.surface.opacity(0.9))
             .cornerRadius(12)
         }
     }

@@ -179,6 +179,28 @@ struct User: Decodable {
     let createdAt: Date
     let updatedAt: Date
 
+    init(
+        id: Int,
+        name: String,
+        email: String,
+        isPremium: Bool,
+        isImperial: Bool = true,
+        theme: String = "classic",
+        emailVerifiedAt: Date?,
+        createdAt: Date,
+        updatedAt: Date
+    ) {
+        self.id = id
+        self.name = name
+        self.email = email
+        self.isPremium = isPremium
+        self.isImperial = isImperial
+        self.theme = theme
+        self.emailVerifiedAt = emailVerifiedAt
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
         case name
@@ -189,6 +211,21 @@ struct User: Decodable {
         case emailVerifiedAt = "email_verified_at"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        email = try container.decode(String.self, forKey: .email)
+        isPremium = try container.decode(Bool.self, forKey: .isPremium)
+        // Optional imperial flag defaults to true if missing
+        isImperial = (try container.decodeIfPresent(Bool.self, forKey: .isImperial)) ?? true
+        // Theme defaults to "classic" if missing
+        theme = (try container.decodeIfPresent(String.self, forKey: .theme)) ?? "classic"
+        emailVerifiedAt = try container.decodeIfPresent(Date.self, forKey: .emailVerifiedAt)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
 }
 
@@ -234,3 +271,4 @@ extension JSONDecoder {
         return d
     }()
 }
+

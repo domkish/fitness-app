@@ -11,6 +11,7 @@ import GRDB
 @main
 struct fitness_appApp: App {
     @StateObject private var authCoordinator: AuthCoordinator
+    @StateObject private var themeManager = ThemeManager()
 
     init() {
         // Build DatabaseService and run setup
@@ -38,10 +39,21 @@ struct fitness_appApp: App {
     
     var body: some Scene {
         WindowGroup {
-            NavigationStack{
+            NavigationStack {
                 ContentView()
                     .environmentObject(authCoordinator)
+                    .environmentObject(themeManager)
                     .statusBar(hidden: false)
+            }
+            .onReceive(authCoordinator.$currentUser) { user in
+                themeManager.update(for: user?.theme)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .userThemeDidChange)) { note in
+                if let key = note.object as? String {
+                    themeManager.update(for: key)
+                } else {
+                    themeManager.update(for: authCoordinator.currentUser?.theme)
+                }
             }
         }
     }

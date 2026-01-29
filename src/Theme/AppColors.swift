@@ -87,7 +87,7 @@ extension AppTheme {
         surface: Color("MidnightSurface"),
         navTop: Color("MidnightNavTop"),
         navSide: Color("MidnightNavSide"),
-        textDefault: Color("MidnightText"),
+        textDefault: Color("MidnightDefault"),
         textNav: Color("MidnightNavText"),
         muted: Color("MidnightMuted"),
         primary: Color("MidnightPrimary"),

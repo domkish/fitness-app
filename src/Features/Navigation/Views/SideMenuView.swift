@@ -10,6 +10,7 @@ import SwiftUI
 struct SideMenuView: View {
     @Binding var currentStep: AppShellStep
     @Binding var isMenuOpen: Bool
+    @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -19,14 +20,14 @@ struct SideMenuView: View {
                 "Dashboard",
                 step: .dashboard,
                 icon: "house",
-                color: AppColors.textNav
+                color: themeManager.currentTheme.textNav
             )
 
             menuButton(
                 "Calendar",
                 step: .calendar,
                 icon: "calendar",
-                color: AppColors.textNav
+                color: themeManager.currentTheme.textNav
             )
 
             Spacer().frame(height: 20)
@@ -35,21 +36,21 @@ struct SideMenuView: View {
                 "Tasks",
                 step: .task,
                 icon: "checklist",
-                color: AppColors.textNav
+                color: themeManager.currentTheme.textNav
             )
             
             menuButton(
                 "Exercises",
                 step: .exercise,
                 icon: "figure.strengthtraining.traditional",
-                color: AppColors.textNav
+                color: themeManager.currentTheme.textNav
             )
 
             menuButton(
                 "Workout Routines",
                 step: .workout,
                 icon: "bolt",
-                color: AppColors.textNav
+                color: themeManager.currentTheme.textNav
             )
 
             Spacer()
@@ -73,19 +74,19 @@ struct SideMenuView: View {
                     // Corner-blended gradients layer (clipped to shape)
                     ZStack {
                         RadialGradient(
-                            gradient: Gradient(colors: [AppColors.error, AppColors.error.opacity(0.0)]),
+                            gradient: Gradient(colors: [themeManager.currentTheme.error, themeManager.currentTheme.error.opacity(0.0)]),
                             center: .topLeading,
                             startRadius: 0,
                             endRadius: 200
                         )
                         RadialGradient(
-                            gradient: Gradient(colors: [ AppColors.primary,  AppColors.primary.opacity(0.0)]),
+                            gradient: Gradient(colors: [ themeManager.currentTheme.primary,  themeManager.currentTheme.primary.opacity(0.0)]),
                             center: .bottomLeading,
                             startRadius: 0,
                             endRadius: 200
                         )
                         RadialGradient(
-                            gradient: Gradient(colors: [AppColors.important, AppColors.important.opacity(0.0)]),
+                            gradient: Gradient(colors: [themeManager.currentTheme.important, themeManager.currentTheme.important.opacity(0.0)]),
                             center: .bottomTrailing,
                             startRadius: 0,
                             endRadius: 200
@@ -98,16 +99,16 @@ struct SideMenuView: View {
 
                     // White border
                     baseShape
-                        .stroke(AppColors.important, lineWidth: 2)
+                        .stroke(themeManager.currentTheme.important, lineWidth: 2)
                         .frame(height: 44)
 
                     // Rainbow glow (soft per-color glows)
                     baseShape
-                        .stroke(AppColors.pink.opacity(0.9), lineWidth: 2)
+                        .stroke(themeManager.currentTheme.pink.opacity(0.9), lineWidth: 2)
                         .frame(height: 44)
-                        .shadow(color: AppColors.success.opacity(0.9), radius: 12)
-                        .shadow(color: AppColors.error.opacity(0.9), radius: 12)
-                        .shadow(color: AppColors.pink.opacity(0.9), radius: 12)
+                        .shadow(color: themeManager.currentTheme.success.opacity(0.9), radius: 12)
+                        .shadow(color: themeManager.currentTheme.error.opacity(0.9), radius: 12)
+                        .shadow(color: themeManager.currentTheme.pink.opacity(0.9), radius: 12)
                     
                     // Content
                     HStack(spacing: 12) {
@@ -130,7 +131,7 @@ struct SideMenuView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(AppColors.navSide)
+        .background(themeManager.currentTheme.navSide)
         .ignoresSafeArea()
     }
 

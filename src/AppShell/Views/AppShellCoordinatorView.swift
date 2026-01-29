@@ -20,8 +20,6 @@ struct AppShellCoordinatorView: View {
                 ProfileEditView(coordinator: coordinator)
             case .profilePassword:
                 ProfilePasswordView(coordinator: coordinator)
-            case .profileTheme:
-                ProfileThemeView(coordinator: coordinator)
             case .dashboard:
                 DashboardView(coordinator: coordinator)
             case .calendar:

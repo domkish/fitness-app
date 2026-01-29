@@ -9,6 +9,7 @@ import GRDB
 struct WorkoutView: View {
     @ObservedObject var coordinator: AppShellCoordinator
     @EnvironmentObject var authCoordinator: AuthCoordinator
+    @EnvironmentObject var themeManager: ThemeManager
 
     // Dependencies
     private let dbQueue = DatabaseQueueProvider.shared.dbQueue
@@ -39,7 +40,7 @@ struct WorkoutView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AppColors.background
+                themeManager.currentTheme.background
                     .ignoresSafeArea()
 
                 VStack(spacing: 30) {
@@ -50,6 +51,7 @@ struct WorkoutView: View {
                         Text("Workout Routines")
                             .font(.title)
                             .bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                         Spacer()
                         Button {
                             let maxWorkouts = isPremiumUser ? 20 : 4
@@ -65,8 +67,8 @@ struct WorkoutView: View {
                                 .font(.headline)
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 12)
-                                .background(AppColors.surface)
-                                .foregroundColor(showLimitPopover ? AppColors.muted : AppColors.primary)
+                                .background(themeManager.currentTheme.surface)
+                                .foregroundColor(showLimitPopover ? themeManager.currentTheme.muted : themeManager.currentTheme.primary)
                                 .cornerRadius(8)
                         }
                         .accessibilityLabel("Add Workout Routine")
@@ -74,11 +76,11 @@ struct WorkoutView: View {
                             VStack(alignment: .leading, spacing: 16) {
                                 if isPremiumUser {
                                     Text("You have hit the max number of workout routines allowed. Please clean up your current list to add more.")
-                                        .foregroundColor(AppColors.textDefault)
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
                                         .fixedSize(horizontal: false, vertical: true)
                                 } else {
                                     Text("You have hit the max number of workout routines allowed. Sign up for Premium to gain access up to 20 Workouts!.")
-                                        .foregroundColor(AppColors.textDefault)
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
                                         .fixedSize(horizontal: false, vertical: true)
                                     HStack {
                                         Spacer()
@@ -141,11 +143,12 @@ struct WorkoutView: View {
                                     VStack(spacing: 8) {
                                         Image(systemName: "dumbbell.fill")
                                             .font(.system(size: 44))
-                                            .foregroundColor(.secondary)
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
                                         Text("No Workout Routines Yet")
                                             .font(.title3).bold()
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
                                         Text("Tap + to add your first routine.")
-                                            .foregroundColor(.secondary)
+                                            .foregroundColor(themeManager.currentTheme.muted)
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
@@ -187,7 +190,7 @@ struct WorkoutView: View {
                                 // Dashed separator
                                 Capsule()
                                     .stroke(style: StrokeStyle(lineWidth: 4, dash: [6, 4]))
-                                    .foregroundColor(AppColors.borderDefault)
+                                    .foregroundColor(themeManager.currentTheme.borderDefault)
                                     .frame(height: 1)
                                     .padding(.horizontal)
                                     .padding(.top, 28)
@@ -198,12 +201,12 @@ struct WorkoutView: View {
                                         Text("What are Workout Routines?")
                                             .font(.title3)
                                             .bold()
-                                            .foregroundColor(AppColors.textDefault)
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
                                     }
                             
                                     Text("Workout routines are fully customizable so you can build the perfect plan for your goals. Once you create a routine, it’ll be available to add to your workout calendar whenever you’re ready.")
                                         .font(.callout)
-                                        .foregroundColor(AppColors.muted)
+                                        .foregroundColor(themeManager.currentTheme.muted)
                                         .fixedSize(horizontal: false, vertical: true)
                                     
                                     (
@@ -216,15 +219,15 @@ struct WorkoutView: View {
                                         Text(", we’ve got you covered. Mix and match exercises from our database or create your own to tailor every routine to you.")
                                     )
                                     .font(.callout)
-                                    .foregroundColor(AppColors.muted)
+                                    .foregroundColor(themeManager.currentTheme.muted)
                                     .fixedSize(horizontal: false, vertical: true)
                             
                                     HStack(alignment: .center, spacing: 10) {
                                         Image(systemName: "plus.circle.fill")
-                                            .foregroundColor(AppColors.primary)
+                                            .foregroundColor(themeManager.currentTheme.primary)
                                         Text("Tap the \"+\" above to create a routine — name it anything you like!")
                                             .font(.callout)
-                                            .foregroundColor(AppColors.muted)
+                                            .foregroundColor(themeManager.currentTheme.muted)
                                     }
                                 }
                                 .padding(16)
@@ -246,10 +249,12 @@ struct WorkoutView: View {
                         Text("New Routine")
                             .font(.title3)
                             .bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
 
                         TextField("Routine name", text: $newWorkoutName)
                             .padding(12)
-                            .background(AppColors.surface)
+                            .background(themeManager.currentTheme.surface)
+                            .foregroundColor(themeManager.currentTheme.textDefault)
                             .cornerRadius(8)
                             .submitLabel(.done)
                             .onSubmit {
@@ -263,10 +268,10 @@ struct WorkoutView: View {
                             } label: {
                                 Text("Cancel")
                                     .font(.headline)
-                                    .foregroundColor(AppColors.primary)
+                                    .foregroundColor(themeManager.currentTheme.primary)
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .background(AppColors.surface)
+                                    .background(themeManager.currentTheme.surface)
                                     .cornerRadius(8)
                             }
 
@@ -275,17 +280,17 @@ struct WorkoutView: View {
                             } label: {
                                 Text("Create")
                                     .font(.headline)
-                                    .foregroundColor(AppColors.background)
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .background(newWorkoutName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? AppColors.primary.opacity(0.5) : AppColors.primary)
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
+                                    .background(newWorkoutName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? themeManager.currentTheme.primary.opacity(0.5) : themeManager.currentTheme.primary)
                                     .cornerRadius(8)
                             }
                             .disabled(newWorkoutName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
                     }
                     .padding(24)
-                    .background(AppColors.background)
+                    .background(themeManager.currentTheme.background)
                     .cornerRadius(16)
                     .padding(.horizontal, 40)
                     .shadow(radius: 20)
@@ -300,13 +305,13 @@ struct WorkoutView: View {
 
     private func colorForKey(_ key: String?) -> Color {
         switch key ?? "primary" {
-        case "primary": return AppColors.primary
-        case "secondary": return AppColors.secondary
+        case "primary": return themeManager.currentTheme.primary
+        case "secondary": return themeManager.currentTheme.secondary
         case "success": return AppColors.success
         case "warning": return AppColors.warning
-        case "error": return AppColors.error
-        case "important": return AppColors.important
-        default: return AppColors.primary
+        case "error": return themeManager.currentTheme.error
+        case "important": return themeManager.currentTheme.important
+        default: return themeManager.currentTheme.primary
         }
     }
 

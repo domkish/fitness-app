@@ -4,6 +4,7 @@ import GRDB
 struct TaskInfoView: View {
     let taskId: Int64?
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var themeManager: ThemeManager
 
     // Dependencies
     private let taskRepo: TaskRepository = TaskRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
@@ -35,7 +36,7 @@ struct TaskInfoView: View {
 
     var body: some View {
         ZStack {
-            AppColors.background.ignoresSafeArea()
+            themeManager.currentTheme.background.ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 24) {
                     // Header
@@ -51,7 +52,7 @@ struct TaskInfoView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Task Name").bold()
                         TextField("Required", text: $name)
-                            .background(AppColors.formDefault)
+                            .background(themeManager.currentTheme.formDefault)
                             .textFieldStyle(.roundedBorder)
                             .autocorrectionDisabled(true)
                             .onChange(of: name) { _ in
@@ -60,7 +61,7 @@ struct TaskInfoView: View {
                             }
                     }
                     .padding()
-                    .background(AppColors.surface)
+                    .background(themeManager.currentTheme.surface)
                     .cornerRadius(16)
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .padding(.horizontal)
@@ -88,7 +89,7 @@ struct TaskInfoView: View {
                         }
                     }
                     .padding()
-                    .background(AppColors.surface)
+                    .background(themeManager.currentTheme.surface)
                     .cornerRadius(16)
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .padding(.horizontal)
@@ -102,7 +103,7 @@ struct TaskInfoView: View {
                                 get: { startedAt != nil },
                                 set: { newVal in startedAt = newVal ? Date() : nil; isUserEdited = true; scheduleAutosave() }
                             )) { Text("Starts at") }
-                            .tint(AppColors.primary)
+                            .tint(themeManager.currentTheme.primary)
                             if let binding = optionalDateBinding($startedAt), startedAt != nil {
                                 DatePicker("", selection: binding, displayedComponents: [.date])
                                     .datePickerStyle(.compact)
@@ -119,7 +120,7 @@ struct TaskInfoView: View {
                                 get: { endsAt != nil },
                                 set: { newVal in endsAt = newVal ? Date() : nil; isUserEdited = true; scheduleAutosave() }
                             )) { Text("Ends at") }
-                            .tint(AppColors.primary)
+                            .tint(themeManager.currentTheme.primary)
                             if let binding = optionalDateBinding($endsAt), endsAt != nil {
                                 DatePicker("", selection: binding, displayedComponents: [.date])
                                     .datePickerStyle(.compact)
@@ -132,7 +133,7 @@ struct TaskInfoView: View {
                         }
                     }
                     .padding()
-                    .background(AppColors.surface)
+                    .background(themeManager.currentTheme.surface)
                     .cornerRadius(16)
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .padding(.horizontal)
@@ -154,7 +155,7 @@ struct TaskInfoView: View {
                                 Spacer()
                             }
                             .padding()
-                            .background(AppColors.error.opacity(0.1))
+                            .background(themeManager.currentTheme.error.opacity(0.1))
                             .cornerRadius(12)
                         }
                         .padding(.horizontal)
@@ -184,10 +185,10 @@ struct TaskInfoView: View {
     private func dayToggle(_ label: String, isOn: Binding<Bool>) -> some View {
         Toggle(isOn: isOn) {
             Text(label)
-                .foregroundColor(isOn.wrappedValue ? AppColors.primary : .primary)
+                .foregroundColor(isOn.wrappedValue ? themeManager.currentTheme.primary : .primary)
                 .fontWeight(isOn.wrappedValue ? .semibold : .regular)
         }
-        .tint(AppColors.primary)
+        .tint(themeManager.currentTheme.primary)
     }
 
     private func presetButton(title: String, action: @escaping () -> Void) -> some View {
@@ -196,7 +197,7 @@ struct TaskInfoView: View {
                 .font(.footnote)
                 .padding(.vertical, 6)
                 .padding(.horizontal, 10)
-                .background(AppColors.surface)
+                .background(themeManager.currentTheme.surface)
                 .cornerRadius(8)
         }
         .buttonStyle(.plain)

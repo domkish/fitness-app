@@ -32,6 +32,7 @@ struct ExerciseAddView: View {
 
     // UI
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var isSaving = false
     @State private var errorMessage: String?
 
@@ -43,7 +44,7 @@ struct ExerciseAddView: View {
 
     var body: some View {
         ZStack {
-            AppColors.background.ignoresSafeArea()
+            themeManager.currentTheme.background.ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 24) {
                     // Header
@@ -62,7 +63,7 @@ struct ExerciseAddView: View {
                             .textFieldStyle(.roundedBorder)
                     }
                     .padding()
-                    .background(AppColors.surface)
+                    .background(themeManager.currentTheme.surface)
                     .cornerRadius(16)
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .padding(.horizontal)
@@ -82,27 +83,27 @@ struct ExerciseAddView: View {
                         } label: {
                             HStack {
                                 Text(unitsSummary)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(themeManager.currentTheme.secondary)
                                 Spacer()
-                                Image(systemName: "chevron.right").foregroundColor(.secondary)
+                                Image(systemName: "chevron.right").foregroundColor(themeManager.currentTheme.secondary)
                             }
                             .contentShape(Rectangle())
                         }
                         Rectangle()
-                            .fill(Color.secondary.opacity(0.3))
+                            .fill(themeManager.currentTheme.secondary.opacity(0.3))
                             .frame(height: 1)
                             .overlay(
                                 Rectangle()
                                     .stroke(style: StrokeStyle(lineWidth: 1, dash: [4]))
-                                    .foregroundColor(AppColors.background)
+                                    .foregroundColor(themeManager.currentTheme.background)
                             )
                             .padding(.vertical, 6)
                         Text("Select the unit(s) of measurement you'd be tracking for this exercise.")
                             .font(.footnote)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(themeManager.currentTheme.secondary)
                     }
                     .padding()
-                    .background(AppColors.surface)
+                    .background(themeManager.currentTheme.surface)
                     .cornerRadius(16)
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .padding(.horizontal)
@@ -114,10 +115,10 @@ struct ExerciseAddView: View {
                                 Text("Advanced Options").bold()
                                 Spacer()
                                 Image(systemName: showAdvanced ? "chevron.up" : "chevron.down")
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(themeManager.currentTheme.secondary)
                             }
                             .padding()
-                            .background(AppColors.surface)
+                            .background(themeManager.currentTheme.surface)
                         }
                         if showAdvanced {
                             VStack(alignment: .leading, spacing: 16) {
@@ -126,7 +127,7 @@ struct ExerciseAddView: View {
                                 MultiSelectFieldRow(title: "Common Workout(s)", items: workoutTags, selection: $selectedWorkoutTagIDs, nameTransform: { $0 + " Day" })
                             }
                             .padding()
-                            .background(AppColors.surface)
+                            .background(themeManager.currentTheme.surface)
                         }
                     }
                     .cornerRadius(16)
@@ -136,7 +137,7 @@ struct ExerciseAddView: View {
                     // Error message
                     if let errorMessage = errorMessage {
                         Text(errorMessage)
-                            .foregroundColor(.red)
+                            .foregroundColor(themeManager.currentTheme.error)
                             .font(.footnote)
                             .padding(.horizontal)
                     }
@@ -149,7 +150,7 @@ struct ExerciseAddView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background((name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedUnitTagIDs.isEmpty) ? Color.gray.opacity(0.3) : AppColors.surface)
+                        .background((name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedUnitTagIDs.isEmpty) ? Color.gray.opacity(0.3) : themeManager.currentTheme.surface)
                         .cornerRadius(12)
                     }
                     .padding(.horizontal)

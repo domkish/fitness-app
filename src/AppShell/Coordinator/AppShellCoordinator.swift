@@ -18,7 +18,6 @@ enum AppShellStep {
     case profile
     case profileEdit
     case profilePassword
-    case profileTheme
     case premium
     case dashboard
     case calendar

@@ -5,6 +5,8 @@ struct ExerciseInfoView: View {
     let exerciseId: Int64
     let locked: Bool
 
+    @EnvironmentObject var themeManager: ThemeManager
+
     // Dependencies
     private let dbQueue = DatabaseQueueProvider.shared.dbQueue
     private let exerciseRepo: ExerciseRepository
@@ -54,7 +56,7 @@ struct ExerciseInfoView: View {
                         Spacer()
                         if locked {
                             Image(systemName: "lock.fill")
-                                .foregroundColor(.secondary)
+                                .foregroundColor(themeManager.currentTheme.muted)
                                 .imageScale(.small)
                                 .accessibilityLabel("Locked")
                         }
@@ -66,7 +68,7 @@ struct ExerciseInfoView: View {
                         Text("Exercise Name").bold()
                         if locked {
                             Text(name)
-                                .foregroundColor(.primary)
+                                .foregroundColor(themeManager.currentTheme.textDefault)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.vertical, 6)
                         } else {
@@ -75,7 +77,7 @@ struct ExerciseInfoView: View {
                         }
                     }
                     .padding()
-                    .background(AppColors.surface)
+                    .background(themeManager.currentTheme.surface)
                     .cornerRadius(16)
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .padding(.horizontal)
@@ -89,7 +91,7 @@ struct ExerciseInfoView: View {
                         if locked {
                             HStack {
                                 Text(unitsSummary)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(themeManager.currentTheme.muted)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .contentShape(Rectangle())
@@ -103,30 +105,30 @@ struct ExerciseInfoView: View {
                             } label: {
                                 HStack {
                                     Text(unitsSummary)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(themeManager.currentTheme.muted)
                                     Spacer()
-                                    Image(systemName: "chevron.right").foregroundColor(.secondary)
+                                    Image(systemName: "chevron.right").foregroundColor(themeManager.currentTheme.muted)
                                 }
                                 .contentShape(Rectangle())
                             }
                         }
                         Rectangle()
-                            .fill(Color.secondary.opacity(0.3))
+                            .fill(themeManager.currentTheme.muted.opacity(0.3))
                             .frame(height: 1)
                             .overlay(
                                 Rectangle()
                                     .stroke(style: StrokeStyle(lineWidth: 1, dash: [4]))
-                                    .foregroundColor(AppColors.background)
+                                    .foregroundColor(themeManager.currentTheme.background)
                             )
                             .padding(.vertical, 6)
                         if !locked {
                             Text("Select the unit(s) of measurement you'd be tracking for this exercise.")
                                 .font(.footnote)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(themeManager.currentTheme.muted)
                         }
                     }
                     .padding()
-                    .background(AppColors.surface)
+                    .background(themeManager.currentTheme.surface)
                     .cornerRadius(16)
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .padding(.horizontal)
@@ -138,10 +140,10 @@ struct ExerciseInfoView: View {
                                 Text("Advanced Options").bold()
                                 Spacer()
                                 Image(systemName: showAdvanced ? "chevron.up" : "chevron.down")
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(themeManager.currentTheme.muted)
                             }
                             .padding()
-                            .background(AppColors.surface)
+                            .background(themeManager.currentTheme.surface)
                         }
                         if showAdvanced {
                             VStack(alignment: .leading, spacing: 16) {
@@ -153,7 +155,7 @@ struct ExerciseInfoView: View {
                                     .disabled(locked)
                             }
                             .padding()
-                            .background(AppColors.surface)
+                            .background(themeManager.currentTheme.surface)
                         }
                     }
                     .cornerRadius(16)
@@ -177,7 +179,7 @@ struct ExerciseInfoView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background((name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedUnitTagIDs.isEmpty) ? Color.gray.opacity(0.3) : AppColors.surface)
+                            .background((name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedUnitTagIDs.isEmpty) ? Color.gray.opacity(0.3) : themeManager.currentTheme.surface)
                             .cornerRadius(12)
                         }
                         .padding(.horizontal)
@@ -326,3 +328,4 @@ struct ExerciseInfoView: View {
         }
     }
 }
+

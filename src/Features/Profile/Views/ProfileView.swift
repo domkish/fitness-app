@@ -10,6 +10,7 @@ import SwiftUI
 struct ProfileView: View {
     @ObservedObject var coordinator: AppShellCoordinator
     @EnvironmentObject var authCoordinator: AuthCoordinator
+    @EnvironmentObject var themeManager: ThemeManager
     
     @State private var showThemes = false
     @State private var showPremium = false
@@ -28,6 +29,7 @@ struct ProfileView: View {
                                 Text("Profile Settings")
                                     .font(.title)
                                     .bold()
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
                                 Spacer()
                                 Button {
                                     authCoordinator.logout()
@@ -39,7 +41,7 @@ struct ProfileView: View {
                                     .font(.footnote)
                                     .padding(.vertical, 4)
                                     .padding(.horizontal, 8)
-                                    .background(AppColors.surface)
+                                    .background(themeManager.currentTheme.surface)
                                     .cornerRadius(8)
                                 }
                                 .accessibilityLabel("Log out")
@@ -47,42 +49,46 @@ struct ProfileView: View {
 
                             HStack(spacing: 8) {
                                 Text("User:")
-                                    .foregroundColor(AppColors.textDefault)
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
                                 Spacer()
                                 Text("\(user.name)")
                                     .bold()
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
                             }
                             HStack {
                                 Text("Account Type:")
-                                    .foregroundColor(AppColors.textDefault)
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
                                 Spacer()
                                 if user.isPremium {
                                     Text("Premium")
                                         .bold()
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
                                 } else {
                                     HStack(spacing: 5) {
                                         Text("Free")
                                             .bold()
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
 
                                         Button("(upgrade)") {
                                             showPremium = true
                                         }
                                         .font(.subheadline)
-                                        .foregroundColor(AppColors.primary)
+                                        .foregroundColor(themeManager.currentTheme.primary)
                                     }
                                 }
                             }
 
                             HStack {
                                 Text("Preferred Units:")
-                                    .foregroundColor(AppColors.textDefault)
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
                                 Spacer()
                                 Text(user.isImperial ? "Imperial" : "Metric")
                                     .bold()
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
                             }
                         }
                         .padding()
-                        .background(AppColors.surface)
+                        .background(themeManager.currentTheme.surface)
                         .cornerRadius(16)
                         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
 
@@ -94,13 +100,13 @@ struct ProfileView: View {
                             } label: {
                                 HStack {
                                     Text("Edit Profile")
-                                        .foregroundColor(AppColors.primary)
+                                        .foregroundColor(themeManager.currentTheme.primary)
                                     Spacer()
                                     Image(systemName: "chevron.right")
-                                        .foregroundColor(AppColors.textDefault)
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
                                 }
                                 .padding()
-                                .background(AppColors.surface)
+                                .background(themeManager.currentTheme.surface)
                                 .cornerRadius(12)
                             }
 
@@ -110,53 +116,83 @@ struct ProfileView: View {
                             } label: {
                                 HStack {
                                     Text("Change Password")
-                                        .foregroundColor(AppColors.primary)
+                                        .foregroundColor(themeManager.currentTheme.primary)
                                     Spacer()
                                     Image(systemName: "chevron.right")
-                                        .foregroundColor(AppColors.textDefault)
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
                                 }
                                 .padding()
-                                .background(AppColors.surface)
+                                .background(themeManager.currentTheme.surface)
                                 .cornerRadius(12)
                             }
 
-                            // MARK: - Themes Link (Premium Only)
-                            Button {
-                                if user.isPremium {
-                                    showThemes = true
-                                } else {
-                                    showUpgradeAlert = true
-                                }
-                            } label: {
+                            VStack(alignment: .leading, spacing: 12) {
                                 HStack {
                                     Text("Themes")
-                                        .foregroundColor(AppColors.primary)
+                                        .font(.headline)
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
                                     Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundColor(AppColors.textDefault)
                                 }
-                                .padding()
-                                .background(user.isPremium ? AppColors.surface : AppColors.surface.opacity(0.3))
-                                .cornerRadius(12)
-                            }
-                            .alert("Upgrade Required", isPresented: $showUpgradeAlert) {
-                                Button("Cancel", role: .cancel) {}
-                                Button("View Premium Benefits") {
-                                    showPremium = true
+                                let themes: [(key: String, title: String)] = [
+                                    ("classic", "Classic"),
+                                    ("midnight", "Midnight")
+                                ]
+                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 12)], spacing: 12) {
+                                    ForEach(themes, id: \.key) { item in
+                                        let isSelected = (authCoordinator.currentUser?.theme.lowercased() == item.key)
+                                        Button {
+                                            awaitSelectTheme(item.key)
+                                        } label: {
+                                            ZStack {
+                                                // Two-color swatch using themeManager.currentTheme.primary & themeManager.currentTheme.surface
+                                                RoundedRectangle(cornerRadius: 10)
+                                                    .fill(themeManager.currentTheme.surface)
+                                                RoundedRectangle(cornerRadius: 10)
+                                                    .trim(from: 0, to: 0.5)
+                                                    .rotation(Angle(degrees: 180))
+                                                    .fill(themeManager.currentTheme.background)
+                                                VStack(spacing: 6) {
+                                                    Text(item.title)
+                                                        .font(.footnote)
+                                                        .bold()
+                                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                                        .shadow(color: themeManager.currentTheme.surface.opacity(0.35), radius: 2, x: 0, y: 1)
+                                                    if isSelected {
+                                                        Image(systemName: "checkmark.circle.fill")
+                                                            .foregroundColor(themeManager.currentTheme.textDefault)
+                                                            .shadow(color: themeManager.currentTheme.surface.opacity(0.35), radius: 2, x: 0, y: 1)
+                                                    }
+                                                }
+                                            }
+                                            .frame(height: 80)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 10)
+                                                    .stroke(isSelected ? Color.accentColor : themeManager.currentTheme.borderDefault, lineWidth: isSelected ? 2 : 1)
+                                            )
+                                        }
+                                        .buttonStyle(.plain)
+                                        .disabled(!(authCoordinator.currentUser?.isPremium ?? false) && item.key != (authCoordinator.currentUser?.theme.lowercased() ?? "classic"))
+                                        .opacity(!(authCoordinator.currentUser?.isPremium ?? false) && item.key != (authCoordinator.currentUser?.theme.lowercased() ?? "classic") ? 0.5 : 1.0)
+                                        .overlay(
+                                            Group {
+                                                if !(authCoordinator.currentUser?.isPremium ?? false) && item.key != (authCoordinator.currentUser?.theme.lowercased() ?? "classic") {
+                                                    VStack {
+                                                        Spacer()
+                                                        Text("Premium")
+                                                            .font(.caption2)
+                                                            .padding(4)
+                                                            .background(Color.black.opacity(0.5))
+                                                            .foregroundColor(.white)
+                                                            .clipShape(Capsule())
+                                                            .padding(6)
+                                                    }
+                                                }
+                                            }
+                                        )
+                                    }
                                 }
-                            } message: {
-                                Text("Themes are available for premium users only.")
                             }
-
-                            // Hidden NavigationLinks
-                            .navigationDestination(isPresented: $showThemes) {
-                                ProfileThemeView(coordinator: coordinator)
-                                    .environmentObject(authCoordinator)
-                            }
-                            .navigationDestination(isPresented: $showPremium) {
-                                PremiumView(coordinator: coordinator)
-                                    .environmentObject(authCoordinator)
-                            }
+                            .padding()
                         }
 
                         Spacer()
@@ -170,12 +206,40 @@ struct ProfileView: View {
                 ProgressView()
                     .progressViewStyle(.circular)
                 Text("Signing out…")
-                    .foregroundColor(AppColors.textDefault)
+                    .foregroundColor(themeManager.currentTheme.textDefault)
                     .padding(.top, 8)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.clear)
         }
+    }
+    
+    private func awaitSelectTheme(_ key: String) {
+        Task { await selectTheme(key) }
+    }
+
+    private func selectTheme(_ key: String) async {
+        guard var user = authCoordinator.currentUser else { return }
+        // If not premium and trying to select non-default, ignore
+        if !user.isPremium && key.lowercased() != (user.theme.lowercased()) && key.lowercased() != "classic" { return }
+        user = User(
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            isPremium: user.isPremium,
+            isImperial: user.isImperial,
+            theme: key,
+            emailVerifiedAt: user.emailVerifiedAt,
+            createdAt: user.createdAt,
+            updatedAt: Date()
+        )
+        await MainActor.run { authCoordinator.currentUser = user }
+        do {
+            try authCoordinator.userRepository.createOrUpdate(user)
+        } catch {
+            print("[ProfileView] Failed to persist theme:", error)
+        }
+        await MainActor.run { themeManager.update(for: user.theme) }
     }
 }
 
