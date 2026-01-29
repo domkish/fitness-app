@@ -66,6 +66,7 @@ struct WorkoutView: View {
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 12)
                                 .background(AppColors.surface)
+                                .foregroundColor(showLimitPopover ? AppColors.muted : AppColors.primary)
                                 .cornerRadius(8)
                         }
                         .accessibilityLabel("Add Workout Routine")

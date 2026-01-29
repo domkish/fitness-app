@@ -10,49 +10,51 @@ import Foundation
 struct ExerciseUnitPivotSeeder {
 
     static func seed(db: Database) throws {
-        // Prevent double seeding
+
         let count = try Int.fetchOne(
             db,
             sql: "SELECT COUNT(*) FROM exercise_unit_pivots"
         ) ?? 0
         guard count == 0 else { return }
 
-        // Fetch exercises
-        let exercises = try Row.fetchAll(
-            db,
-            sql: "SELECT id, name FROM exercises"
+        let exercises = try Row.fetchAll(db, sql: "SELECT id, name FROM exercises")
+        let units = try Row.fetchAll(db, sql: "SELECT id, name FROM units")
+
+        let exerciseMap = Dictionary(
+            uniqueKeysWithValues: exercises.map {
+                ($0["name"] as String, $0["id"] as Int)
+            }
         )
 
-        // Fetch relevant units
-        let distanceUnits = try Row.fetchAll(
-            db,
-            sql: "SELECT id, name FROM units WHERE name IN ('kilometer', 'meter', 'mile', 'yard')"
+        let unitMap = Dictionary(
+            uniqueKeysWithValues: units.map {
+                ($0["name"] as String, $0["id"] as Int)
+            }
         )
 
-        let weightUnits = try Row.fetchAll(
-            db,
-            sql: "SELECT id, name FROM units WHERE name IN ('kg', 'lbs')"
-        )
+        let distanceExercises: Set<String> = [
+            "Walking",
+            "Incline Walking",
+            "Running",
+            "Sprint",
+            "Cycling",
+            "Rowing"
+        ]
 
-        func unitId(named name: String, from units: [Row]) -> Int? {
-            units.first { $0["name"] as? String == name }?["id"]
-        }
+        let distanceUnits = ["kilometer", "meter", "mile", "yard"]
+        let weightUnits = ["kilograms", "pounds"]
 
-        // Define distance-related keywords
-        let distanceKeywords = ["run", "walk", "sprint", "cycle", "row", "jump"]
+        for (exerciseName, exerciseId) in exerciseMap {
 
-        for exercise in exercises {
-            let exerciseId: Int = exercise["id"]
-            let name = (exercise["name"] as String).lowercased()
+            let unitNames = distanceExercises.contains(exerciseName)
+                ? distanceUnits
+                : weightUnits
 
-            // Determine unit type
-            let isDistance = distanceKeywords.contains { name.contains($0) }
+            for unitName in unitNames {
+                guard let unitId = unitMap[unitName] else {
+                    fatalError("❌ Unit not found: \(unitName)")
+                }
 
-            let selectedUnits: [Row] = isDistance ? distanceUnits : weightUnits
-
-            // Insert pivot rows
-            for unit in selectedUnits {
-                let unitId: Int = unit["id"]
                 try db.execute(
                     sql: """
                     INSERT INTO exercise_unit_pivots
@@ -69,6 +71,6 @@ struct ExerciseUnitPivotSeeder {
             }
         }
 
-        print("🔗 Seeded exercise_unit_pivots pivot table.")
+        print("🔗 Seeded exercise_unit_pivots table.")
     }
 }

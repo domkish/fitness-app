@@ -54,6 +54,7 @@ struct ExerciseTagSeeder {
             ["name": "Full Body", "type": "Workout"],
             ["name": "Hiit", "type": "Workout"],
             ["name": "Recovery", "type": "Workout"],
+            ["name": "Cardio", "type": "Workout"],
         ]
 
         for tag in tags {

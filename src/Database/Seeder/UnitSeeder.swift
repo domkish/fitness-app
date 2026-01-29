@@ -26,8 +26,8 @@ struct UnitSeeder {
             ["type": 1, "name": "pounds", "abbreviation": "lbs"],
 
             // Volume
-            ["type": 0, "name": "liter", "abbreviation": "L"],
-            ["type": 1, "name": "gallon", "abbreviation": "gal"],
+            // ["type": 0, "name": "liter", "abbreviation": "L"],
+            // ["type": 1, "name": "gallon", "abbreviation": "gal"],
         ]
 
         // Insert units
