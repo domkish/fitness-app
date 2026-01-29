@@ -135,9 +135,16 @@ struct ProfileView: View {
                                 }
                                 let themes: [(key: String, title: String)] = [
                                     ("classic", "Classic"),
-                                    ("midnight", "Midnight")
+                                    ("midnight", "Midnight"),
+                                    ("neon", "Neon"),
+                                    ("luxury", "Luxury"),
+                                    ("arctic", "Arctic"),
+                                    ("sand", "Sand"),
+                                    ("forest", "Forest"),
+                                    ("gas", "Gas"),
+                                    ("lipstick", "Lipstick")
                                 ]
-                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 12)], spacing: 12) {
+                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 60), spacing: 12)], spacing: 12) {
                                     ForEach(themes, id: \.key) { item in
                                         let isSelected = (authCoordinator.currentUser?.theme.lowercased() == item.key)
                                         Button {
@@ -146,17 +153,12 @@ struct ProfileView: View {
                                             ZStack {
                                                 // Two-color swatch using themeManager.currentTheme.primary & themeManager.currentTheme.surface
                                                 RoundedRectangle(cornerRadius: 10)
-                                                    .fill(themeManager.currentTheme.surface)
+                                                    .fill(themeManager.currentTheme.borderDefault)
                                                 RoundedRectangle(cornerRadius: 10)
                                                     .trim(from: 0, to: 0.5)
                                                     .rotation(Angle(degrees: 180))
-                                                    .fill(themeManager.currentTheme.background)
+                                                    .fill(themeManager.currentTheme.primary)
                                                 VStack(spacing: 6) {
-                                                    Text(item.title)
-                                                        .font(.footnote)
-                                                        .bold()
-                                                        .foregroundColor(themeManager.currentTheme.textDefault)
-                                                        .shadow(color: themeManager.currentTheme.surface.opacity(0.35), radius: 2, x: 0, y: 1)
                                                     if isSelected {
                                                         Image(systemName: "checkmark.circle.fill")
                                                             .foregroundColor(themeManager.currentTheme.textDefault)
@@ -164,7 +166,7 @@ struct ProfileView: View {
                                                     }
                                                 }
                                             }
-                                            .frame(height: 80)
+                                            .frame(height: 60)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 10)
                                                     .stroke(isSelected ? Color.accentColor : themeManager.currentTheme.borderDefault, lineWidth: isSelected ? 2 : 1)
