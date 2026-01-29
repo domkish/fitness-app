@@ -91,6 +91,10 @@ final class AuthCoordinator: ObservableObject {
         self.goToLogin()
     }
 
+    func updateTheme(using themeManager: ThemeManager) {
+        themeManager.update(for: currentUser?.theme)
+    }
+
     // MARK: - Profile Updates
 
     /// Update local user only (SQLite), keeps isImperial
@@ -103,6 +107,7 @@ final class AuthCoordinator: ObservableObject {
             email: user.email,
             isPremium: user.isPremium,
             isImperial: isImperial, // local-only
+            theme: user.theme,
             emailVerifiedAt: user.emailVerifiedAt,
             createdAt: user.createdAt,
             updatedAt: Date()
@@ -133,6 +138,7 @@ final class AuthCoordinator: ObservableObject {
             email: updatedUser.email,
             isPremium: updatedUser.isPremium,
             isImperial: currentUser.isImperial, // local-only
+            theme: currentUser.theme,
             emailVerifiedAt: updatedUser.emailVerifiedAt,
             createdAt: updatedUser.createdAt,
             updatedAt: updatedUser.updatedAt

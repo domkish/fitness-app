@@ -9,6 +9,7 @@ import SwiftUI
 struct AppShellView: View {
     @StateObject private var coordinator = AppShellCoordinator()
     @State private var isMenuOpen = false
+    @StateObject private var themeManager = ThemeManager()
     @EnvironmentObject var authCoordinator: AuthCoordinator
     
     var body: some View {
@@ -83,6 +84,10 @@ struct AppShellView: View {
             }
             .animation(.easeInOut, value: isMenuOpen)
             .ignoresSafeArea()
+            .environmentObject(themeManager)
+            .onReceive(authCoordinator.$currentUser) {
+                themeManager.update(for: $0?.theme)
+            }
         }
     }
 
@@ -136,3 +141,4 @@ struct AppShellView: View {
         }
     }
 }
+

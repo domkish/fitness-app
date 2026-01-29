@@ -22,6 +22,7 @@ struct UserSeeder {
                 "email": "system@vsvault.io",
                 "is_premium": false,
                 "is_imperial": true,
+                "theme": "classic",
                 "email_verified_at": Date(),
                 "token": UUID().uuidString
             ]
@@ -32,9 +33,9 @@ struct UserSeeder {
             try db.execute(
                 sql: """
                 INSERT INTO users
-                (id, name, email, is_premium, is_imperial, email_verified_at, token, created_at, updated_at)
+                (id, name, email, is_premium, is_imperial, theme, email_verified_at, token, created_at, updated_at)
                 VALUES
-                (:id, :name, :email, :is_premium, :is_imperial, :email_verified_at, :token, :created_at, :updated_at)
+                (:id, :name, :email, :is_premium, :is_imperial, :theme, :email_verified_at, :token, :created_at, :updated_at)
                 """,
                 arguments: [
                     "id": user["id"] as! Int,
@@ -42,6 +43,7 @@ struct UserSeeder {
                     "email": user["email"] as! String,
                     "is_premium": user["is_premium"] as! Bool,
                     "is_imperial": user["is_imperial"] as! Bool,
+                    "theme": user["theme"] as! String,
                     "email_verified_at": user["email_verified_at"] as! Date,
                     "token": user["token"] as! String,
                     "created_at": Date(),
@@ -53,3 +55,4 @@ struct UserSeeder {
         print("📝 Seeded users table with \(users.count) record(s).")
     }
 }
+

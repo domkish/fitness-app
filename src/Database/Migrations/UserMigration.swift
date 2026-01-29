@@ -18,6 +18,7 @@ extension DatabaseMigrator {
                 t.column("email", .text).notNull().unique()
                 t.column("is_premium", .boolean).notNull()
                 t.column("is_imperial", .boolean).notNull().defaults(to: true)
+                t.column("theme", .text).notNull().defaults(to: "classic")
                 t.column("email_verified_at", .datetime)
                 t.column("token", .text)
                 t.softDeletes()
@@ -26,3 +27,4 @@ extension DatabaseMigrator {
         }
     }
 }
+

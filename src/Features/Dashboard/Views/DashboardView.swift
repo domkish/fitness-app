@@ -9,10 +9,15 @@ import SwiftUI
 struct DashboardView: View {
     @ObservedObject var coordinator: AppShellCoordinator
     @EnvironmentObject var authCoordinator: AuthCoordinator
+    @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
         if let user = authCoordinator.currentUser {
-            Text("Welcome, \(user.name)!")
+            ZStack {
+                themeManager.currentTheme.background.ignoresSafeArea()
+                Text("Welcome, \(user.name)!")
+                    .foregroundColor(themeManager.currentTheme.textDefault)
+            }
         } else {
             ProgressView()
         }

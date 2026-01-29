@@ -34,6 +34,7 @@ public struct UserRepository {
                 name: record.name,
                 email: record.email,
                 isPremium: record.isPremium,
+                theme: record.theme,
                 emailVerifiedAt: record.emailVerifiedAt,
                 createdAt: record.createdAt,
                 updatedAt: record.updatedAt
@@ -65,3 +66,4 @@ public struct UserRepository {
         }
     }
 }
+

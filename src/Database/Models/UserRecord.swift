@@ -16,6 +16,7 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
     var email: String
     var isPremium: Bool
     var isImperial: Bool
+    var theme: String
     var emailVerifiedAt: Date?
     var createdAt: Date
     var updatedAt: Date
@@ -27,6 +28,7 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
         static let email = Column("email")
         static let isPremium = Column("is_premium")
         static let isImperial = Column("is_imperial")
+        static let theme = Column("theme")
         static let emailVerifiedAt = Column("email_verified_at")
         static let createdAt = Column("created_at")
         static let updatedAt = Column("updated_at")
@@ -39,6 +41,7 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
         container[Columns.email] = email
         container[Columns.isPremium] = isPremium
         container[Columns.isImperial] = isImperial
+        container[Columns.theme] = theme
         container[Columns.emailVerifiedAt] = emailVerifiedAt
         container[Columns.createdAt] = createdAt
         container[Columns.updatedAt] = updatedAt
@@ -50,6 +53,7 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
         email = row[Columns.email]
         isPremium = row[Columns.isPremium]
         isImperial = row[Columns.isImperial] ?? true
+        theme = row[Columns.theme] ?? "classic"
         emailVerifiedAt = row[Columns.emailVerifiedAt]
         createdAt = row[Columns.createdAt]
         updatedAt = row[Columns.updatedAt]
@@ -61,10 +65,10 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
         email = user.email
         isPremium = user.isPremium
         isImperial = user.isImperial
+        theme = user.theme
         emailVerifiedAt = user.emailVerifiedAt
         createdAt = user.createdAt
         updatedAt = user.updatedAt
     }
 }
-
 

@@ -33,6 +33,7 @@ struct ProfileEditView: View {
                     email: "",
                     isPremium: false,
                     isImperial: false,
+                    theme: "classic",
                     emailVerifiedAt: nil,
                     createdAt: Date(),
                     updatedAt: Date()

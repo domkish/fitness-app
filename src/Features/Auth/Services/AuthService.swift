@@ -173,7 +173,8 @@ struct User: Decodable {
     let name: String
     let email: String
     let isPremium: Bool
-    var isImperial: Bool = true 
+    var isImperial: Bool = true
+    let theme: String
     let emailVerifiedAt: Date?
     let createdAt: Date
     let updatedAt: Date
@@ -183,6 +184,8 @@ struct User: Decodable {
         case name
         case email
         case isPremium = "is_premium"
+        case isImperial
+        case theme
         case emailVerifiedAt = "email_verified_at"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
