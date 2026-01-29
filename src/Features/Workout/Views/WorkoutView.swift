@@ -119,117 +119,118 @@ struct WorkoutView: View {
 
                     // Table container styled like ExerciseView
                     VStack(spacing: 0) {
-                        if isLoading {
-                            HStack { Spacer(); ProgressView(); Spacer() }
-                                .padding()
-                        } else if let errorMessage = errorMessage {
-                            VStack(spacing: 12) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.orange)
-                                    .imageScale(.large)
-                                Text(errorMessage)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal)
-                                Button("Retry") { Task { await loadWorkouts() } }
-                                    .buttonStyle(.bordered)
-                            }
-                            .padding()
-                        } else if workouts.isEmpty {
-                            VStack(spacing: 8) {
-                                Image(systemName: "dumbbell.fill")
-                                    .font(.system(size: 44))
-                                    .foregroundColor(.secondary)
-                                Text("No Workout Routines Yet")
-                                    .font(.title3).bold()
-                                Text("Tap + to add your first routine.")
-                                    .foregroundColor(.secondary)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                        } else {
-                            ScrollView {
-                                VStack(spacing: 10) {
-                                    ForEach(workouts, id: \._id) { workout in
-                                        let c = colorForKey(workout.color)
-                                        NavigationLink {
-                                            WorkoutInfoView(workoutId: workout.id)
-                                        } label: {
-                                            VStack(alignment: .leading, spacing: 8) {
-                                                HStack(spacing: 10) {
-                                                    Circle()
-                                                        .fill(c)
-                                                        .frame(width: 14, height: 14)
-                                                    Text(workout.name)
-                                                        .font(.headline)
-                                                        .foregroundColor(c)
-                                                    Spacer()
-                                                    Image(systemName: "chevron.right")
-                                                        .foregroundColor(c)
-                                                        .font(.headline)
-                                                }
-                                            }
-                                            .padding(12)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                            .background(
-                                                RoundedRectangle(cornerRadius: 6)
-                                                    .fill(c.opacity(0.1))
-                                            )
-                                        }
-                                        .buttonStyle(.plain)
+                        ScrollView {
+                            VStack(spacing: 10) {
+                                if isLoading {
+                                    HStack { Spacer(); ProgressView(); Spacer() }
+                                        .padding()
+                                } else if let errorMessage = errorMessage {
+                                    VStack(spacing: 12) {
+                                        Image(systemName: "exclamationmark.triangle.fill")
+                                            .foregroundColor(.orange)
+                                            .imageScale(.large)
+                                        Text(errorMessage)
+                                            .foregroundColor(.secondary)
+                                            .multilineTextAlignment(.center)
+                                            .padding(.horizontal)
+                                        Button("Retry") { Task { await loadWorkouts() } }
+                                            .buttonStyle(.bordered)
                                     }
+                                    .padding()
+                                } else if workouts.isEmpty {
+                                    VStack(spacing: 8) {
+                                        Image(systemName: "dumbbell.fill")
+                                            .font(.system(size: 44))
+                                            .foregroundColor(.secondary)
+                                        Text("No Workout Routines Yet")
+                                            .font(.title3).bold()
+                                        Text("Tap + to add your first routine.")
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                                } else {
+                                    VStack(spacing: 10) {
+                                        ForEach(workouts, id: \._id) { workout in
+                                            let c = colorForKey(workout.color)
+                                            NavigationLink {
+                                                WorkoutInfoView(workoutId: workout.id)
+                                            } label: {
+                                                VStack(alignment: .leading, spacing: 8) {
+                                                    HStack(spacing: 10) {
+                                                        Circle()
+                                                            .fill(c)
+                                                            .frame(width: 14, height: 14)
+                                                        Text(workout.name)
+                                                            .font(.headline)
+                                                            .foregroundColor(c)
+                                                        Spacer()
+                                                        Image(systemName: "chevron.right")
+                                                            .foregroundColor(c)
+                                                            .font(.headline)
+                                                    }
+                                                }
+                                                .padding(12)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 6)
+                                                        .fill(c.opacity(0.1))
+                                                )
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                    .padding(.horizontal)
+                                    .padding(.vertical, 8)
                                 }
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-                            }
-                        }
 
-                        // Always-visible dashed separator and info section
-                        // Dashed separator between table content and info section
-                        Capsule()
-                            .stroke(style: StrokeStyle(lineWidth: 4, dash: [6, 4]))
-                            .foregroundColor(AppColors.borderDefault)
-                            .frame(height: 1)
-                            .padding(.horizontal)
-                            .padding(.top, 28)
+                                // Dashed separator
+                                Capsule()
+                                    .stroke(style: StrokeStyle(lineWidth: 4, dash: [6, 4]))
+                                    .foregroundColor(AppColors.borderDefault)
+                                    .frame(height: 1)
+                                    .padding(.horizontal)
+                                    .padding(.top, 28)
 
-                        // Info section about Routines
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Text("What are Workout Routines?")
-                                    .font(.title3)
-                                    .bold()
-                                    .foregroundColor(AppColors.textDefault)
-                            }
-                    
-                            Text("Workout routines are fully customizable so you can build the perfect plan for your goals. Once you create a routine, it’ll be available to add to your workout calendar whenever you’re ready.")
-                                .font(.callout)
-                                .foregroundColor(AppColors.muted)
-                                .fixedSize(horizontal: false, vertical: true)
+                                // Info section
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                        Text("What are Workout Routines?")
+                                            .font(.title3)
+                                            .bold()
+                                            .foregroundColor(AppColors.textDefault)
+                                    }
                             
-                            (
-                                Text("Whether you’re setting up a standard workout with ") +
-                                Text("sets and reps").fontWeight(.heavy) +
-                                Text(", dialing in fast-paced ") +
-                                Text("circuit training").fontWeight(.heavy) +
-                                Text(", or pairing movements into ") +
-                                Text("supersets").fontWeight(.heavy) +
-                                Text(", we’ve got you covered. Mix and match exercises from our database or create your own to tailor every routine to you.")
-                            )
-                            .font(.callout)
-                            .foregroundColor(AppColors.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    
-                            HStack(alignment: .center, spacing: 10) {
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundColor(AppColors.secondary)
-                                Text("Tap the \"+\" above to create a routine — name it anything you like!")
+                                    Text("Workout routines are fully customizable so you can build the perfect plan for your goals. Once you create a routine, it’ll be available to add to your workout calendar whenever you’re ready.")
+                                        .font(.callout)
+                                        .foregroundColor(AppColors.muted)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    
+                                    (
+                                        Text("Whether you’re setting up a standard workout with ") +
+                                        Text("sets and reps").fontWeight(.heavy) +
+                                        Text(", dialing in fast-paced ") +
+                                        Text("circuit training").fontWeight(.heavy) +
+                                        Text(", or pairing movements into ") +
+                                        Text("supersets").fontWeight(.heavy) +
+                                        Text(", we’ve got you covered. Mix and match exercises from our database or create your own to tailor every routine to you.")
+                                    )
                                     .font(.callout)
                                     .foregroundColor(AppColors.muted)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            
+                                    HStack(alignment: .center, spacing: 10) {
+                                        Image(systemName: "plus.circle.fill")
+                                            .foregroundColor(AppColors.primary)
+                                        Text("Tap the \"+\" above to create a routine — name it anything you like!")
+                                            .font(.callout)
+                                            .foregroundColor(AppColors.muted)
+                                    }
+                                }
+                                .padding(16)
+                                .padding(.top, 6)
                             }
                         }
-                        .padding(16)
-                        .padding(.top, 6)
                     }
 
                 }
