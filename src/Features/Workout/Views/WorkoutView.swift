@@ -183,6 +183,53 @@ struct WorkoutView: View {
                                 .padding(.vertical, 8)
                             }
                         }
+
+                        // Always-visible dashed separator and info section
+                        // Dashed separator between table content and info section
+                        Capsule()
+                            .stroke(style: StrokeStyle(lineWidth: 4, dash: [6, 4]))
+                            .foregroundColor(AppColors.borderDefault)
+                            .frame(height: 1)
+                            .padding(.horizontal)
+                            .padding(.top, 28)
+
+                        // Info section about Routines
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text("What are Workout Routines?")
+                                    .font(.title3)
+                                    .bold()
+                                    .foregroundColor(AppColors.textDefault)
+                            }
+                    
+                            Text("Workout routines are fully customizable so you can build the perfect plan for your goals. Once you create a routine, it’ll be available to add to your workout calendar whenever you’re ready.")
+                                .font(.callout)
+                                .foregroundColor(AppColors.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                            
+                            (
+                                Text("Whether you’re setting up a standard workout with ") +
+                                Text("sets and reps").fontWeight(.heavy) +
+                                Text(", dialing in fast-paced ") +
+                                Text("circuit training").fontWeight(.heavy) +
+                                Text(", or pairing movements into ") +
+                                Text("supersets").fontWeight(.heavy) +
+                                Text(", we’ve got you covered. Mix and match exercises from our database or create your own to tailor every routine to you.")
+                            )
+                            .font(.callout)
+                            .foregroundColor(AppColors.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    
+                            HStack(alignment: .center, spacing: 10) {
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundColor(AppColors.secondary)
+                                Text("Tap the \"+\" above to create a routine — name it anything you like!")
+                                    .font(.callout)
+                                    .foregroundColor(AppColors.muted)
+                            }
+                        }
+                        .padding(16)
+                        .padding(.top, 6)
                     }
 
                 }
@@ -192,27 +239,55 @@ struct WorkoutView: View {
                 if isShowingAddPopup {
                     Color.black.opacity(0.4)
                         .ignoresSafeArea()
-                        .onTapGesture { withAnimation { isShowingAddPopup = false } }
+                        .onTapGesture { isShowingAddPopup = false }
 
                     VStack(spacing: 16) {
-                        Text("New Workout Routine").font(.headline)
+                        Text("New Routine")
+                            .font(.title3)
+                            .bold()
+
                         TextField("Routine name", text: $newWorkoutName)
-                            .textFieldStyle(.roundedBorder)
-                            .padding(.horizontal)
-                        HStack {
-                            Button("Cancel") { withAnimation { isShowingAddPopup = false } }
-                            Spacer()
-                            Button("Create") { Task { await createWorkoutAndDefaultBlock() } }
-                                .disabled(newWorkoutName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .padding(12)
+                            .background(AppColors.surface)
+                            .cornerRadius(8)
+                            .submitLabel(.done)
+                            .onSubmit {
+                                Task { await createWorkoutAndDefaultBlock() }
+                            }
+
+                        HStack(spacing: 16) {
+                            Button {
+                                isShowingAddPopup = false
+                                newWorkoutName = ""
+                            } label: {
+                                Text("Cancel")
+                                    .font(.headline)
+                                    .foregroundColor(AppColors.primary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(AppColors.surface)
+                                    .cornerRadius(8)
+                            }
+
+                            Button {
+                                Task { await createWorkoutAndDefaultBlock() }
+                            } label: {
+                                Text("Create")
+                                    .font(.headline)
+                                    .foregroundColor(AppColors.background)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(newWorkoutName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? AppColors.primary.opacity(0.5) : AppColors.primary)
+                                    .cornerRadius(8)
+                            }
+                            .disabled(newWorkoutName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
-                        .padding(.horizontal)
-                        .padding(.bottom, 8)
                     }
-                    .padding(.vertical, 20)
-                    .frame(maxWidth: 360)
-                    .background(AppColors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
+                    .padding(24)
+                    .background(AppColors.background)
+                    .cornerRadius(16)
+                    .padding(.horizontal, 40)
+                    .shadow(radius: 20)
                 }
             }
             .ignoresSafeArea(.keyboard, edges: .bottom)

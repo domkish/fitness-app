@@ -40,6 +40,7 @@ final class DatabaseService {
         migrator.registerWorkoutMigrations()
         migrator.registerWorkoutBlockMigrations()
         migrator.registerWorkoutExerciseMigrations()
+        migrator.registerTaskMigrations()
         
         // Run migrations
         try migrator.migrate(dbQueue)
