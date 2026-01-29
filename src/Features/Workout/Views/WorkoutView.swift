@@ -8,6 +8,7 @@ import GRDB
 
 struct WorkoutView: View {
     @ObservedObject var coordinator: AppShellCoordinator
+    @EnvironmentObject var authCoordinator: AuthCoordinator
 
     // Dependencies
     private let dbQueue = DatabaseQueueProvider.shared.dbQueue
@@ -24,6 +25,8 @@ struct WorkoutView: View {
     @State private var navigateToWorkoutId: Int64?
     @State private var shouldNavigateToDetail = false
     @State private var isPremiumUser: Bool = false
+    @State private var showLimitPopover: Bool = false
+    @State private var showPremium: Bool = false
 
     init(coordinator: AppShellCoordinator) {
         self.coordinator = coordinator
@@ -51,8 +54,8 @@ struct WorkoutView: View {
                         Button {
                             let maxWorkouts = isPremiumUser ? 20 : 4
                             if workouts.count >= maxWorkouts {
-                                // Provide lightweight feedback; you can replace with an alert if preferred
                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                showLimitPopover = true
                             } else {
                                 newWorkoutName = ""
                                 isShowingAddPopup = true
@@ -66,7 +69,29 @@ struct WorkoutView: View {
                                 .cornerRadius(8)
                         }
                         .accessibilityLabel("Add Workout Routine")
-                        .disabled(workouts.count >= (isPremiumUser ? 20 : 4))
+                        .popover(isPresented: $showLimitPopover) {
+                            VStack(alignment: .leading, spacing: 16) {
+                                if isPremiumUser {
+                                    Text("You have hit the max number of workout routines allowed. Please clean up your current list to add more.")
+                                        .foregroundColor(AppColors.textDefault)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                } else {
+                                    Text("You have hit the max number of workout routines allowed. Sign up for Premium to gain access up to 20 Workouts!.")
+                                        .foregroundColor(AppColors.textDefault)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    HStack {
+                                        Spacer()
+                                        Button("View Premium") {
+                                            showLimitPopover = false
+                                            showPremium = true
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                    }
+                                }
+                            }
+                            .padding()
+                            .frame(maxWidth: 360)
+                        }
                     }
                     .padding(.horizontal)
 
@@ -84,6 +109,12 @@ struct WorkoutView: View {
                         label: { EmptyView() }
                     )
                     .hidden()
+                    .background(EmptyView())
+
+                    .navigationDestination(isPresented: $showPremium) {
+                        PremiumView(coordinator: coordinator)
+                            .environmentObject(authCoordinator)
+                    }
 
                     // Table container styled like ExerciseView
                     VStack(spacing: 0) {
@@ -140,12 +171,8 @@ struct WorkoutView: View {
                                             .padding(12)
                                             .frame(maxWidth: .infinity, alignment: .leading)
                                             .background(
-                                                RoundedRectangle(cornerRadius: 0)
+                                                RoundedRectangle(cornerRadius: 6)
                                                     .fill(c.opacity(0.1))
-                                            )
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 0)
-                                                    .stroke(c.opacity(0.6), lineWidth: 1)
                                             )
                                         }
                                         .buttonStyle(.plain)

@@ -31,4 +31,5 @@ struct AppColors {
     static let warning = Color("Warning")
     static let error = Color("Error")
     static let important = Color("Important")
+    static let pink = Color("Pink")
 }

@@ -196,6 +196,16 @@ final class WorkoutRepository {
         }
     }
 
+    /// Soft-delete a workout block by setting deleted_at
+    func softDeleteBlock(id blockId: Int64) throws {
+        try dbQueue.write { db in
+            if var rec = try WorkoutBlockRecord.fetchOne(db, key: blockId) {
+                rec.deletedAt = Date()
+                try rec.update(db)
+            }
+        }
+    }
+
     // MARK: - Exercises in Blocks
     struct ExerciseInBlockRow: FetchableRecord, Decodable { let id: Int64; let exerciseId: Int64; let name: String; let blockId: Int64; let sortOrder: Int; let unit: String? }
 

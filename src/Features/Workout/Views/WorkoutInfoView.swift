@@ -357,7 +357,6 @@ struct WorkoutInfoView: View {
                             .padding()
                             .background(AppColors.surface)
                             .cornerRadius(16)
-                            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                         }
                         .disabled(currentBlocks >= maxBlocks)
                         .alert("Block Limit Reached", isPresented: $showBlockLimitInfo) {
@@ -768,15 +767,16 @@ struct WorkoutInfoView: View {
     
     private func deleteBlockIfEmpty(_ blockId: Int64) async {
         do {
-            let deleted = try workoutRepo.deleteBlockIfEmpty(blockId: blockId)
-            if deleted {
-                await loadBlocks()
-            } else {
-                // Optionally show a message; keeping it quiet for now
+            // If block has exercises, do not delete
+            let hasExercises = (exercisesByBlock[blockId]?.isEmpty == false)
+            if hasExercises {
                 print("[WorkoutInfo] Cannot delete block: it has exercises.")
+                return
             }
+            try workoutRepo.softDeleteBlock(id: blockId)
+            await loadBlocks()
         } catch {
-            print("[WorkoutInfo] Failed to delete block: \(error)")
+            print("[WorkoutInfo] Failed to soft delete block: \(error)")
         }
     }
     
@@ -797,7 +797,7 @@ struct WorkoutInfoView: View {
     private func deleteRoutine() async {
         guard let wid = workoutId else { return }
         do {
-            try workoutRepo.delete(id: wid)
+            try workoutRepo.softDelete(id: wid)
             await MainActor.run {
                 dismiss()
             }

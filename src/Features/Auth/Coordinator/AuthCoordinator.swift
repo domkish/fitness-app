@@ -83,6 +83,14 @@ final class AuthCoordinator: ObservableObject {
         }
     }
 
+    // MARK: - Logout
+    func logout() {
+        // Purely local logout: do not modify SQLite or repository
+        TokenStore.token = nil
+        self.currentUser = nil
+        self.goToLogin()
+    }
+
     // MARK: - Profile Updates
 
     /// Update local user only (SQLite), keeps isImperial

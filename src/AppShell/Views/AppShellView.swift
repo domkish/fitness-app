@@ -77,7 +77,7 @@ struct AppShellView: View {
                     currentStep: $coordinator.currentStep,
                     isMenuOpen: $isMenuOpen
                 )
-                .frame(width: geo.size.width * 0.8)
+                .frame(width: geo.size.width * 0.75)
                 .frame(maxHeight: .infinity, alignment: .topLeading)
                 .offset(x: isMenuOpen ? 0 : -geo.size.width)
             }

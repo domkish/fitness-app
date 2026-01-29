@@ -53,6 +53,80 @@ struct SideMenuView: View {
             )
 
             Spacer()
+
+            // Go Premium button pinned at bottom
+            Button {
+                withAnimation(.easeInOut) {
+                    currentStep = .premium
+                    isMenuOpen = false
+                }
+            } label: {
+                let cornerRadius: CGFloat = 16
+                let baseShape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+                ZStack {
+                    // Base shape fill (transparent) constrained to fixed height
+                    baseShape
+                        .fill(Color.clear)
+                        .frame(height: 44)
+
+                    // Corner-blended gradients layer (clipped to shape)
+                    ZStack {
+                        RadialGradient(
+                            gradient: Gradient(colors: [AppColors.error, AppColors.error.opacity(0.0)]),
+                            center: .topLeading,
+                            startRadius: 0,
+                            endRadius: 200
+                        )
+                        RadialGradient(
+                            gradient: Gradient(colors: [ AppColors.primary,  AppColors.primary.opacity(0.0)]),
+                            center: .bottomLeading,
+                            startRadius: 0,
+                            endRadius: 200
+                        )
+                        RadialGradient(
+                            gradient: Gradient(colors: [AppColors.important, AppColors.important.opacity(0.0)]),
+                            center: .bottomTrailing,
+                            startRadius: 0,
+                            endRadius: 200
+                        )
+                    }
+                    .clipShape(baseShape)
+                    .frame(height: 44)
+                    .compositingGroup()
+                    .blendMode(.plusLighter)
+
+                    // White border
+                    baseShape
+                        .stroke(AppColors.important, lineWidth: 2)
+                        .frame(height: 44)
+
+                    // Rainbow glow (soft per-color glows)
+                    baseShape
+                        .stroke(AppColors.pink.opacity(0.9), lineWidth: 2)
+                        .frame(height: 44)
+                        .shadow(color: AppColors.success.opacity(0.9), radius: 12)
+                        .shadow(color: AppColors.error.opacity(0.9), radius: 12)
+                        .shadow(color: AppColors.pink.opacity(0.9), radius: 12)
+                    
+                    // Content
+                    HStack(spacing: 12) {
+                        Image(systemName: "sparkles")
+                            .foregroundColor(.white)
+                            .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+                        Text("Go Premium")
+                            .font(.headline)
+                            .bold()
+                            .foregroundColor(.white)
+                            .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+                    }
+                    .padding(.horizontal, 12)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -83,5 +157,4 @@ struct SideMenuView: View {
         }
     }
 }
-
 
