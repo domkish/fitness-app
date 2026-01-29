@@ -342,27 +342,28 @@ struct WorkoutInfoView: View {
 
                         let maxBlocks = isPremiumUser ? 5 : 2
                         let currentBlocks = blocks.count
-                        Button {
-                            if currentBlocks >= maxBlocks {
-                                showBlockLimitInfo = true
-                            } else {
-                                Task { await addBlock() }
+                        HStack {
+                            Spacer()
+                            Button {
+                                if currentBlocks >= maxBlocks {
+                                    showBlockLimitInfo = true
+                                } else {
+                                    Task { await addBlock() }
+                                }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus")
+                                    Text("Block").bold()
+                                }
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 10)
                             }
-                        } label: {
-                            HStack {
-                                Image(systemName: "plus")
-                                Text("Add Block").bold()
-                                Spacer()
+                            .disabled(currentBlocks >= maxBlocks)
+                            .alert("Block Limit Reached", isPresented: $showBlockLimitInfo) {
+                                Button("OK", role: .cancel) {}
+                            } message: {
+                                Text("You've reached the maximum of \(maxBlocks) blocks for this routine. Upgrade to premium for higher limits.")
                             }
-                            .padding()
-                            .background(AppColors.surface)
-                            .cornerRadius(16)
-                        }
-                        .disabled(currentBlocks >= maxBlocks)
-                        .alert("Block Limit Reached", isPresented: $showBlockLimitInfo) {
-                            Button("OK", role: .cancel) {}
-                        } message: {
-                            Text("You've reached the maximum of \(maxBlocks) blocks for this routine. Upgrade to premium for higher limits.")
                         }
                     }
                     .padding(.horizontal)
@@ -540,7 +541,7 @@ struct WorkoutInfoView: View {
         guard let workoutId = workoutId else { return }
         do {
             let recs = try workoutRepo.fetchBlocks(forWorkoutId: workoutId)
-            self.blocks = recs
+            self.blocks = recs.filter { $0.deletedAt == nil }
             var newCache: [Int64: String] = [:]
             for b in self.blocks {
                 if let bid = b.id {
@@ -766,17 +767,26 @@ struct WorkoutInfoView: View {
     }
     
     private func deleteBlockIfEmpty(_ blockId: Int64) async {
+        print("[WorkoutInfo] Attempting delete for blockId:", blockId,
+              "exCount:", exercisesByBlock[blockId]?.count ?? -1,
+              "blocks:", blocks.count)
+        let hasExercises = (exercisesByBlock[blockId]?.isEmpty == false)
+        if hasExercises {
+            print("[WorkoutInfo] Cannot delete block: it has exercises.")
+            return
+        }
+
         do {
-            // If block has exercises, do not delete
-            let hasExercises = (exercisesByBlock[blockId]?.isEmpty == false)
-            if hasExercises {
-                print("[WorkoutInfo] Cannot delete block: it has exercises.")
-                return
-            }
             try workoutRepo.softDeleteBlock(id: blockId)
+            print("[WorkoutInfo] softDeleteBlock OK")
             await loadBlocks()
+            await loadExercisesForBlocks()
+            await MainActor.run {
+                isUserEdited = true
+                scheduleAutosave()
+            }
         } catch {
-            print("[WorkoutInfo] Failed to soft delete block: \(error)")
+            print("[WorkoutInfo] Failed to soft delete block:", error)
         }
     }
     
