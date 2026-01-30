@@ -29,6 +29,9 @@ struct WorkoutView: View {
     @State private var showLimitPopover: Bool = false
     @State private var showPremium: Bool = false
 
+    private enum TopSegment: Hashable { case routines, exercises }
+    @State private var topSegmentSelection: TopSegment = .routines
+
     init(coordinator: AppShellCoordinator) {
         self.coordinator = coordinator
         let db = DatabaseQueueProvider.shared.dbQueue
@@ -43,7 +46,45 @@ struct WorkoutView: View {
                 themeManager.currentTheme.background.ignoresSafeArea()
 
                 VStack(spacing: 30) {
-                    Spacer().frame(height: 100)
+
+                    // Top segmented navigation between Routines and Exercises (custom segmented control)
+                    HStack(spacing: 6) {
+                        let isRoutines = (topSegmentSelection == .routines)
+                        Button {
+                            topSegmentSelection = .routines
+                            coordinator.currentStep = .workout
+                        } label: {
+                            Text("Routines")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(isRoutines ? themeManager.currentTheme.background : themeManager.currentTheme.textDefault)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(isRoutines ? themeManager.currentTheme.primary : themeManager.currentTheme.surface)
+                                )
+                        }
+
+                        Button {
+                            topSegmentSelection = .exercises
+                            coordinator.currentStep = .exercise
+                        } label: {
+                            Text("Exercises")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(!isRoutines ? themeManager.currentTheme.background : themeManager.currentTheme.textDefault)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(!isRoutines ? themeManager.currentTheme.primary : themeManager.currentTheme.surface)
+                                )
+                        }
+                    }
+                    .padding(.horizontal)
+                    .onAppear {
+                        // Initialize from coordinator on first appear
+                        topSegmentSelection = (coordinator.currentStep == .exercise) ? .exercises : .routines
+                    }
 
                     // Header with Add button (constrained to same horizontal padding as table)
                     HStack {
@@ -121,7 +162,6 @@ struct WorkoutView: View {
 
                     // Table container styled like ExerciseView
                     VStack(spacing: 0) {
-                        ScrollView {
                             VStack(spacing: 10) {
                                 if isLoading {
                                     HStack { Spacer(); ProgressView(); Spacer() }
@@ -132,9 +172,9 @@ struct WorkoutView: View {
                                             .foregroundColor(.orange)
                                             .imageScale(.large)
                                         Text(errorMessage)
-                                            .foregroundColor(.secondary)
                                             .multilineTextAlignment(.center)
                                             .padding(.horizontal)
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
                                         Button("Retry") { Task { await loadWorkouts() } }
                                             .buttonStyle(.bordered)
                                     }
@@ -234,7 +274,6 @@ struct WorkoutView: View {
                                 .padding(16)
                                 .padding(.top, 6)
                             }
-                        }
                     }
 
                 }

@@ -16,10 +16,10 @@ struct ProfilePasswordView: View {
 
     init(coordinator: AppShellCoordinator) {
         self.coordinator = coordinator
-        let tempDBQueue = try! DatabaseQueue() // in-memory DB for initialization
-        let tempUserRepo = UserRepository(dbQueue: tempDBQueue)
-        let tempAuthService = AuthService(userRepository: tempUserRepo)
-        _viewModel = StateObject(wrappedValue: ProfilePasswordViewModel(authService: tempAuthService))
+        let db = DatabaseQueueProvider.shared.dbQueue
+        let userRepo = UserRepository(dbQueue: db)
+        let authService = AuthService(userRepository: userRepo)
+        _viewModel = StateObject(wrappedValue: ProfilePasswordViewModel(authService: authService))
     }
 
     var body: some View {

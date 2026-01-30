@@ -18,11 +18,10 @@ struct ProfileView: View {
     
     var body: some View {
         if let user = authCoordinator.currentUser {
-            NavigationStack {
-                ScrollView {
-                    VStack(spacing: 30) {
-                        Spacer().frame(height: 70)
+            ZStack {
+                themeManager.currentTheme.background.ignoresSafeArea()
 
+                    VStack() {
                         // MARK: - User Info Card
                         VStack(alignment: .leading, spacing: 15) {
                             HStack {
@@ -149,29 +148,32 @@ struct ProfileView: View {
                                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 60), spacing: 12)], spacing: 12) {
                                     ForEach(themes, id: \.key) { item in
                                         let isSelected = (authCoordinator.currentUser?.theme.lowercased() == item.key)
+                                        let swatchTheme = ThemeManager.resolve(item.key)
                                         Button {
                                             awaitSelectTheme(item.key)
                                         } label: {
                                             ZStack {
-                                                // Two-color swatch using themeManager.currentTheme.primary & themeManager.currentTheme.surface
+                                                // Two-color swatch using swatchTheme.primary & swatchTheme.surface
+                                                // Base color (bottom-right)
                                                 RoundedRectangle(cornerRadius: 10)
-                                                    .fill(themeManager.currentTheme.borderDefault)
+                                                    .fill(swatchTheme.surface)
+
+                                                // Diagonal overlay (top-left)
                                                 RoundedRectangle(cornerRadius: 10)
-                                                    .trim(from: 0, to: 0.5)
-                                                    .rotation(Angle(degrees: 180))
-                                                    .fill(themeManager.currentTheme.primary)
+                                                    .fill(swatchTheme.primary)
+                                                    .mask(DiagonalTriangle())
                                                 VStack(spacing: 6) {
                                                     if isSelected {
                                                         Image(systemName: "checkmark.circle.fill")
-                                                            .foregroundColor(themeManager.currentTheme.textDefault)
-                                                            .shadow(color: themeManager.currentTheme.surface.opacity(0.35), radius: 2, x: 0, y: 1)
+                                                            .foregroundColor(swatchTheme.textDefault)
+                                                            .shadow(color: swatchTheme.surface.opacity(0.35), radius: 2, x: 0, y: 1)
                                                     }
                                                 }
                                             }
                                             .frame(height: 60)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 10)
-                                                    .stroke(isSelected ? Color.accentColor : themeManager.currentTheme.borderDefault, lineWidth: isSelected ? 2 : 1)
+                                                    .stroke(isSelected ? Color.accentColor : swatchTheme.borderDefault, lineWidth: isSelected ? 2 : 1)
                                             )
                                         }
                                         .buttonStyle(.plain)
@@ -202,7 +204,6 @@ struct ProfileView: View {
                         Spacer()
                     }
                     .padding()
-                }
             }
         } else {
             // Lightweight placeholder when user is nil (e.g., during logout)
@@ -214,7 +215,6 @@ struct ProfileView: View {
                     .padding(.top, 8)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.clear)
         }
     }
     
@@ -240,10 +240,23 @@ struct ProfileView: View {
         await MainActor.run { authCoordinator.currentUser = user }
         do {
             try authCoordinator.userRepository.createOrUpdate(user)
+            // Reassert current user id to preserve scoping for repositories after theme change
+            authCoordinator.userRepository.setCurrentUserId(user.id)
         } catch {
             print("[ProfileView] Failed to persist theme:", error)
         }
         await MainActor.run { themeManager.update(for: user.theme) }
+    }
+}
+
+struct DiagonalTriangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }
 

@@ -44,7 +44,6 @@ struct TaskView: View {
                     .ignoresSafeArea()
                 
                 VStack(spacing: 30) {
-                    Spacer().frame(height: 100)
                     
                     HStack {
                         Text("Weekly Tasks")

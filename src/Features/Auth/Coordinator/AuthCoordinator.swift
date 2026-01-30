@@ -15,6 +15,8 @@ final class AuthCoordinator: ObservableObject {
         didSet {
             // Broadcast theme change so app root can react immediately if needed
             NotificationCenter.default.post(name: .userThemeDidChange, object: currentUser?.theme)
+            // Persist current user id so repositories continue to scope correctly
+            userRepository.setCurrentUserId(currentUser?.id)
         }
     }
 

@@ -9,6 +9,18 @@ import SwiftUI
 import GRDB
 import Combine
 
+private enum AuthCoordinatorPlaceholder {
+    static let shared: AuthCoordinator = {
+        // This placeholder should never be used; it will be replaced in onAppear.
+        // Construct a minimal, inert coordinator using the already-migrated shared dbQueue to avoid in-memory DBs.
+        let db = DatabaseQueueProvider.shared.dbQueue
+        let userRepo = UserRepository(dbQueue: db)
+        let authService = AuthService(userRepository: userRepo)
+        let coord = AuthCoordinator(authService: authService, userRepository: userRepo)
+        return coord
+    }()
+}
+
 struct ProfileEditView: View {
     @ObservedObject var coordinator: AppShellCoordinator
     @EnvironmentObject private var themeManager: ThemeManager
@@ -20,11 +32,6 @@ struct ProfileEditView: View {
     // MARK: - Init
     init(coordinator: AppShellCoordinator) {
         self.coordinator = coordinator
-        // Temporary lightweight coordinator just to satisfy the initializer; real one provided via EnvironmentObject onAppear
-        let tempDBQueue = try! DatabaseQueue() // in-memory
-        let tempUserRepo = UserRepository(dbQueue: tempDBQueue)
-        let tempAuthService = AuthService(userRepository: tempUserRepo)
-        let tempAuthCoordinator = AuthCoordinator(authService: tempAuthService, userRepository: tempUserRepo)
 
         _viewModel = StateObject(
             wrappedValue: ProfileEditViewModel(
@@ -33,13 +40,13 @@ struct ProfileEditView: View {
                     name: "",
                     email: "",
                     isPremium: false,
-                    isImperial: false,
+                    isImperial: true,
                     theme: "classic",
                     emailVerifiedAt: nil,
                     createdAt: Date(),
                     updatedAt: Date()
                 ),
-                authCoordinator: tempAuthCoordinator
+                authCoordinator: AuthCoordinatorPlaceholder.shared
             )
         )
     }

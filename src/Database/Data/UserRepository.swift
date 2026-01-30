@@ -46,16 +46,22 @@ public struct UserRepository {
     func setCurrentUserId(_ id: Int?) {
         if let id = id {
             UserDefaults.standard.set(id, forKey: currentUserKey)
+            print("[UserRepository] setCurrentUserId ->", id)
         } else {
             UserDefaults.standard.removeObject(forKey: currentUserKey)
+            print("[UserRepository] setCurrentUserId -> nil (removed)")
         }
     }
 
-    /// Create or update user
+    /// Create or update user without using REPLACE to avoid ON DELETE CASCADE effects
     func createOrUpdate(_ user: User) throws {
         try dbQueue.write { db in
-            try UserRecord(from: user)
-                .insert(db, onConflict: .replace)
+            var record = UserRecord(from: user)
+            if try UserRecord.fetchOne(db, key: record.id) != nil {
+                try record.update(db) // UPDATE existing row
+            } else {
+                try record.insert(db) // INSERT new row
+            }
         }
     }
 

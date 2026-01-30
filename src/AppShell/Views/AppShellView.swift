@@ -1,145 +1,98 @@
-//
-//  AppShellView.swift
-//  fitness-app
-//
-//  Created by Dominic Kish on 1/25/26.
-//
 import SwiftUI
 
 struct AppShellView: View {
     @StateObject private var coordinator = AppShellCoordinator()
-    @State private var isMenuOpen = false
     @EnvironmentObject var authCoordinator: AuthCoordinator
     @EnvironmentObject var themeManager: ThemeManager
-    
+
+    // Tab selection mapped to existing coordinator steps
+    private enum Tab: Hashable {
+        case home
+        case calendar
+        case tasks
+        case routines
+        case profile
+    }
+
+    @State private var selectedTab: Tab = .home
+
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .topLeading) {
-
-                // Main content
-                contentView
-                    .frame(width: geo.size.width, height: geo.size.height)
-
-                // Top-left controls (Hamburger + Profile)
-                HStack {
-                    // Hamburger (left)
-                    Button {
-                        withAnimation(.easeInOut) {
-                            isMenuOpen.toggle()
-                        }
-                    } label: {
-                        VStack(spacing: 6) {
-                            ForEach(0..<3, id: \.self) { _ in
-                                Rectangle()
-                                    .fill(themeManager.currentTheme.textDefault)
-                                    .frame(width: 25, height: 3)
-                                    .cornerRadius(1.5)
-                            }
-                        }
-                        .padding(8)
-                    }
-
-                    Spacer()
-
-                    // Profile (right)
-                    Button {
-                        withAnimation(.easeInOut) {
-                            isMenuOpen = false
-                            coordinator.currentStep = .profile
-                        }
-                    } label: {
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 34))
-                            .foregroundColor(themeManager.currentTheme.textDefault)
-                            .padding(6)
-                            .clipShape(Circle())
-                    }
+        TabView(selection: $selectedTab) {
+            // Home (Dashboard)
+            DashboardView(coordinator: coordinator)
+                .tabItem {
+                    Label("Home", systemImage: "house.fill")
                 }
-                .frame(maxWidth: .infinity) // 👈 this is key
-                .padding(.top, geo.safeAreaInsets.top + 60)
-                .padding(.horizontal, 20)
+                .tag(Tab.home)
 
-                // Dimmed background when menu is open
-                if isMenuOpen {
-                    Color.black.opacity(0.4)
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            withAnimation(.easeInOut) {
-                                isMenuOpen = false
-                            }
-                        }
+            // Calendar
+            CalendarView(coordinator: coordinator)
+                .tabItem {
+                    Label("Calendar", systemImage: "calendar")
                 }
+                .tag(Tab.calendar)
 
-                // Side Menu
-                SideMenuView(
-                    currentStep: $coordinator.currentStep,
-                    isMenuOpen: $isMenuOpen
-                )
-                .frame(width: geo.size.width * 0.75)
-                .frame(maxHeight: .infinity, alignment: .topLeading)
-                .offset(x: isMenuOpen ? 0 : -geo.size.width)
+            // Tasks
+            TaskView(coordinator: coordinator)
+                .tabItem {
+                    Label("Tasks", systemImage: "checklist")
+                }
+                .tag(Tab.tasks)
+
+            // Routines (Workout Routines) – stable container to avoid root replacement
+            RoutinesContainerView(coordinator: coordinator)
+                .tabItem {
+                    Label("Routines", systemImage: "figure.strengthtraining.traditional")
+                }
+                .tag(Tab.routines)
+
+            // Profile
+            ProfileView(coordinator: coordinator)
+                .tabItem {
+                    Label("Profile", systemImage: "person.crop.circle")
+                }
+                .tag(Tab.profile)
+        }
+        .onChange(of: selectedTab) { _, newValue in
+            // Keep coordinator step in sync with selected tab
+            switch newValue {
+            case .home: coordinator.currentStep = .dashboard
+            case .calendar: coordinator.currentStep = .calendar
+            case .tasks: coordinator.currentStep = .task
+            case .routines:
+                if coordinator.currentStep != .exercise && coordinator.currentStep != .workout {
+                    coordinator.currentStep = .workout
+                }
+            case .profile: coordinator.currentStep = .profile
             }
-            .animation(.easeInOut, value: isMenuOpen)
-            .ignoresSafeArea()
-            .onReceive(authCoordinator.$currentUser) {
-                themeManager.update(for: $0?.theme)
+        }
+        .onChange(of: coordinator.currentStep) { _, newStep in
+            // Keep selected tab in sync if navigation occurs elsewhere
+            switch newStep {
+            case .dashboard: selectedTab = .home
+            case .calendar: selectedTab = .calendar
+            case .task: selectedTab = .tasks
+            case .workout, .session: selectedTab = .routines
+            case .profileEdit, .profilePassword: selectedTab = .profile
+            case .profile: selectedTab = .profile
+            case .exercise: selectedTab = .routines
+            case .premium: break // premium can present modally from within tabs as needed
             }
         }
     }
+}
 
-    // MARK: - Content Router
-    @ViewBuilder
-    private var contentView: some View {
-        switch coordinator.currentStep {
-        case .dashboard:
-            DashboardView(coordinator: coordinator)
-                .environmentObject(themeManager)
-                .environmentObject(authCoordinator)
-
-        case .calendar:
-            CalendarView(coordinator: coordinator)
-                .environmentObject(themeManager)
-                .environmentObject(authCoordinator)
-
-        case .exercise:
-            ExerciseView(coordinator: coordinator)
-                .environmentObject(themeManager)
-                .environmentObject(authCoordinator)
-
-        case .workout:
-            WorkoutView(coordinator: coordinator)
-                .environmentObject(themeManager)
-                .environmentObject(authCoordinator)
-
-        case .session:
-            SessionView(coordinator: coordinator)
-                .environmentObject(themeManager)
-                .environmentObject(authCoordinator)
-
-        case .profile:
-            ProfileView(coordinator: coordinator)
-                .environmentObject(themeManager)
-                .environmentObject(authCoordinator)
-            
-        case .profileEdit:
-            ProfileEditView(coordinator: coordinator)
-                .environmentObject(themeManager)
-                .environmentObject(authCoordinator)
-            
-        case .profilePassword:
-            ProfilePasswordView(coordinator: coordinator)
-                .environmentObject(themeManager)
-                .environmentObject(authCoordinator)
-            
-        case .task:
-            TaskView(coordinator: coordinator)
-                .environmentObject(themeManager)
-                .environmentObject(authCoordinator)
-            
-        case .premium:
-            PremiumView(coordinator: coordinator)
-                .environmentObject(themeManager)
-                .environmentObject(authCoordinator)
+struct RoutinesContainerView: View {
+    @ObservedObject var coordinator: AppShellCoordinator
+    @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var authCoordinator: AuthCoordinator
+    var body: some View {
+        Group {
+            if coordinator.currentStep == .exercise {
+                ExerciseView(coordinator: coordinator)
+            } else {
+                WorkoutView(coordinator: coordinator)
+            }
         }
     }
 }

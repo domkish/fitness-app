@@ -7,6 +7,7 @@
 
 import SwiftUI
 import GRDB
+import UIKit
 
 @main
 struct fitness_appApp: App {
@@ -25,7 +26,7 @@ struct fitness_appApp: App {
             )
             let dbURL = supportURL.appendingPathComponent("fitness.sqlite")
             let dbService = try DatabaseService(path: dbURL.path)
-            try dbService.setupDatabase(resetFirst: true) // resetFirst: false
+            try dbService.setupDatabase(resetFirst: false) // resetFirst: false
             dbQueue = dbService.dbQueue
             DatabaseQueueProvider.shared.dbQueue = dbQueue
             
@@ -57,8 +58,13 @@ struct fitness_appApp: App {
                     .environmentObject(themeManager)
                     .statusBar(hidden: false)
             }
+            .tint(themeManager.currentTheme.primary)
+            .onAppear {
+                configureTabBarAppearance(with: uiColor(from: themeManager.currentTheme.primary))
+            }
             .onReceive(authCoordinator.$currentUser) { user in
                 themeManager.update(for: user?.theme)
+                configureTabBarAppearance(with: uiColor(from: themeManager.currentTheme.primary))
             }
             .onReceive(NotificationCenter.default.publisher(for: .userThemeDidChange)) { note in
                 if let key = note.object as? String {
@@ -66,8 +72,40 @@ struct fitness_appApp: App {
                 } else {
                     themeManager.update(for: authCoordinator.currentUser?.theme)
                 }
+                configureTabBarAppearance(with: uiColor(from: themeManager.currentTheme.primary))
             }
         }
+    }
+
+    private func configureTabBarAppearance(with tint: UIColor) {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        // Optionally set a stable background color to avoid material transitions
+        // appearance.backgroundColor = .systemBackground
+
+        UITabBar.appearance().standardAppearance = appearance
+        if #available(iOS 15.0, *) {
+            UITabBar.appearance().scrollEdgeAppearance = appearance
+        }
+
+        // Set global tint colors for selected and unselected items
+        UITabBar.appearance().tintColor = tint
+        UITabBar.appearance().unselectedItemTintColor = tint.withAlphaComponent(0.6)
+
+        // Optionally set title text attributes globally for tab bar items
+        let normalAttributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: tint.withAlphaComponent(0.6)
+        ]
+        let selectedAttributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: tint
+        ]
+        UITabBarItem.appearance().setTitleTextAttributes(normalAttributes, for: .normal)
+        UITabBarItem.appearance().setTitleTextAttributes(selectedAttributes, for: .selected)
+    }
+
+    private func uiColor(from color: Color) -> UIColor {
+        // Use UIColor initializer that bridges from SwiftUI Color
+        return UIColor(color)
     }
 }
 
