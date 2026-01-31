@@ -12,6 +12,7 @@ struct CalendarView: View {
     @EnvironmentObject var authCoordinator: AuthCoordinator
 
     @State private var mode: Mode = .day
+    @State private var selectedDayDate: Date = Calendar.current.startOfDay(for: Date())
     private let calendarRepo = CalendarEntryRepository(
         dbQueue: DatabaseQueueProvider.shared.dbQueue
     )
@@ -44,9 +45,12 @@ struct CalendarView: View {
                 Group {
                     switch mode {
                     case .day:
-                        DayCalendarView(repository: calendarRepo)
+                        DayCalendarView(repository: calendarRepo, selectedDate: $selectedDayDate)
                     case .week:
-                        WeekCalendarView()
+                        WeekCalendarView(onSelectDate: { date in
+                            selectedDayDate = Calendar.current.startOfDay(for: date)
+                            mode = .day
+                        })
                     case .month:
                         MonthCalendarView()
                     }

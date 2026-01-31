@@ -376,5 +376,38 @@ final class WorkoutRepository {
             }
         }
     }
+
+    // MARK: - Tasks (Schedules)
+    struct TaskScheduleRow: FetchableRecord, Decodable { let id: Int64; let name: String; let sunday: Bool; let monday: Bool; let tuesday: Bool; let wednesday: Bool; let thursday: Bool; let friday: Bool; let saturday: Bool }
+    func activeTasks(on date: Date, userId: Int64) throws -> [TaskScheduleRow] {
+        try dbQueue.read { db in
+            let day = CalendarWorkout.dbString(from: date)
+            // Compute weekday index 1..7 (Sunday..Saturday)
+            let weekday = Calendar.current.component(.weekday, from: date)
+            // Build weekday filter SQL
+            let weekdayColumn: String
+            switch weekday {
+            case 1: weekdayColumn = "sunday"
+            case 2: weekdayColumn = "monday"
+            case 3: weekdayColumn = "tuesday"
+            case 4: weekdayColumn = "wednesday"
+            case 5: weekdayColumn = "thursday"
+            case 6: weekdayColumn = "friday"
+            case 7: weekdayColumn = "saturday"
+            default: weekdayColumn = "sunday"
+            }
+            let sql = """
+            SELECT id, name, sunday, monday, tuesday, wednesday, thursday, friday, saturday
+            FROM tasks
+            WHERE user_id = ?
+              AND deleted_at IS NULL
+              AND (started_at IS NULL OR date(started_at) <= date(?))
+              AND (ends_at IS NULL OR date(ends_at) >= date(?))
+              AND \(weekdayColumn) = 1
+            ORDER BY created_at ASC
+            """
+            return try TaskScheduleRow.fetchAll(db, sql: sql, arguments: [userId, day, day])
+        }
+    }
 }
 

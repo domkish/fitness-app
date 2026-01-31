@@ -14,12 +14,22 @@ struct DayCalendarView: View {
 
     let repository: CalendarEntryRepository
     let workoutRepository = CalendarWorkoutRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+    let taskRepository = CalendarTaskRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+    let workoutRepo = WorkoutRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
 
-    @State private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
+    @Binding var selectedDate: Date
     @State private var entry: CalendarEntryRecord?
     @State private var priorEntry: CalendarEntryRecord?
     @State private var showingCheckin = false
-    @State private var workouts: [CalendarWorkoutRecord] = []
+    @State private var workouts: [CalendarWorkoutRepository.ScheduledWorkoutRow] = []
+    @State private var dailyTasks: [CalendarTaskRecord] = []
+    @State private var scheduledTasks: [WorkoutRepository.TaskScheduleRow] = []
+
+    @State private var showingRoutinePicker = false
+    @State private var pendingWorkoutId: Int64?
+    @State private var pendingFrequency: Int?
+    @State private var showingFrequencyPicker = false
+    @State private var showingWeekdayPicker = false
 
     private var isTodayOrPast: Bool {
         let today = Calendar.current.startOfDay(for: Date())
@@ -68,7 +78,7 @@ struct DayCalendarView: View {
                 HStack {
                     Spacer()
                     if isTodayOrFuture {
-                        Button(action: { /* TODO: present add workout flow */ }) {
+                        Button(action: { showingRoutinePicker = true }) {
                             HStack(spacing: 6) {
                                 Image(systemName: "plus")
                                 Text("Workout")
@@ -77,21 +87,89 @@ struct DayCalendarView: View {
                     }
                 }
             }
+            .padding(.bottom, 16)
 
             if !workouts.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Scheduled Workouts")
-                        .font(.subheadline)
+                        .bold()
                         .foregroundColor(themeManager.currentTheme.textDefault)
+                        .padding(.bottom, 8)
                     ForEach(workouts, id: \.id) { w in
-                        HStack {
-                            Image(systemName: "figure.strengthtraining.traditional")
-                            Text("Workout #\(w.workoutId)")
+                        let c = colorForKey(w.workoutColor)
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(c)
+                                .frame(width: 14, height: 14)
+                            Text(w.workoutName)
+                                .font(.headline)
+                                .foregroundColor(c)
+                            Spacer()
                         }
-                        .padding(8)
+                        .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(c.opacity(0.1))
+                        )
+                    }
+                }
+                .padding(.bottom, 16)
+            }
+
+            if !dailyTasks.isEmpty || !scheduledTasks.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Tasks")
+                        .bold()
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+                        .padding(.bottom, 8)
+
+                    // Daily instances first (in creation order)
+                    ForEach(Array(dailyTasks.enumerated()), id: \.element.id) { index, t in
+                        VStack(spacing: 0) {
+                            Button {
+                                Task { await toggleTask(taskId: t.taskId) }
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Text(taskName(for: t.taskId))
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                    Spacer()
+                                    Image(systemName: t.isComplete ? "checkmark.square.fill" : "square")
+                                        .font(.system(size: 22, weight: .semibold))  // bigger checkbox
+                                        .foregroundColor(t.isComplete ? themeManager.currentTheme.primary : themeManager.currentTheme.muted)
+                                        .contentShape(Rectangle())
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding()
                         .background(themeManager.currentTheme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .cornerRadius(16)
+                        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                    }
+
+                    // Scheduled tasks that do not yet have a daily instance
+                    let pending = scheduledTasks.filter { hasDailyInstance(for: $0.id) == nil }
+                    ForEach(Array(pending.enumerated()), id: \.element.id) { index, s in
+                        VStack(spacing: 0) {
+                            Button {
+                                Task { await toggleTask(taskId: s.id) }
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Text(s.name)
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                    Spacer()
+                                    Image(systemName: "square")
+                                        .font(.system(size: 22, weight: .semibold))  // bigger checkbox
+                                        .foregroundColor(themeManager.currentTheme.muted)
+                                        .contentShape(Rectangle())
+                                }
+                            }
+                            .padding()
+                            .background(themeManager.currentTheme.surface)
+                            .cornerRadius(16)
+                            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                        }
                     }
                 }
             }
@@ -115,11 +193,55 @@ struct DayCalendarView: View {
             .environmentObject(themeManager)
             .environmentObject(authCoordinator)
         }
+        .sheet(isPresented: $showingRoutinePicker) {
+            RoutinePickerSheet { pickedId in
+                if pickedId <= 0 { showingRoutinePicker = false; return }
+                pendingWorkoutId = pickedId
+                showingRoutinePicker = false
+                // Next: frequency
+                showingFrequencyPicker = true
+            }
+            .environmentObject(themeManager)
+            .environmentObject(authCoordinator)
+        }
+        .sheet(isPresented: $showingFrequencyPicker) {
+            FrequencyPickerSheet { freq in
+                if let f = freq, f == -1 { showingFrequencyPicker = false; return }
+                pendingFrequency = (freq == -1 ? nil : freq) // normalize cancel
+                showingFrequencyPicker = false
+                if pendingFrequency == nil {
+                    Task { await createOneTimeCalendarWorkout() }
+                } else {
+                    showingWeekdayPicker = true
+                }
+            }
+            .environmentObject(themeManager)
+        }
+        .sheet(isPresented: $showingWeekdayPicker) {
+            let weekday = Calendar.current.component(.weekday, from: selectedDate)
+            WeekdayPickerSheet(initialSelectedWeekday: weekday) { days in
+                showingWeekdayPicker = false
+                Task { await createRepeatingCalendarWorkout(days: days) }
+            }
+            .environmentObject(themeManager)
+        }
     }
 
     private var checkinBackground: some View {
         let hasEntry = (entry != nil)
         return (hasEntry ? themeManager.currentTheme.important : themeManager.currentTheme.muted)
+    }
+
+    private func colorForKey(_ key: String?) -> Color {
+        switch key ?? "primary" {
+        case "primary": return themeManager.currentTheme.primary
+        case "secondary": return themeManager.currentTheme.secondary
+        case "success": return AppColors.success
+        case "warning": return AppColors.warning
+        case "error": return themeManager.currentTheme.error
+        case "important": return themeManager.currentTheme.important
+        default: return themeManager.currentTheme.primary
+        }
     }
 
     private func shiftDay(_ delta: Int) {
@@ -134,10 +256,85 @@ struct DayCalendarView: View {
             let id64 = Int64(userId)
             entry = try repository.entry(for: id64, on: selectedDate)
             priorEntry = try repository.mostRecentPriorEntry(before: selectedDate, userId: id64)
-            workouts = try workoutRepository.workouts(on: selectedDate, userId: id64)
+            workouts = try workoutRepository.workoutsWithDetails(on: selectedDate, userId: id64)
+            dailyTasks = try taskRepository.tasks(on: selectedDate, userId: id64)
+            scheduledTasks = try workoutRepo.activeTasks(on: selectedDate, userId: id64)
         } catch {
             print("[DayCalendarView] loadData error: \(error)")
         }
+    }
+
+    private func createOneTimeCalendarWorkout() async {
+        guard let userId = authCoordinator.currentUser?.id, let wid = pendingWorkoutId else { return }
+        let id64 = Int64(userId)
+        let day = Calendar.current.startOfDay(for: selectedDate)
+        let now = Date()
+        let domain = CalendarWorkout(
+            id: nil,
+            userId: id64,
+            workoutId: wid,
+            startsOn: day,
+            endsOn: day,
+            frequency: nil,
+            mon: false, tues: false, wed: false, thurs: false, fri: false, sat: false, sun: false,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: nil
+        )
+        do {
+            try workoutRepository.create(domain)
+            await loadData()
+        } catch {
+            print("[DayCalendarView] createOneTimeCalendarWorkout error: \(error)")
+        }
+        pendingWorkoutId = nil
+        pendingFrequency = nil
+    }
+
+    private func createRepeatingCalendarWorkout(days: (mon: Bool, tues: Bool, wed: Bool, thurs: Bool, fri: Bool, sat: Bool, sun: Bool)) async {
+        guard let userId = authCoordinator.currentUser?.id, let wid = pendingWorkoutId, let freq = pendingFrequency else { return }
+        let id64 = Int64(userId)
+        let day = Calendar.current.startOfDay(for: selectedDate)
+        let now = Date()
+        let domain = CalendarWorkout(
+            id: nil,
+            userId: id64,
+            workoutId: wid,
+            startsOn: day,
+            endsOn: nil,
+            frequency: freq,
+            mon: days.mon, tues: days.tues, wed: days.wed, thurs: days.thurs, fri: days.fri, sat: days.sat, sun: days.sun,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: nil
+        )
+        do {
+            try workoutRepository.create(domain)
+            await loadData()
+        } catch {
+            print("[DayCalendarView] createRepeatingCalendarWorkout error: \(error)")
+        }
+        pendingWorkoutId = nil
+        pendingFrequency = nil
+    }
+
+    private func hasDailyInstance(for taskId: Int64) -> CalendarTaskRecord? {
+        return dailyTasks.first { $0.taskId == taskId }
+    }
+
+    private func toggleTask(taskId: Int64) async {
+        guard let userId = authCoordinator.currentUser?.id else { return }
+        do {
+            _ = try taskRepository.toggleComplete(userId: Int64(userId), taskId: taskId, date: selectedDate)
+            await loadData()
+        } catch {
+            print("[DayCalendarView] toggleTask error: \(error)")
+        }
+    }
+
+    private func taskName(for taskId: Int64) -> String {
+        if let s = scheduledTasks.first(where: { $0.id == taskId }) { return s.name }
+        return "Task #\(taskId)"
     }
 }
 
@@ -157,14 +354,28 @@ struct DailyCheckinSheet: View {
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var localPhotoPath: String?
 
+    private var weightUnit: String {
+        authCoordinator.currentUser?.isImperial == true ? "lbs" : "kg"
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section("Metrics") {
-                    TextField("Body Weight", text: $weightText)
-                        .keyboardType(.decimalPad)
-                    TextField("Body Fat %", text: $bodyFatText)
-                        .keyboardType(.decimalPad)
+                    InputWithSuffixDecimal(
+                        title: "Body Weight",
+                        digits: $weightText,
+                        suffix: weightUnit,
+                        maxValue: 999.9,
+                        theme: themeManager
+                    )
+                    InputWithSuffixDecimal(
+                        title: "Body Fat %",
+                        digits: $bodyFatText,
+                        suffix: "%",
+                        maxValue: 99.9,
+                        theme: themeManager
+                    )
                 }
                 Section("Progress Photo") {
                     PhotosPicker(selection: $pickedPhoto, matching: .images) {
@@ -176,8 +387,12 @@ struct DailyCheckinSheet: View {
                 }
             }
             .onAppear(perform: prefill)
-            .onChange(of: pickedPhoto) { _, newValue in
-                Task { await savePickedPhoto(newValue) }
+            .onChange(of: existing?.id) { _, _ in
+                prefill()
+            }
+            .onChange(of: prior?.id) { _, _ in
+                // Only prefill remaining empty fields so we don't overwrite user edits.
+                prefill()
             }
             .navigationTitle("Daily Check‑in")
             .toolbar {
@@ -200,15 +415,15 @@ struct DailyCheckinSheet: View {
     private func prefill() {
         // Existing entry
         if let e = existing {
-            if let w = e.weight { weightText = String(w) }
-            if let bf = e.bodyFat { bodyFatText = String(bf) }
-            localPhotoPath = e.progressPhoto
+            if weightText.isEmpty, let w = e.weight { weightText = String(Int((w * 10.0).rounded())) }
+            if bodyFatText.isEmpty, let bf = e.bodyFat { bodyFatText = String(Int((bf * 10.0).rounded())) }
+            if localPhotoPath == nil { localPhotoPath = e.progressPhoto }
             return
         }
         // Prefill from prior if empty
         if let p = prior {
-            if let w = p.weight { weightText = String(w) }
-            if let bf = p.bodyFat { bodyFatText = String(bf) }
+            if weightText.isEmpty, let w = p.weight { weightText = String(Int((w * 10.0).rounded())) }
+            if bodyFatText.isEmpty, let bf = p.bodyFat { bodyFatText = String(Int((bf * 10.0).rounded())) }
         }
     }
 
@@ -239,8 +454,8 @@ struct DailyCheckinSheet: View {
         let id64 = Int64(user.id)
 
         // Parse numeric fields
-        let weight = Double(weightText)
-        let bodyFat = Double(bodyFatText)
+        let weight = Double(weightText).map { $0 / 10.0 }
+        let bodyFat = Double(bodyFatText).map { $0 / 10.0 }
 
         // Build domain and persist
         let domain = CalendarEntry(
@@ -261,6 +476,102 @@ struct DailyCheckinSheet: View {
         } catch {
             print("[DailyCheckinSheet] save error: \(error)")
         }
+    }
+}
+
+private struct LiveDecimalTextField: UIViewRepresentable {
+    @Binding var displayText: String
+    @Binding var digits: String
+    let maxValue: Double
+
+    func makeUIView(context: Context) -> UITextField {
+        let tf = UITextField(frame: .zero)
+        tf.keyboardType = .decimalPad
+        tf.delegate = context.coordinator
+        tf.text = displayText
+        tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return tf
+    }
+
+    func updateUIView(_ uiView: UITextField, context: Context) {
+        if uiView.text != displayText { uiView.text = displayText }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        let parent: LiveDecimalTextField
+        init(_ parent: LiveDecimalTextField) { self.parent = parent }
+
+        func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+            let current = textField.text ?? ""
+            guard let r = Range(range, in: current) else { return true }
+            let proposed = current.replacingCharacters(in: r, with: string)
+
+            // Build digits-only from proposed
+            let rawDigits = proposed.filter { $0.isNumber }
+            if rawDigits.isEmpty {
+                parent.displayText = ""
+                parent.digits = ""
+                return true
+            }
+
+            // Clamp implicit one-decimal value
+            var clamped = String(rawDigits)
+            while !clamped.isEmpty {
+                let v = (Double(clamped) ?? 0) / 10.0
+                if v <= parent.maxValue { break }
+                clamped.removeLast()
+            }
+
+            parent.digits = clamped
+            let value = (Double(clamped) ?? 0) / 10.0
+            parent.displayText = String(format: "%.1f", value)
+
+            // Update the text field text immediately
+            textField.text = parent.displayText
+            // Place cursor at end
+            let end = textField.endOfDocument
+            textField.selectedTextRange = textField.textRange(from: end, to: end)
+            return false
+        }
+    }
+}
+
+private struct InputWithSuffixDecimal: View {
+    let title: String
+    @Binding var digits: String // raw digits only, implicit 1 decimal place
+    let suffix: String
+    let maxValue: Double
+    @ObservedObject var theme: ThemeManager
+    @State private var displayText: String = ""
+
+    var body: some View {
+        HStack(spacing: 8) {
+            LiveDecimalTextField(displayText: $displayText, digits: $digits, maxValue: maxValue)
+                .foregroundColor(theme.currentTheme.textDefault)
+                .onAppear {
+                    if digits.isEmpty {
+                        displayText = ""
+                    } else {
+                        displayText = formatted(from: digits)
+                    }
+                }
+
+            Text(suffix)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(theme.currentTheme.muted)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(theme.currentTheme.surface)
+                .clipShape(Capsule())
+        }
+    }
+
+    private func formatted(from digits: String) -> String {
+        guard !digits.isEmpty else { return "" }
+        let value = (Double(digits) ?? 0) / 10.0
+        return String(format: "%.1f", value)
     }
 }
 
