@@ -10,8 +10,14 @@ import SwiftUI
 struct MonthCalendarView: View {
     var onSelectDate: ((Date) -> Void)? = nil
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var authCoordinator: AuthCoordinator
 
     @State private var referenceDate: Date = Calendar.current.startOfDay(for: Date())
+    private let workoutRepository = CalendarWorkoutRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+    private let entryRepository = CalendarEntryRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+
+    @State private var daysWithWorkouts: Set<Int> = []
+    @State private var daysWithEntries: Set<Int> = []
 
     var body: some View {
         VStack(spacing: 8) {
@@ -25,7 +31,8 @@ struct MonthCalendarView: View {
                 Button { shiftMonth(1) } label: { Image(systemName: "chevron.right") }
             }
             .padding(.horizontal)
-            .padding(.bottom, 26)
+            .padding(.bottom, 8)
+
 
             let grid = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
             LazyVGrid(columns: grid, spacing: 6) {
@@ -37,10 +44,24 @@ struct MonthCalendarView: View {
                                 RoundedRectangle(cornerRadius: 8)
                                     .stroke(isToday(day: day) ? themeManager.currentTheme.primary.opacity(0.6) : Color.clear, lineWidth: 1)
                             )
-                        VStack() {
+                        VStack(spacing: 2) {
+                            // Fixed-height number area
                             Text(day == 0 ? "" : String(day))
                                 .foregroundColor(isToday(day: day) ? themeManager.currentTheme.primary : themeManager.currentTheme.textDefault)
-                            Spacer().frame(height: 4)
+                                .frame(height: 18)
+                            // Fixed-height indicators area
+                            ZStack {
+                                // Invisible spacer to reserve height
+                                Color.clear.frame(height: 8)
+                                HStack(spacing: 4) {
+                                    if let d = dateFor(day: day), hasWorkouts(d) {
+                                        Circle().fill(themeManager.currentTheme.error).frame(width: 5, height: 5)
+                                    }
+                                    if let d = dateFor(day: day), hasEntry(d) {
+                                        Circle().fill(themeManager.currentTheme.primary).frame(width: 5, height: 5)
+                                    }
+                                }
+                            }
                         }
                     }
                     .frame(height: 44)
@@ -53,8 +74,23 @@ struct MonthCalendarView: View {
                 }
             }
             .padding(.horizontal)
-            Spacer()
+            .padding(.bottom)
+            // Legend
+            HStack(spacing: 12) {
+                HStack(spacing: 6) {
+                    Circle().fill(themeManager.currentTheme.error).frame(width: 6, height: 6)
+                    Text("Has Workout(s)").foregroundColor(themeManager.currentTheme.muted)
+                }
+                HStack(spacing: 6) {
+                    Circle().fill(themeManager.currentTheme.primary).frame(width: 6, height: 6)
+                    Text("Has Entry").foregroundColor(themeManager.currentTheme.muted)
+                }
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 14)
         }
+        .task(id: referenceDate) { await loadMonthIndicators() }
     }
 
     private var monthLabel: String {
@@ -94,6 +130,42 @@ struct MonthCalendarView: View {
         comps.day = day
         guard let date = cal.date(from: comps) else { return nil }
         return cal.startOfDay(for: date)
+    }
+
+    private func hasWorkouts(_ date: Date) -> Bool {
+        let day = Calendar.current.component(.day, from: date)
+        return daysWithWorkouts.contains(day)
+    }
+
+    private func hasEntry(_ date: Date) -> Bool {
+        let day = Calendar.current.component(.day, from: date)
+        return daysWithEntries.contains(day)
+    }
+
+    private func loadMonthIndicators() async {
+        guard let userId = authCoordinator.currentUser?.id else { return }
+        let id64 = Int64(userId)
+        let cal = Calendar.current
+        let range = cal.range(of: .day, in: .month, for: referenceDate) ?? (1..<32)
+        var workoutsDays: Set<Int> = []
+        var entriesDays: Set<Int> = []
+        for day in range {
+            var comps = cal.dateComponents([.year, .month], from: referenceDate)
+            comps.day = day
+            guard let date = cal.date(from: comps) else { continue }
+            do {
+                let wrks = try workoutRepository.workoutsWithDetails(on: date, userId: id64)
+                if !wrks.isEmpty { workoutsDays.insert(day) }
+                let has = (try? entryRepository.entry(for: id64, on: date)) != nil
+                if has { entriesDays.insert(day) }
+            } catch {
+                // Ignore errors for month-level indicators
+            }
+        }
+        await MainActor.run {
+            self.daysWithWorkouts = workoutsDays
+            self.daysWithEntries = entriesDays
+        }
     }
 }
 
