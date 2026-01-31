@@ -52,7 +52,10 @@ struct CalendarView: View {
                             mode = .day
                         })
                     case .month:
-                        MonthCalendarView()
+                        MonthCalendarView(onSelectDate: { date in
+                            selectedDayDate = Calendar.current.startOfDay(for: date)
+                            mode = .day
+                        })
                     }
                 }
                 .environmentObject(themeManager)

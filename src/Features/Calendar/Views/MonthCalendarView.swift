@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct MonthCalendarView: View {
+    var onSelectDate: ((Date) -> Void)? = nil
     @EnvironmentObject var themeManager: ThemeManager
 
     @State private var referenceDate: Date = Calendar.current.startOfDay(for: Date())
@@ -24,6 +25,7 @@ struct MonthCalendarView: View {
                 Button { shiftMonth(1) } label: { Image(systemName: "chevron.right") }
             }
             .padding(.horizontal)
+            .padding(.bottom, 26)
 
             let grid = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
             LazyVGrid(columns: grid, spacing: 6) {
@@ -35,18 +37,19 @@ struct MonthCalendarView: View {
                                 RoundedRectangle(cornerRadius: 8)
                                     .stroke(isToday(day: day) ? themeManager.currentTheme.primary.opacity(0.6) : Color.clear, lineWidth: 1)
                             )
-                        VStack(spacing: 4) {
-                            Spacer()
+                        VStack() {
                             Text(day == 0 ? "" : String(day))
                                 .foregroundColor(isToday(day: day) ? themeManager.currentTheme.primary : themeManager.currentTheme.textDefault)
-                            Circle()
-                                .fill(themeManager.currentTheme.muted)
-                                .frame(width: 6, height: 6)
-                                .opacity(day == 0 ? 0 : 1)
                             Spacer().frame(height: 4)
                         }
                     }
                     .frame(height: 44)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if let date = dateFor(day: day) {
+                            onSelectDate?(date)
+                        }
+                    }
                 }
             }
             .padding(.horizontal)
@@ -82,6 +85,15 @@ struct MonthCalendarView: View {
         comps.day = day
         guard let date = cal.date(from: comps) else { return false }
         return cal.isDateInToday(date)
+    }
+
+    private func dateFor(day: Int) -> Date? {
+        guard day > 0 else { return nil }
+        let cal = Calendar.current
+        var comps = cal.dateComponents([.year, .month], from: referenceDate)
+        comps.day = day
+        guard let date = cal.date(from: comps) else { return nil }
+        return cal.startOfDay(for: date)
     }
 }
 
