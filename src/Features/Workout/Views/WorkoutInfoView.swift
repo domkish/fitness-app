@@ -442,23 +442,35 @@ struct WorkoutInfoView: View {
                 ZStack {
                     effectiveThemeManager.currentTheme.background.ignoresSafeArea()
                     // List of exercises filtered by search
-                    List {
-                        ForEach(filteredExerciseItems, id: \.id) { item in
-                            Button(action: {
-                                Task { await didSelectExercise(item) }
-                            }) {
-                                HStack {
-                                    Text(item.name)
-                                        .foregroundColor(themeManager.currentTheme.textDefault)
-                                    Spacer()
+                    VStack(spacing: 0) {
+                        Text("Exercise Library")
+                            .font(.title)
+                            .bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
+                            .padding(.bottom)
+                        List {
+                            ForEach(filteredExerciseItems, id: \.id) { item in
+                                Button(action: {
+                                    Task { await didSelectExercise(item) }
+                                }) {
+                                    HStack {
+                                        Text(item.name)
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
+                                        Spacer()
+                                    }
                                 }
                             }
+                            .listRowBackground(themeManager.currentTheme.surface)
                         }
-                        .listRowBackground(themeManager.currentTheme.surface)
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                        .background(themeManager.currentTheme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .background(themeManager.currentTheme.surface)
+                    .padding([.horizontal, .bottom])
+                    .padding(.bottom, 100)
+                    .padding(.top, 20)
 
                     // Floating bottom search bar
                     VStack {
@@ -471,7 +483,6 @@ struct WorkoutInfoView: View {
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 12)
                                 .background(themeManager.currentTheme.formDefault)
-                                .border(themeManager.currentTheme.textDefault)
                                 .cornerRadius(10)
                             if !exerciseSearchText.isEmpty {
                                 Button {
@@ -479,9 +490,10 @@ struct WorkoutInfoView: View {
                                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(themeManager.currentTheme.secondary)
                                         .imageScale(.medium)
                                         .accessibilityLabel("Clear search")
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
                                 }
                             }
                         }
@@ -493,7 +505,9 @@ struct WorkoutInfoView: View {
                         .padding(.bottom, 34)
                     }
                 }
-                .ignoresSafeArea(.keyboard, edges: .bottom)
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .background(themeManager.currentTheme.surface)
                 .onChange(of: exerciseSearchText) { newValue in
                     // Debounce ~250ms
                     Task {

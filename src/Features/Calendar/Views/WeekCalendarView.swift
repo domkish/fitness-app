@@ -121,6 +121,7 @@ struct WeekCalendarView: View {
                                 )
                             }
                         }
+                        .listRowBackground(themeManager.currentTheme.surface)
                         .padding(.top, 6)
                     }
                 }
@@ -140,8 +141,12 @@ struct WeekCalendarView: View {
                     showingCheckin = false
                     Task { await loadWeekData() }
                 }
+                .id(selectedDateForSheet)
                 .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
+                .task(id: selectedDateForSheet) {
+                    await loadEntryContext(for: selectedDateForSheet)
+                }
             }
         }
     }

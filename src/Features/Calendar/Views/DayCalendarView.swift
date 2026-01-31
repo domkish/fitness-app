@@ -56,7 +56,7 @@ struct DayCalendarView: View {
 
             ZStack {
                 // Center: Today button always centered
-                Button("Today") { selectedDate = Calendar.current.startOfDay(for: Date()) }
+                Button("Go to Today") { selectedDate = Calendar.current.startOfDay(for: Date()) }
                     .foregroundColor(themeManager.currentTheme.primary)
 
                 // Leading: Check-in button (today or past)

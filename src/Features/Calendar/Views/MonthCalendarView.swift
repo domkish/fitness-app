@@ -50,7 +50,7 @@ struct MonthCalendarView: View {
                                 .foregroundColor(isToday(day: day) ? themeManager.currentTheme.primary : themeManager.currentTheme.textDefault)
                                 .frame(height: 18)
                             // Fixed-height indicators area
-                            ZStack {
+                            ZStack() {
                                 // Invisible spacer to reserve height
                                 Color.clear.frame(height: 8)
                                 HStack(spacing: 4) {
@@ -62,6 +62,7 @@ struct MonthCalendarView: View {
                                     }
                                 }
                             }
+                            .padding(.bottom, 4)
                         }
                     }
                     .frame(height: 44)
