@@ -23,5 +23,4 @@ enum AppShellStep {
     case calendar
     case exercise
     case workout
-    case session
 }

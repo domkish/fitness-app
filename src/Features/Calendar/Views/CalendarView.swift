@@ -45,7 +45,7 @@ struct CalendarView: View {
                 Group {
                     switch mode {
                     case .day:
-                        DayCalendarView(repository: calendarRepo, selectedDate: $selectedDayDate)
+                        DayCalendarView(coordinator: coordinator, repository: calendarRepo, selectedDate: $selectedDayDate)
                     case .week:
                         WeekCalendarView(onSelectDate: { date in
                             selectedDayDate = Calendar.current.startOfDay(for: date)

@@ -28,8 +28,6 @@ struct AppShellCoordinatorView: View {
                 ExerciseView(coordinator: coordinator)
             case .workout:
                 WorkoutView(coordinator: coordinator)
-            case .session:
-                SessionView(coordinator: coordinator)
             case .premium:
                 PremiumView(coordinator: coordinator)
             }

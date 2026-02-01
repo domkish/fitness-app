@@ -72,7 +72,7 @@ struct AppShellView: View {
             case .dashboard: selectedTab = .home
             case .calendar: selectedTab = .calendar
             case .task: selectedTab = .tasks
-            case .workout, .session: selectedTab = .routines
+            case .workout: selectedTab = .routines
             case .profileEdit, .profilePassword: selectedTab = .profile
             case .profile: selectedTab = .profile
             case .exercise: selectedTab = .routines

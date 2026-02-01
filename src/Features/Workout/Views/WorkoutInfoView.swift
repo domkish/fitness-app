@@ -271,25 +271,21 @@ struct WorkoutInfoView: View {
                                         }
                                     } else {
                                         // Use a nested List for reliable swipe and move support
-                                        List {
+                                        LazyVStack(spacing: 0) {
                                             ForEach(items) { ex in
                                                 exerciseRow(for: ex, bid: bid)
-                                            }
-                                            .onMove { indices, newOffset in
-                                                var current = items
-                                                current.move(fromOffsets: indices, toOffset: newOffset)
-                                                exercisesByBlock[bid] = current
-                                                Task { await persistOrder(forBlock: bid, items: current) }
+                                                    .background(effectiveThemeManager.currentTheme.surface)
+                                                    .clipShape(Rectangle())
+                                                    .padding(.vertical, 4)
+                                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                                        Button(role: .destructive) {
+                                                            Task { await deleteExercises(ids: [ex.id], forBlock: bid) }
+                                                        } label: {
+                                                            Label("Delete", systemImage: "trash")
+                                                        }
+                                                    }
                                             }
                                         }
-                                        .listStyle(.plain)
-                                        .environment(\.editMode, .constant(editingBlocks.contains(bid) ? EditMode.active : EditMode.inactive))
-                                        .scrollContentBackground(.hidden)
-                                        .scrollDisabled(true)
-                                        .frame(height: CGFloat(items.count) * 56.0 + 16.0)
-                                        .background(effectiveThemeManager.currentTheme.surface)
-                                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
                                         .padding(.top, 4)
                                         
                                         // Add Exercise button moved to bottom of exercise list
@@ -476,74 +472,82 @@ struct WorkoutInfoView: View {
         .sheet(isPresented: $isPresentingExercisePicker) {
             NavigationStack {
                 ZStack {
-                    effectiveThemeManager.currentTheme.background.ignoresSafeArea()
-                    // List of exercises filtered by search
-                    VStack(spacing: 0) {
+                    effectiveThemeManager.currentTheme.background
+                        .ignoresSafeArea()
+
+                    VStack(spacing: 12) {
+
+                        // Header
                         Text("Exercise Library")
                             .font(.title)
                             .bold()
                             .foregroundColor(themeManager.currentTheme.textDefault)
-                            .padding(.bottom)
-                        List {
-                            ForEach(filteredExerciseItems, id: \.id) { item in
-                                Button(action: {
-                                    Task { await didSelectExercise(item) }
-                                }) {
-                                    HStack {
-                                        Text(item.name)
-                                            .foregroundColor(themeManager.currentTheme.textDefault)
-                                        Spacer()
-                                    }
-                                }
-                            }
-                            .listRowBackground(themeManager.currentTheme.surface)
-                        }
-                        .listStyle(.plain)
-                        .scrollContentBackground(.hidden)
-                        .background(themeManager.currentTheme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
-                    }
-                    .padding([.horizontal, .bottom])
-                    .padding(.bottom, 100)
-                    .padding(.top, 20)
+                            .padding(.top, 20)
 
-                    // Floating bottom search bar
-                    VStack {
-                        Spacer()
+                        // 🔍 Search bar (ABOVE list)
                         HStack(spacing: 8) {
                             Image(systemName: "magnifyingglass")
                                 .foregroundColor(themeManager.currentTheme.secondary)
+
                             TextField("Search exercises", text: $exerciseSearchText)
                                 .foregroundColor(themeManager.currentTheme.textDefault)
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 12)
                                 .background(themeManager.currentTheme.formDefault)
                                 .cornerRadius(10)
+
                             if !exerciseSearchText.isEmpty {
                                 Button {
                                     exerciseSearchText = ""
-                                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                                    UIApplication.shared.sendAction(
+                                        #selector(UIResponder.resignFirstResponder),
+                                        to: nil,
+                                        from: nil,
+                                        for: nil
+                                    )
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .foregroundColor(themeManager.currentTheme.secondary)
-                                        .imageScale(.medium)
                                         .accessibilityLabel("Clear search")
-                                        .foregroundColor(themeManager.currentTheme.textDefault)
                                 }
                             }
                         }
-                        .padding()
-                        .background(effectiveThemeManager.currentTheme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                         .padding(.horizontal)
-                        .padding(.bottom, 34)
+
+                        // Exercise list
+                        List {
+                            ForEach(filteredExerciseItems, id: \.id) { item in
+                                Button {
+                                    Task { await didSelectExercise(item) }
+                                } label: {
+                                    HStack {
+                                        Text(item.name)
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
+                                        Spacer()
+                                    }
+                                }
+                                .listRowBackground(themeManager.currentTheme.surface)
+                            }
+                        }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                        .background(themeManager.currentTheme.surface)
+                        .clipShape(
+                            RoundedRectangle(
+                                cornerRadius: 16,
+                                style: .continuous
+                            )
+                        )
+                        .shadow(
+                            color: Color.black.opacity(0.05),
+                            radius: 10,
+                            x: 0,
+                            y: 5
+                        )
+                        .padding(.horizontal)
+                        .padding(.bottom)
                     }
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .background(themeManager.currentTheme.surface)
                 .onChange(of: exerciseSearchText) { newValue in
                     // Debounce ~250ms
                     Task {
@@ -552,10 +556,12 @@ struct WorkoutInfoView: View {
                         await filterExercises()
                     }
                 }
-                .foregroundColor(themeManager.currentTheme.textDefault)
-                .task { await filterExercises() }
+                .task {
+                    await filterExercises()
+                }
             }
         }
+
         .task {
             await loadCurrentUserPremium()
             await loadIfNeeded()
@@ -831,6 +837,7 @@ struct WorkoutInfoView: View {
 
     private func didSelectExercise(_ item: ExerciseItem) async {
         guard let blockId = targetBlockIdForAdd, let workoutId = workoutId else { return }
+
         let maxPerBlock = isPremiumUser ? 10 : 5
         let currentCount = exercisesByBlock[blockId]?.count ?? 0
         if currentCount >= maxPerBlock {
@@ -840,13 +847,30 @@ struct WorkoutInfoView: View {
             }
             return
         }
+
         do {
             guard let currentUser = try? await userRepo.fetchUser() else { return }
-            try workoutRepo.addExercise(toBlockId: blockId, workoutId: workoutId, exerciseId: item.id, userId: Int64(currentUser.id))
+
+            try workoutRepo.addExercise(
+                toBlockId: blockId,
+                workoutId: workoutId,
+                exerciseId: item.id,
+                userId: Int64(currentUser.id)
+            )
+
             await MainActor.run {
+                exerciseSearchText = ""
+                UIApplication.shared.sendAction(
+                    #selector(UIResponder.resignFirstResponder),
+                    to: nil,
+                    from: nil,
+                    for: nil
+                )
+
                 isPresentingExercisePicker = false
                 targetBlockIdForAdd = nil
             }
+
             await loadExercisesForBlocks()
         } catch {
             print("[WorkoutInfo] Failed to attach exercise: \(error)")

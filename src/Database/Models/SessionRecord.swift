@@ -21,8 +21,8 @@ struct SessionRecord: Codable, FetchableRecord, PersistableRecord, Identifiable 
     var updatedAt: Date
 
     static let databaseTableName = "sessions"
-
-    enum Columns: String, ColumnExpression {
+    
+    enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
         case workoutId = "workout_id"
@@ -34,6 +34,21 @@ struct SessionRecord: Codable, FetchableRecord, PersistableRecord, Identifiable 
         case deletedAt = "deleted_at"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+    }
+
+    // Columns enum for GRDB queries
+    enum Columns {
+        static let id = Column("id")
+        static let userId = Column("user_id")
+        static let workoutId = Column("workout_id")
+        static let calendarWorkoutId = Column("calendar_workout_id")
+        static let workoutName = Column("workout_name")
+        static let totalDuration = Column("total_duration")
+        static let startedAt = Column("started_at")
+        static let completedAt = Column("completed_at")
+        static let deletedAt = Column("deleted_at")
+        static let createdAt = Column("created_at")
+        static let updatedAt = Column("updated_at")
     }
 
     mutating func willInsert(_ db: Database) throws {

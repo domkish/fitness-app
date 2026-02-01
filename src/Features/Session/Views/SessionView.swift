@@ -4,22 +4,29 @@
 //
 //  Created by Dominic Kish on 1/25/26.
 //
-
 import SwiftUI
 
 struct SessionView: View {
     @ObservedObject var coordinator: AppShellCoordinator
+    @EnvironmentObject var authCoordinator: AuthCoordinator
+    @EnvironmentObject var themeManager: ThemeManager
+    
+    let session: SessionRecord
     
     var body: some View {
         VStack(spacing: 20) {
-            Text("Workout Routines")
+            Text("Session for \(session.workoutName)")
                 .font(.title)
                 .bold()
+                .foregroundColor(themeManager.currentTheme.primary)
             
-            Text("This is where your main app content goes.")
-                .multilineTextAlignment(.center)
-                .padding()
+                
+            Spacer()
         }
+        .padding()
+        .navigationTitle("Workout Session")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
+
 

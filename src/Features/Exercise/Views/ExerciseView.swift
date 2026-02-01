@@ -16,6 +16,7 @@ struct ExerciseView: View {
 
     @StateObject private var viewModel = ExerciseListViewModel()
     @State private var searchText: String = ""
+
     private enum TopSegment: Hashable { case routines, exercises }
     @State private var topSegmentSelection: TopSegment = .exercises
 
@@ -27,21 +28,30 @@ struct ExerciseView: View {
 
                 VStack(spacing: 30) {
 
-                    // Top segmented navigation between Routines and Exercises (custom segmented control)
+                    // MARK: - Top Segmented Control
                     HStack(spacing: 6) {
                         let isRoutines = (topSegmentSelection == .routines)
+
                         Button {
                             topSegmentSelection = .routines
                             coordinator.currentStep = .workout
                         } label: {
                             Text("Routines")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundColor(isRoutines ? themeManager.currentTheme.background : themeManager.currentTheme.textDefault)
+                                .foregroundColor(
+                                    isRoutines
+                                    ? themeManager.currentTheme.background
+                                    : themeManager.currentTheme.textDefault
+                                )
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .fill(isRoutines ? themeManager.currentTheme.primary : themeManager.currentTheme.surface)
+                                        .fill(
+                                            isRoutines
+                                            ? themeManager.currentTheme.primary
+                                            : themeManager.currentTheme.surface
+                                        )
                                 )
                         }
 
@@ -51,28 +61,40 @@ struct ExerciseView: View {
                         } label: {
                             Text("Exercises")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundColor(!isRoutines ? themeManager.currentTheme.background : themeManager.currentTheme.textDefault)
+                                .foregroundColor(
+                                    !isRoutines
+                                    ? themeManager.currentTheme.background
+                                    : themeManager.currentTheme.textDefault
+                                )
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .fill(!isRoutines ? themeManager.currentTheme.primary : themeManager.currentTheme.surface)
+                                        .fill(
+                                            !isRoutines
+                                            ? themeManager.currentTheme.primary
+                                            : themeManager.currentTheme.surface
+                                        )
                                 )
                         }
                     }
                     .padding(.horizontal)
                     .onAppear {
-                        // Initialize from coordinator on first appear
-                        topSegmentSelection = (coordinator.currentStep == .exercise) ? .exercises : .routines
+                        topSegmentSelection =
+                            (coordinator.currentStep == .exercise)
+                            ? .exercises
+                            : .routines
                     }
 
-                    // Header with Add button (constrained to same horizontal padding as table)
+                    // MARK: - Header
                     HStack {
                         Text("Exercise Library")
                             .font(.title)
                             .bold()
                             .foregroundColor(themeManager.currentTheme.textDefault)
+
                         Spacer()
+
                         NavigationLink {
                             ExerciseAddView()
                                 .environmentObject(themeManager)
@@ -87,74 +109,79 @@ struct ExerciseView: View {
                     }
                     .padding(.horizontal)
 
-                    // Table container styled like ProfileView cards
+                    // MARK: - Search Bar (MOVED ABOVE LIST)
+                    searchBar
+
+                    // MARK: - Table Container
                     VStack(spacing: 0) {
                         tableBody
-                        .background(themeManager.currentTheme.surface)
+                            .background(themeManager.currentTheme.surface)
                     }
+                    .frame(maxHeight: .infinity) 
                     .background(themeManager.currentTheme.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     .padding([.horizontal, .bottom])
-                    .padding(.bottom, 100)
-                }
-
-                VStack {
-                    Spacer()
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(themeManager.currentTheme.secondary)
-
-                        TextField("Search exercises", text: $searchText)
-                            .foregroundColor(themeManager.currentTheme.textDefault)
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
-                            .background(themeManager.currentTheme.formDefault)
-                            .cornerRadius(10)
-
-                        if !searchText.isEmpty {
-                            Button {
-                                searchText = ""
-                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(themeManager.currentTheme.secondary)
-                                    .imageScale(.medium)
-                                    .accessibilityLabel("Clear search")
-                                    .foregroundColor(themeManager.currentTheme.textDefault)
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(themeManager.currentTheme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
-                    .padding(.horizontal)
-                    .padding(.bottom, 34)
                 }
             }
             .background(themeManager.currentTheme.surface)
             .ignoresSafeArea(.keyboard, edges: .bottom)
             .onChange(of: searchText) { newValue in
                 Task {
-                    // Debounce ~250ms
                     try? await Task.sleep(nanoseconds: 250_000_000)
-                    // If the user kept typing, abort this run
                     guard newValue == searchText else { return }
                     await viewModel.refresh(search: newValue)
                 }
             }
-            .task { await viewModel.refresh(search: searchText) }
+            .task {
+                await viewModel.refresh(search: searchText)
+            }
         }
     }
 
+    // MARK: - Search Bar View
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(themeManager.currentTheme.secondary)
+
+            TextField("Search exercises", text: $searchText)
+                .foregroundColor(themeManager.currentTheme.textDefault)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(themeManager.currentTheme.formDefault)
+                .cornerRadius(10)
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil,
+                        from: nil,
+                        for: nil
+                    )
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(themeManager.currentTheme.secondary)
+                        .imageScale(.medium)
+                        .accessibilityLabel("Clear search")
+                }
+            }
+        }
+        .padding()
+        .background(themeManager.currentTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+        .padding(.horizontal)
+    }
 
     // MARK: - Table Body
     private var tableBody: some View {
         List {
             Section {
                 ForEach(viewModel.exercises) { exercise in
-                    let row = HStack(alignment: .center, spacing: 12) {
+                    let row = HStack(spacing: 12) {
                         if !exercise.locked {
                             Image(systemName: "circle.fill")
                                 .foregroundColor(themeManager.currentTheme.primary)
@@ -182,7 +209,9 @@ struct ExerciseView: View {
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
                                     Task {
-                                        await viewModel.deleteRow(with: exercise.exerciseId)
+                                        await viewModel.deleteRow(
+                                            with: exercise.exerciseId
+                                        )
                                     }
                                 } label: {
                                     Label("Delete", systemImage: "trash")
@@ -195,7 +224,9 @@ struct ExerciseView: View {
                     HStack { Spacer(); ProgressView(); Spacer() }
                         .listRowBackground(themeManager.currentTheme.surface)
                         .onAppear {
-                            Task { await viewModel.loadMore(search: searchText) }
+                            Task {
+                                await viewModel.loadMore(search: searchText)
+                            }
                         }
                 }
 
@@ -204,11 +235,14 @@ struct ExerciseView: View {
                         .listRowBackground(themeManager.currentTheme.surface)
                 } else if viewModel.exercises.isEmpty {
                     VStack(spacing: 8) {
-                        Text("No exercises found").bold()
-                        Text("If you expect data, verify the current user is set and the app is using the correct database file.")
-                            .font(.footnote)
-                            .foregroundColor(themeManager.currentTheme.textDefault)
-                            .multilineTextAlignment(.center)
+                        Text("No exercises found")
+                            .bold()
+                        Text(
+                            "If you expect data, verify the current user is set and the app is using the correct database file."
+                        )
+                        .font(.footnote)
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+                        .multilineTextAlignment(.center)
                     }
                     .listRowBackground(themeManager.currentTheme.surface)
                 }
@@ -219,10 +253,10 @@ struct ExerciseView: View {
         .scrollContentBackground(.hidden)
         .background(themeManager.currentTheme.surface)
     }
-
 }
 
 // MARK: - ViewModel + Models
+
 @MainActor
 final class ExerciseListViewModel: ObservableObject {
     @Published private(set) var exercises: [ExerciseRow] = []
@@ -233,12 +267,10 @@ final class ExerciseListViewModel: ObservableObject {
     private var currentPage: Int = 0
     private let pageSize: Int = 25
 
-    // Data dependencies
     private let exerciseRepo: ExerciseRepository
     private let userRepo: UserRepository
 
     init() {
-        // Access the shared DatabaseQueue from the global provider
         let dbQueue = DatabaseQueueProvider.shared.dbQueue
         self.exerciseRepo = ExerciseRepository(dbQueue: dbQueue)
         self.userRepo = UserRepository(dbQueue: dbQueue)
@@ -256,60 +288,61 @@ final class ExerciseListViewModel: ObservableObject {
     func loadMore(search: String) async {
         guard !isLoadingPage, canLoadMore else { return }
         isLoadingPage = true
-        print("[ExerciseList] loadMore start — page: \(currentPage), search: \(search)")
         defer { isLoadingPage = false }
 
-        // Fetch all user exercises, then filter and paginate locally for now.
-        // If needed, optimize with SQL LIMIT/OFFSET in repository later.
         do {
             guard let user = try await userRepo.fetchUser() else {
-                print("[ExerciseList] No current user found — cannot scope exercises. Showing empty list.")
-                self.exercises = []
-                self.canLoadMore = false
+                exercises = []
+                canLoadMore = false
                 return
             }
-            print("[ExerciseList] Current user id: \(user.id)")
+
             let all = try await exerciseRepo.fetchAll(for: Int64(user.id))
-            print("[ExerciseList] Repository returned total exercises for user: \(all.count)")
 
-            // Map to ExerciseRow using tag info if present on domain
             let mapped: [ExerciseRow] = all.map { ex in
-                let groupNames: [String] = ex.tags.filter { $0.kind == .group }.map { $0.name }
-                let categoryNames: [String] = ex.tags.filter { $0.kind == .category }.map { $0.name }
-                return ExerciseRow(id: UUID(), exerciseId: ex.id ?? -1, name: ex.name, groupNames: groupNames, categoryNames: categoryNames, locked: ex.locked)
-            }
-            print("[ExerciseList] Mapped rows: \(mapped.count)")
+                let groupNames = ex.tags
+                    .filter { $0.kind == .group }
+                    .map { $0.name }
 
-            // Apply search
+                let categoryNames = ex.tags
+                    .filter { $0.kind == .category }
+                    .map { $0.name }
+
+                return ExerciseRow(
+                    id: UUID(),
+                    exerciseId: ex.id ?? -1,
+                    name: ex.name,
+                    groupNames: groupNames,
+                    categoryNames: categoryNames,
+                    locked: ex.locked
+                )
+            }
+
             let filtered: [ExerciseRow]
             if search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 filtered = mapped
             } else {
                 let q = search.lowercased()
-                filtered = mapped.filter { row in
-                    if row.name.lowercased().contains(q) { return true }
-                    if row.groupNames.joined(separator: ", ").lowercased().contains(q) { return true }
-                    if row.categoryNames.joined(separator: ", ").lowercased().contains(q) { return true }
-                    return false
+                filtered = mapped.filter {
+                    $0.name.lowercased().contains(q) ||
+                    $0.groupNames.joined(separator: ", ").lowercased().contains(q) ||
+                    $0.categoryNames.joined(separator: ", ").lowercased().contains(q)
                 }
             }
-            print("[ExerciseList] Filtered rows: \(filtered.count)")
 
-            // Paginate
             let start = currentPage * pageSize
             let end = min(start + pageSize, filtered.count)
-            print("[ExerciseList] Pagination — start: \(start), end: \(end), pageSize: \(pageSize)")
-            if start >= end {
+
+            guard start < end else {
                 canLoadMore = false
                 return
             }
-            let nextSlice = Array(filtered[start..<end])
-            exercises.append(contentsOf: nextSlice)
+
+            exercises.append(contentsOf: filtered[start..<end])
             currentPage += 1
             canLoadMore = end < filtered.count
+
         } catch {
-            let message = String(describing: error)
-            print("[ExerciseList] Error during loadMore: \(message)")
             canLoadMore = false
         }
     }
@@ -317,11 +350,9 @@ final class ExerciseListViewModel: ObservableObject {
     func deleteRow(with exerciseId: Int64) async {
         do {
             try exerciseRepo.softDelete(id: exerciseId)
-            await MainActor.run {
-                exercises.removeAll { $0.exerciseId == exerciseId }
-            }
+            exercises.removeAll { $0.exerciseId == exerciseId }
         } catch {
-            print("[ExerciseList] Failed to delete exercise id: \(exerciseId), error: \(error)")
+            print("Failed to delete exercise:", error)
         }
     }
 }
@@ -338,7 +369,6 @@ struct ExerciseRow: Identifiable, Hashable {
 final class DatabaseQueueProvider {
     static let shared = DatabaseQueueProvider()
     private init() {}
-    // This should be set during app startup.
-    var dbQueue: DatabaseQueue = try! DatabaseQueue() // in-memory fallback; will be replaced at runtime
-}
 
+    var dbQueue: DatabaseQueue = try! DatabaseQueue()
+}

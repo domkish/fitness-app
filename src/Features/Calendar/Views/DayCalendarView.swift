@@ -9,6 +9,7 @@ import SwiftUI
 import PhotosUI
 
 struct DayCalendarView: View {
+    @ObservedObject var coordinator: AppShellCoordinator
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authCoordinator: AuthCoordinator
 
@@ -31,6 +32,8 @@ struct DayCalendarView: View {
     @State private var pendingFrequency: Int?
     @State private var showingFrequencyPicker = false
     @State private var showingWeekdayPicker = false
+    @State private var activeSession: SessionRecord? = nil
+    @State private var navigateToSession = false
 
     private var isTodayOrPast: Bool {
         let today = Calendar.current.startOfDay(for: Date())
@@ -43,98 +46,100 @@ struct DayCalendarView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            HStack() {
-                Button(action: { shiftDay(-1) }) { Image(systemName: "chevron.left") }
-                Spacer()
-                Text(selectedDate.formatted(date: .abbreviated, time: .omitted))
-                    .font(.headline)
-                    .foregroundColor(themeManager.currentTheme.textDefault)
-                Spacer()
-                Button(action: { shiftDay(1) }) { Image(systemName: "chevron.right") }
-            }
-            .padding(.bottom, 8)
-
-            ZStack {
-                // Center: Today button always centered
-                Button("Go to Today") { selectedDate = Calendar.current.startOfDay(for: Date()) }
-                    .foregroundColor(themeManager.currentTheme.primary)
-
-                // Leading: Check-in button (today or past)
+        NavigationStack {
+            VStack(spacing: 16) {
+                // MARK: - Header with date navigation
                 HStack {
-                    if isTodayOrPast {
-                        Button(action: { showingCheckin = true }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: entry != nil ? "checkmark.seal.fill" : "pencil.and.list.clipboard")
-                            }
-                            .padding(.horizontal, 12)
-                            .foregroundColor(entry != nil ? themeManager.currentTheme.primary : themeManager.currentTheme.muted)
-                            .clipShape(Capsule())
-                        }
-                    }
+                    Button(action: { shiftDay(-1) }) { Image(systemName: "chevron.left") }
                     Spacer()
-                }
-
-                // Trailing: + Workout button (today or future)
-                HStack {
-                    Spacer()
-                    if isTodayOrFuture {
-                        Button(action: { showingRoutinePicker = true }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "plus")
-                                Text("Workout")
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.bottom, 16)
-
-            if !workouts.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Scheduled Workouts")
-                        .bold()
+                    Text(selectedDate.formatted(date: .abbreviated, time: .omitted))
+                        .font(.headline)
                         .foregroundColor(themeManager.currentTheme.textDefault)
-                        .padding(.bottom, 8)
-                    ForEach(workouts, id: \.id) { w in
-                        let c = colorForKey(w.workoutColor)
-                        Button {
-                            Task {
-                                await ensureSessionForWorkoutRow(w)
+                    Spacer()
+                    Button(action: { shiftDay(1) }) { Image(systemName: "chevron.right") }
+                }
+                .padding(.bottom, 8)
+
+                // MARK: - Today button / Check-in / Add Workout
+                ZStack {
+                    // Center: Go to Today
+                    Button("Go to Today") { selectedDate = Calendar.current.startOfDay(for: Date()) }
+                        .foregroundColor(themeManager.currentTheme.primary)
+
+                    // Leading: Check-in button (today or past)
+                    HStack {
+                        if isTodayOrPast {
+                            Button(action: { showingCheckin = true }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: entry != nil ? "checkmark.seal.fill" : "pencil.and.list.clipboard")
+                                }
+                                .padding(.horizontal, 12)
+                                .foregroundColor(entry != nil ? themeManager.currentTheme.primary : themeManager.currentTheme.muted)
+                                .clipShape(Capsule())
                             }
-                        } label: {
-                            HStack(spacing: 10) {
-                                Circle()
-                                    .fill(c)
-                                    .frame(width: 14, height: 14)
-                                Text(w.workoutName)
-                                    .font(.headline)
-                                    .foregroundColor(c)
-                                Spacer()
-                            }
-                            .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(c.opacity(0.1))
-                            )
                         }
-                        .buttonStyle(.plain)
+                        Spacer()
+                    }
+
+                    // Trailing: + Workout button (today or future)
+                    HStack {
+                        Spacer()
+                        if isTodayOrFuture {
+                            Button(action: { showingRoutinePicker = true }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus")
+                                    Text("Workout")
+                                }
+                            }
+                        }
                     }
                 }
                 .padding(.bottom, 16)
-            }
 
-            if !dailyTasks.isEmpty || !scheduledTasks.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Tasks")
-                        .bold()
-                        .foregroundColor(themeManager.currentTheme.textDefault)
-                        .padding(.bottom, 8)
+                // MARK: - Scheduled Workouts
+                if !workouts.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Scheduled Workouts")
+                            .bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
+                            .padding(.bottom, 8)
 
-                    // Daily instances first (in creation order)
-                    ForEach(Array(dailyTasks.enumerated()), id: \.element.id) { index, t in
-                        VStack(spacing: 0) {
+                        ForEach(workouts, id: \.id) { w in
+                            let c = colorForKey(w.workoutColor)
+                            Button {
+                                Task {
+                                    await ensureSessionForWorkoutRow(w)
+                                }
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Circle()
+                                        .fill(c)
+                                        .frame(width: 14, height: 14)
+                                    Text(w.workoutName)
+                                        .font(.headline)
+                                        .foregroundColor(c)
+                                    Spacer()
+                                }
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(c.opacity(0.1)))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.bottom, 16)
+                }
+
+                // MARK: - Tasks Section
+                if !dailyTasks.isEmpty || !scheduledTasks.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Tasks")
+                            .bold()
+                            .foregroundColor(themeManager.currentTheme.textDefault)
+                            .padding(.bottom, 8)
+
+                        // Daily instances first
+                        ForEach(Array(dailyTasks.enumerated()), id: \.element.id) { _, t in
                             Button {
                                 Task { await toggleTask(taskId: t.taskId) }
                             } label: {
@@ -143,23 +148,20 @@ struct DayCalendarView: View {
                                         .foregroundColor(themeManager.currentTheme.textDefault)
                                     Spacer()
                                     Image(systemName: t.isComplete ? "checkmark.square.fill" : "square")
-                                        .font(.system(size: 22, weight: .semibold))  // bigger checkbox
+                                        .font(.system(size: 22, weight: .semibold))
                                         .foregroundColor(t.isComplete ? themeManager.currentTheme.primary : themeManager.currentTheme.muted)
                                         .contentShape(Rectangle())
                                 }
                             }
-                            .buttonStyle(.plain)
+                            .padding()
+                            .background(themeManager.currentTheme.surface)
+                            .cornerRadius(16)
+                            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                         }
-                        .padding()
-                        .background(themeManager.currentTheme.surface)
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
-                    }
 
-                    // Scheduled tasks that do not yet have a daily instance
-                    let pending = scheduledTasks.filter { hasDailyInstance(for: $0.id) == nil }
-                    ForEach(Array(pending.enumerated()), id: \.element.id) { index, s in
-                        VStack(spacing: 0) {
+                        // Scheduled tasks without daily instances
+                        let pending = scheduledTasks.filter { hasDailyInstance(for: $0.id) == nil }
+                        ForEach(Array(pending.enumerated()), id: \.element.id) { _, s in
                             Button {
                                 Task { await toggleTask(taskId: s.id) }
                             } label: {
@@ -168,7 +170,7 @@ struct DayCalendarView: View {
                                         .foregroundColor(themeManager.currentTheme.textDefault)
                                     Spacer()
                                     Image(systemName: "square")
-                                        .font(.system(size: 22, weight: .semibold))  // bigger checkbox
+                                        .font(.system(size: 22, weight: .semibold))
                                         .foregroundColor(themeManager.currentTheme.muted)
                                         .contentShape(Rectangle())
                                 }
@@ -180,60 +182,78 @@ struct DayCalendarView: View {
                         }
                     }
                 }
-            }
 
-            Spacer()
-        }
-        .padding()
-        .task(id: selectedDate) {
-            await loadData()
-        }
-        .sheet(isPresented: $showingCheckin) {
-            DailyCheckinSheet(
-                date: selectedDate,
-                existing: entry,
-                prior: priorEntry,
-                repository: repository
-            ) { saved in
-                showingCheckin = false
-                Task { await loadData() }
+                Spacer()
+
+                // MARK: - Hidden NavigationLink to SessionView
+                NavigationLink(
+                    destination: AnyView(
+                        Group {
+                            if let session = activeSession {
+                                SessionView(coordinator: coordinator, session: session)
+                                    .environmentObject(themeManager)
+                                    .environmentObject(authCoordinator)
+                            } else {
+                                EmptyView()
+                            }
+                        }
+                    ),
+                    isActive: $navigateToSession,
+                    label: { EmptyView() }
+                )
+                .hidden()
             }
-            .environmentObject(themeManager)
-            .environmentObject(authCoordinator)
-        }
-        .sheet(isPresented: $showingRoutinePicker) {
-            RoutinePickerSheet { pickedId in
-                if pickedId <= 0 { showingRoutinePicker = false; return }
-                pendingWorkoutId = pickedId
-                showingRoutinePicker = false
-                // Next: frequency
-                showingFrequencyPicker = true
+            .padding()
+            .task(id: selectedDate) {
+                await loadData()
             }
-            .environmentObject(themeManager)
-            .environmentObject(authCoordinator)
-        }
-        .sheet(isPresented: $showingFrequencyPicker) {
-            FrequencyPickerSheet { freq in
-                if let f = freq, f == -1 { showingFrequencyPicker = false; return }
-                pendingFrequency = (freq == -1 ? nil : freq) // normalize cancel
-                showingFrequencyPicker = false
-                if pendingFrequency == nil {
-                    Task { await createOneTimeCalendarWorkout() }
-                } else {
-                    showingWeekdayPicker = true
+            .sheet(isPresented: $showingCheckin) {
+                DailyCheckinSheet(
+                    date: selectedDate,
+                    existing: entry,
+                    prior: priorEntry,
+                    repository: repository
+                ) { saved in
+                    showingCheckin = false
+                    Task { await loadData() }
                 }
+                .environmentObject(themeManager)
+                .environmentObject(authCoordinator)
             }
-            .environmentObject(themeManager)
-        }
-        .sheet(isPresented: $showingWeekdayPicker) {
-            let weekday = Calendar.current.component(.weekday, from: selectedDate)
-            WeekdayPickerSheet(initialSelectedWeekday: weekday) { days in
-                showingWeekdayPicker = false
-                Task { await createRepeatingCalendarWorkout(days: days) }
+            .sheet(isPresented: $showingRoutinePicker) {
+                RoutinePickerSheet { pickedId in
+                    if pickedId <= 0 { showingRoutinePicker = false; return }
+                    pendingWorkoutId = pickedId
+                    showingRoutinePicker = false
+                    showingFrequencyPicker = true
+                }
+                .environmentObject(themeManager)
+                .environmentObject(authCoordinator)
             }
-            .environmentObject(themeManager)
+            .sheet(isPresented: $showingFrequencyPicker) {
+                FrequencyPickerSheet { freq in
+                    if let f = freq, f == -1 { showingFrequencyPicker = false; return }
+                    pendingFrequency = (freq == -1 ? nil : freq)
+                    showingFrequencyPicker = false
+                    if pendingFrequency == nil {
+                        Task { await createOneTimeCalendarWorkout() }
+                    } else {
+                        showingWeekdayPicker = true
+                    }
+                }
+                .environmentObject(themeManager)
+            }
+            .sheet(isPresented: $showingWeekdayPicker) {
+                let weekday = Calendar.current.component(.weekday, from: selectedDate)
+                WeekdayPickerSheet(initialSelectedWeekday: weekday) { days in
+                    showingWeekdayPicker = false
+                    Task { await createRepeatingCalendarWorkout(days: days) }
+                }
+                .environmentObject(themeManager)
+            }
         }
     }
+
 
     private var checkinBackground: some View {
         let hasEntry = (entry != nil)
@@ -352,7 +372,7 @@ struct DayCalendarView: View {
         do {
             let sessionRepo = SessionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
             let workoutRepo = WorkoutRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
-            _ = try sessionRepo.ensureSessionWithSeed(
+            let session = try sessionRepo.ensureSessionWithSeed(
                 userId: id64,
                 workoutId: w.workoutId,
                 calendarWorkoutId: w.id,
@@ -360,6 +380,11 @@ struct DayCalendarView: View {
                 startedAt: day,
                 workoutRepo: workoutRepo
             )
+            // Set the active session and trigger navigation
+            await MainActor.run {
+                self.activeSession = session
+                self.navigateToSession = true
+            }
         } catch {
             print("[DayCalendarView] ensureSessionWithSeed error: \(error)")
         }

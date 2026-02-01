@@ -20,8 +20,8 @@ struct SessionSetRecord: Codable, FetchableRecord, PersistableRecord, Identifiab
     var updatedAt: Date
 
     static let databaseTableName = "session_sets"
-
-    enum Columns: String, ColumnExpression {
+    
+    enum CodingKeys: String, CodingKey {
         case id
         case sessionExerciseId = "session_exercise_id"
         case setNumber = "set_number"
@@ -32,6 +32,20 @@ struct SessionSetRecord: Codable, FetchableRecord, PersistableRecord, Identifiab
         case deletedAt = "deleted_at"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+    }
+
+    // Columns enum for GRDB queries
+    enum Columns {
+        static let id = Column("id")
+        static let sessionExerciseId = Column("session_exercise_id")
+        static let setNumber = Column("set_number")
+        static let completedReps = Column("completed_reps")
+        static let value = Column("value")
+        static let unit = Column("unit")
+        static let completed = Column("completed")
+        static let deletedAt = Column("deleted_at")
+        static let createdAt = Column("created_at")
+        static let updatedAt = Column("updated_at")
     }
 
     init(from domain: SessionSetDomain) {

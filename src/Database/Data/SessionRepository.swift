@@ -110,7 +110,7 @@ struct SessionRepository {
                     setNumber: 1,
                     completedReps: nil,
                     value: nil,
-                    unit: nil,
+                    unit: ex.unit,
                     completed: 0,
                     deletedAt: nil,
                     createdAt: Date(),
