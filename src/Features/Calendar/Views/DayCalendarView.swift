@@ -16,6 +16,7 @@ struct DayCalendarView: View {
     let workoutRepository = CalendarWorkoutRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
     let taskRepository = CalendarTaskRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
     let workoutRepo = WorkoutRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+    let sessionRepository = SessionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
 
     @Binding var selectedDate: Date
     @State private var entry: CalendarEntryRecord?
@@ -97,21 +98,28 @@ struct DayCalendarView: View {
                         .padding(.bottom, 8)
                     ForEach(workouts, id: \.id) { w in
                         let c = colorForKey(w.workoutColor)
-                        HStack(spacing: 10) {
-                            Circle()
-                                .fill(c)
-                                .frame(width: 14, height: 14)
-                            Text(w.workoutName)
-                                .font(.headline)
-                                .foregroundColor(c)
-                            Spacer()
+                        Button {
+                            Task {
+                                await ensureSessionForWorkoutRow(w)
+                            }
+                        } label: {
+                            HStack(spacing: 10) {
+                                Circle()
+                                    .fill(c)
+                                    .frame(width: 14, height: 14)
+                                Text(w.workoutName)
+                                    .font(.headline)
+                                    .foregroundColor(c)
+                                Spacer()
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(c.opacity(0.1))
+                            )
                         }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(c.opacity(0.1))
-                        )
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.bottom, 16)
@@ -335,6 +343,26 @@ struct DayCalendarView: View {
     private func taskName(for taskId: Int64) -> String {
         if let s = scheduledTasks.first(where: { $0.id == taskId }) { return s.name }
         return "Task #\(taskId)"
+    }
+
+    private func ensureSessionForWorkoutRow(_ w: CalendarWorkoutRepository.ScheduledWorkoutRow) async {
+        guard let userId = authCoordinator.currentUser?.id else { return }
+        let id64 = Int64(userId)
+        let day = Calendar.current.startOfDay(for: selectedDate)
+        do {
+            let sessionRepo = SessionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+            let workoutRepo = WorkoutRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+            _ = try sessionRepo.ensureSessionWithSeed(
+                userId: id64,
+                workoutId: w.workoutId,
+                calendarWorkoutId: w.id,
+                workoutName: w.workoutName,
+                startedAt: day,
+                workoutRepo: workoutRepo
+            )
+        } catch {
+            print("[DayCalendarView] ensureSessionWithSeed error: \(error)")
+        }
     }
 }
 

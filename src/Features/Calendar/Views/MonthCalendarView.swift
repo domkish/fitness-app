@@ -154,10 +154,11 @@ struct MonthCalendarView: View {
             var comps = cal.dateComponents([.year, .month], from: referenceDate)
             comps.day = day
             guard let date = cal.date(from: comps) else { continue }
+            let dayDate = cal.startOfDay(for: date)
             do {
-                let wrks = try workoutRepository.workoutsWithDetails(on: date, userId: id64)
+                let wrks = try workoutRepository.workoutsWithDetails(on: dayDate, userId: id64)
                 if !wrks.isEmpty { workoutsDays.insert(day) }
-                let has = (try? entryRepository.entry(for: id64, on: date)) != nil
+                let has = (try? entryRepository.entry(for: id64, on: dayDate)) != nil
                 if has { entriesDays.insert(day) }
             } catch {
                 // Ignore errors for month-level indicators

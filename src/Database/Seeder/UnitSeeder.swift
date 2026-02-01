@@ -24,6 +24,8 @@ struct UnitSeeder {
             // Mass / Weight
             ["type": 0, "name": "kilograms", "abbreviation": "kg"],
             ["type": 1, "name": "pounds", "abbreviation": "lbs"],
+            
+            ["type": 1, "name": "none (duration only)", "abbreviation": "none"],
 
             // Volume
             // ["type": 0, "name": "liter", "abbreviation": "L"],

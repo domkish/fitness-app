@@ -25,6 +25,15 @@ struct WeekCalendarView: View {
     @State private var selectedDateForSheet: Date = Date()
     @State private var currentEntry: CalendarEntryRecord?
     @State private var priorEntry: CalendarEntryRecord?
+    
+    struct CheckinContext: Identifiable {
+        let id = UUID()
+        let date: Date
+        let existing: CalendarEntryRecord?
+        let prior: CalendarEntryRecord?
+    }
+
+    @State private var checkinContext: CheckinContext?
 
     private let workoutRepository = CalendarWorkoutRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
     private let entryRepository = CalendarEntryRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
@@ -87,10 +96,16 @@ struct WeekCalendarView: View {
                         let hasEntry = weekEntries[offset] ?? false
                         if canCheckin {
                             Button {
-                                selectedDateForSheet = date
+                                let day = Calendar.current.startOfDay(for: date)
                                 Task {
-                                    await loadEntryContext(for: date)
-                                    await MainActor.run { showingCheckin = true }
+                                    // Load context first
+                                    let context = await fetchEntryContext(for: day)
+                                    await MainActor.run {
+                                        self.selectedDateForSheet = day
+                                        self.currentEntry = context.existing
+                                        self.priorEntry = context.prior
+                                        self.checkinContext = context // triggers sheet presentation
+                                    }
                                 }
                             } label: {
                                 Image(systemName: hasEntry ? "checkmark.seal.fill" : "pencil.and.list.clipboard")
@@ -131,22 +146,19 @@ struct WeekCalendarView: View {
             .task(id: startOfWeek) {
                 await loadWeekData()
             }
-            .sheet(isPresented: $showingCheckin) {
+            .sheet(item: $checkinContext) { context in
                 DailyCheckinSheet(
-                    date: selectedDateForSheet,
-                    existing: currentEntry,
-                    prior: priorEntry,
+                    date: context.date,
+                    existing: context.existing,
+                    prior: context.prior,
                     repository: entryRepository
                 ) { _ in
-                    showingCheckin = false
+                    checkinContext = nil
                     Task { await loadWeekData() }
                 }
-                .id(selectedDateForSheet)
+                .id(sheetIdentity)
                 .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
-                .task(id: selectedDateForSheet) {
-                    await loadEntryContext(for: selectedDateForSheet)
-                }
             }
         }
     }
@@ -172,6 +184,12 @@ struct WeekCalendarView: View {
         f.dateFormat = "MMM d"
         return "\(f.string(from: startOfWeek)) - \(f.string(from: end))"
     }
+    
+    private var sheetIdentity: String {
+        let d = CalendarEntry.dbString(from: checkinContext?.date ?? selectedDateForSheet)
+        let existingId = checkinContext?.existing?.id.map(String.init) ?? currentEntry?.id.map(String.init) ?? "none"
+        return "\(d)-\(existingId)"
+    }
 
     private func shiftWeek(_ delta: Int) {
         if let d = Calendar.current.date(byAdding: .day, value: delta * 7, to: startOfWeek) {
@@ -186,10 +204,11 @@ struct WeekCalendarView: View {
         var entriesMap: [Int: Bool] = [:]
         for offset in 0..<7 {
             if let date = Calendar.current.date(byAdding: .day, value: offset, to: startOfWeek) {
+                let day = Calendar.current.startOfDay(for: date)
                 do {
-                    let rows = try workoutRepository.workoutsWithDetails(on: date, userId: id64)
+                    let rows = try workoutRepository.workoutsWithDetails(on: day, userId: id64)
                     map[offset] = rows
-                    let has = (try? entryRepository.entry(for: id64, on: date)) != nil
+                    let has = (try? entryRepository.entry(for: id64, on: day)) != nil
                     entriesMap[offset] = has
                 } catch {
                     print("[WeekCalendarView] loadWeekData error: \(error)")
@@ -207,16 +226,29 @@ struct WeekCalendarView: View {
     private func loadEntryContext(for date: Date) async {
         guard let userId = authCoordinator.currentUser?.id else { return }
         let id64 = Int64(userId)
+        let day = Calendar.current.startOfDay(for: date)
+        var fetchedCurrent: CalendarEntryRecord?
+        var fetchedPrior: CalendarEntryRecord?
         do {
-            self.currentEntry = try entryRepository.entry(for: id64, on: date)
+            fetchedCurrent = try entryRepository.entry(for: id64, on: day)
         } catch {
-            self.currentEntry = nil
+            fetchedCurrent = nil
         }
         do {
-            self.priorEntry = try entryRepository.mostRecentPriorEntry(before: date, userId: id64)
+            fetchedPrior = try entryRepository.mostRecentPriorEntry(before: day, userId: id64)
         } catch {
-            self.priorEntry = nil
+            fetchedPrior = nil
         }
+        await MainActor.run {
+            self.currentEntry = fetchedCurrent
+            self.priorEntry = fetchedPrior
+        }
+    }
+    
+    private func fetchEntryContext(for date: Date) async -> CheckinContext {
+        let day = Calendar.current.startOfDay(for: date)
+        await loadEntryContext(for: day)
+        return CheckinContext(date: day, existing: self.currentEntry, prior: self.priorEntry)
     }
 }
 

@@ -194,36 +194,6 @@ struct WorkoutInfoView: View {
                                         }
                                     }
                                     Spacer()
-                                    let maxPerBlock = isPremiumUser ? 10 : 5
-                                    let currentCount = (exercisesByBlock[block.id ?? -1]?.count) ?? 0
-                                    Button {
-                                        if currentCount >= maxPerBlock {
-                                            showExerciseLimitInfo = true
-                                        } else {
-                                            targetBlockIdForAdd = block.id
-                                            Task {
-                                                await loadExercises()
-                                                await MainActor.run {
-                                                    isPresentingExercisePicker = true
-                                                }
-                                            }
-                                        }
-                                    } label: {
-                                        HStack(spacing: 6) {
-                                            Image(systemName: "plus")
-                                            Text("Exercise").bold()
-                                        }
-                                        .padding(.vertical, 6)
-                                        .padding(.horizontal, 10)
-                                        .background(effectiveThemeManager.currentTheme.surface)
-                                        .cornerRadius(8)
-                                    }
-                                    .disabled(currentCount >= maxPerBlock)
-                                    .alert("Exercise Limit Reached", isPresented: $showExerciseLimitInfo) {
-                                        Button("OK", role: .cancel) {}
-                                    } message: {
-                                        Text("You've reached the maximum of \(maxPerBlock) exercises for this block. Upgrade to premium for higher limits.")
-                                    }
                                 }
                                 if let bid = block.id {
                                     TextField("Block notes...", text: Binding(
@@ -266,6 +236,39 @@ struct WorkoutInfoView: View {
                                         }
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(.vertical, 8)
+                                        
+                                        // Add Exercise button moved to bottom of exercise list
+                                        HStack {
+                                            Spacer()
+                                            let maxPerBlock = isPremiumUser ? 10 : 5
+                                            let currentCount = (exercisesByBlock[bid]?.count) ?? 0
+                                            Button {
+                                                if currentCount >= maxPerBlock {
+                                                    showExerciseLimitInfo = true
+                                                } else {
+                                                    targetBlockIdForAdd = block.id
+                                                    Task {
+                                                        await loadExercises()
+                                                        await MainActor.run { isPresentingExercisePicker = true }
+                                                    }
+                                                }
+                                            } label: {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: "plus")
+                                                    Text("Exercise").bold()
+                                                }
+                                                .padding(.vertical, 6)
+                                                .padding(.horizontal, 10)
+                                                .background(effectiveThemeManager.currentTheme.surface)
+                                                .cornerRadius(8)
+                                            }
+                                            .disabled(currentCount >= maxPerBlock)
+                                            .alert("Exercise Limit Reached", isPresented: $showExerciseLimitInfo) {
+                                                Button("OK", role: .cancel) {}
+                                            } message: {
+                                                Text("You've reached the maximum of \(maxPerBlock) exercises for this block. Upgrade to premium for higher limits.")
+                                            }
+                                        }
                                     } else {
                                         // Use a nested List for reliable swipe and move support
                                         List {
@@ -288,6 +291,39 @@ struct WorkoutInfoView: View {
                                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                                         .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
                                         .padding(.top, 4)
+                                        
+                                        // Add Exercise button moved to bottom of exercise list
+                                        HStack {
+                                            Spacer()
+                                            let maxPerBlock = isPremiumUser ? 10 : 5
+                                            let currentCount = (exercisesByBlock[bid]?.count) ?? 0
+                                            Button {
+                                                if currentCount >= maxPerBlock {
+                                                    showExerciseLimitInfo = true
+                                                } else {
+                                                    targetBlockIdForAdd = block.id
+                                                    Task {
+                                                        await loadExercises()
+                                                        await MainActor.run { isPresentingExercisePicker = true }
+                                                    }
+                                                }
+                                            } label: {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: "plus")
+                                                    Text("Exercise").bold()
+                                                }
+                                                .padding(.vertical, 6)
+                                                .padding(.horizontal, 10)
+                                                .background(effectiveThemeManager.currentTheme.surface)
+                                                .cornerRadius(8)
+                                            }
+                                            .disabled(currentCount >= maxPerBlock)
+                                            .alert("Exercise Limit Reached", isPresented: $showExerciseLimitInfo) {
+                                                Button("OK", role: .cancel) {}
+                                            } message: {
+                                                Text("You've reached the maximum of \(maxPerBlock) exercises for this block. Upgrade to premium for higher limits.")
+                                            }
+                                        }
                                     }
                                     
                                     HStack {

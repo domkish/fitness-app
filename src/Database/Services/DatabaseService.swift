@@ -44,6 +44,11 @@ final class DatabaseService {
         migrator.registerCalendarEntryMigrations()
         migrator.registerCalendarWorkoutMigrations()
         
+        migrator.registerSessionMigrations()
+        migrator.registerSessionBlockMigrations()
+        migrator.registerSessionExerciseMigrations()
+        migrator.registerSessionSetMigrations()
+        
         // Run migrations
         try migrator.migrate(dbQueue)
         

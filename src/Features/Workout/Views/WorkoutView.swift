@@ -45,237 +45,240 @@ struct WorkoutView: View {
             ZStack {
                 themeManager.currentTheme.background.ignoresSafeArea()
 
-                VStack(spacing: 30) {
+                ScrollView {
+                    VStack(spacing: 30) {
 
-                    // Top segmented navigation between Routines and Exercises (custom segmented control)
-                    HStack(spacing: 6) {
-                        let isRoutines = (topSegmentSelection == .routines)
-                        Button {
-                            topSegmentSelection = .routines
-                            coordinator.currentStep = .workout
-                        } label: {
-                            Text("Routines")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundColor(isRoutines ? themeManager.currentTheme.background : themeManager.currentTheme.textDefault)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(isRoutines ? themeManager.currentTheme.primary : themeManager.currentTheme.surface)
-                                )
-                        }
-
-                        Button {
-                            topSegmentSelection = .exercises
-                            coordinator.currentStep = .exercise
-                        } label: {
-                            Text("Exercises")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundColor(!isRoutines ? themeManager.currentTheme.background : themeManager.currentTheme.textDefault)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(!isRoutines ? themeManager.currentTheme.primary : themeManager.currentTheme.surface)
-                                )
-                        }
-                    }
-                    .padding(.horizontal)
-                    .onAppear {
-                        // Initialize from coordinator on first appear
-                        topSegmentSelection = (coordinator.currentStep == .exercise) ? .exercises : .routines
-                    }
-
-                    // Header with Add button (constrained to same horizontal padding as table)
-                    HStack {
-                        Text("Workout Routines")
-                            .font(.title)
-                            .bold()
-                            .foregroundColor(themeManager.currentTheme.textDefault)
-                        Spacer()
-                        Button {
-                            let maxWorkouts = isPremiumUser ? 20 : 4
-                            if workouts.count >= maxWorkouts {
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                showLimitPopover = true
-                            } else {
-                                newWorkoutName = ""
-                                isShowingAddPopup = true
-                            }
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.headline)
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 12)
-                                .background(themeManager.currentTheme.surface)
-                                .foregroundColor(showLimitPopover ? themeManager.currentTheme.muted : themeManager.currentTheme.primary)
-                                .cornerRadius(8)
-                        }
-                        .accessibilityLabel("Add Workout Routine")
-                        .popover(isPresented: $showLimitPopover) {
-                            VStack(alignment: .leading, spacing: 16) {
-                                if isPremiumUser {
-                                    Text("You have hit the max number of workout routines allowed. Please clean up your current list to add more.")
-                                        .foregroundColor(themeManager.currentTheme.textDefault)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                } else {
-                                    Text("You have hit the max number of workout routines allowed. Sign up for Premium to gain access up to 20 Workouts!.")
-                                        .foregroundColor(themeManager.currentTheme.textDefault)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                    HStack {
-                                        Spacer()
-                                        Button("View Premium") {
-                                            showLimitPopover = false
-                                            showPremium = true
-                                        }
-                                        .buttonStyle(.borderedProminent)
-                                    }
-                                }
-                            }
-                            .padding()
-                            .frame(maxWidth: 360)
-                        }
-                    }
-                    .padding(.horizontal)
-
-                    // Hidden navigation link to push detail after creation
-                    NavigationLink(
-                        isActive: $shouldNavigateToDetail,
-                        destination: {
-                            if let id = navigateToWorkoutId {
-                                WorkoutInfoView(workoutId: id)
-                                    .environmentObject(themeManager)
-                            } else {
-                                // Return a concrete placeholder view to satisfy ViewBuilder
-                                Text("Loading…").hidden()
-                            }
-                        },
-                        label: { EmptyView() }
-                    )
-                    .hidden()
-                    .background(EmptyView())
-
-                    .navigationDestination(isPresented: $showPremium) {
-                        PremiumView(coordinator: coordinator)
-                            .environmentObject(authCoordinator)
-                    }
-
-                    // Table container styled like ExerciseView
-                    VStack(spacing: 0) {
-                            VStack(spacing: 10) {
-                                if isLoading {
-                                    HStack { Spacer(); ProgressView(); Spacer() }
-                                        .padding()
-                                } else if let errorMessage = errorMessage {
-                                    VStack(spacing: 12) {
-                                        Image(systemName: "exclamationmark.triangle.fill")
-                                            .foregroundColor(.orange)
-                                            .imageScale(.large)
-                                        Text(errorMessage)
-                                            .multilineTextAlignment(.center)
-                                            .padding(.horizontal)
-                                            .foregroundColor(themeManager.currentTheme.textDefault)
-                                        Button("Retry") { Task { await loadWorkouts() } }
-                                            .buttonStyle(.bordered)
-                                    }
-                                    .padding()
-                                } else if workouts.isEmpty {
-                                    VStack(spacing: 8) {
-                                        Image(systemName: "dumbbell.fill")
-                                            .font(.system(size: 44))
-                                            .foregroundColor(themeManager.currentTheme.textDefault)
-                                        Text("No Workout Routines Yet")
-                                            .font(.title3).bold()
-                                            .foregroundColor(themeManager.currentTheme.textDefault)
-                                        Text("Tap + to add your first routine.")
-                                            .foregroundColor(themeManager.currentTheme.muted)
-                                    }
+                        // Top segmented navigation between Routines and Exercises (custom segmented control)
+                        HStack(spacing: 6) {
+                            let isRoutines = (topSegmentSelection == .routines)
+                            Button {
+                                topSegmentSelection = .routines
+                                coordinator.currentStep = .workout
+                            } label: {
+                                Text("Routines")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(isRoutines ? themeManager.currentTheme.background : themeManager.currentTheme.textDefault)
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(isRoutines ? themeManager.currentTheme.primary : themeManager.currentTheme.surface)
+                                    )
+                            }
+
+                            Button {
+                                topSegmentSelection = .exercises
+                                coordinator.currentStep = .exercise
+                            } label: {
+                                Text("Exercises")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(!isRoutines ? themeManager.currentTheme.background : themeManager.currentTheme.textDefault)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(!isRoutines ? themeManager.currentTheme.primary : themeManager.currentTheme.surface)
+                                    )
+                            }
+                        }
+                        .padding(.horizontal)
+                        .onAppear {
+                            // Initialize from coordinator on first appear
+                            topSegmentSelection = (coordinator.currentStep == .exercise) ? .exercises : .routines
+                        }
+
+                        // Header with Add button (constrained to same horizontal padding as table)
+                        HStack {
+                            Text("Workout Routines")
+                                .font(.title)
+                                .bold()
+                                .foregroundColor(themeManager.currentTheme.textDefault)
+                            Spacer()
+                            Button {
+                                let maxWorkouts = isPremiumUser ? 20 : 4
+                                if workouts.count >= maxWorkouts {
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    showLimitPopover = true
                                 } else {
-                                    VStack(spacing: 10) {
-                                        ForEach(workouts, id: \._id) { workout in
-                                            let c = colorForKey(workout.color)
-                                            NavigationLink {
-                                                WorkoutInfoView(workoutId: workout.id)
-                                                    .environmentObject(themeManager)
-                                            } label: {
-                                                VStack(alignment: .leading, spacing: 8) {
-                                                    HStack(spacing: 10) {
-                                                        Circle()
-                                                            .fill(c)
-                                                            .frame(width: 14, height: 14)
-                                                        Text(workout.name)
-                                                            .font(.headline)
-                                                            .foregroundColor(c)
-                                                        Spacer()
-                                                        Image(systemName: "chevron.right")
-                                                            .foregroundColor(c)
-                                                            .font(.headline)
-                                                    }
-                                                }
-                                                .padding(12)
-                                                .frame(maxWidth: .infinity, alignment: .leading)
-                                                .background(
-                                                    RoundedRectangle(cornerRadius: 6)
-                                                        .fill(c.opacity(0.1))
-                                                )
+                                    newWorkoutName = ""
+                                    isShowingAddPopup = true
+                                }
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.headline)
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 12)
+                                    .background(themeManager.currentTheme.surface)
+                                    .foregroundColor(showLimitPopover ? themeManager.currentTheme.muted : themeManager.currentTheme.primary)
+                                    .cornerRadius(8)
+                            }
+                            .accessibilityLabel("Add Workout Routine")
+                            .popover(isPresented: $showLimitPopover) {
+                                VStack(alignment: .leading, spacing: 16) {
+                                    if isPremiumUser {
+                                        Text("You have hit the max number of workout routines allowed. Please clean up your current list to add more.")
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    } else {
+                                        Text("You have hit the max number of workout routines allowed. Sign up for Premium to gain access up to 20 Workouts!.")
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        HStack {
+                                            Spacer()
+                                            Button("View Premium") {
+                                                showLimitPopover = false
+                                                showPremium = true
                                             }
-                                            .buttonStyle(.plain)
+                                            .buttonStyle(.borderedProminent)
                                         }
                                     }
-                                    .padding(.horizontal)
-                                    .padding(.vertical, 8)
                                 }
+                                .padding()
+                                .frame(maxWidth: 360)
+                            }
+                        }
+                        .padding(.horizontal)
 
-                                // Dashed separator
-                                Capsule()
-                                    .stroke(style: StrokeStyle(lineWidth: 4, dash: [6, 4]))
-                                    .foregroundColor(themeManager.currentTheme.borderDefault)
-                                    .frame(height: 1)
-                                    .padding(.horizontal)
-                                    .padding(.top, 28)
+                        // Hidden navigation link to push detail after creation
+                        NavigationLink(
+                            isActive: $shouldNavigateToDetail,
+                            destination: {
+                                if let id = navigateToWorkoutId {
+                                    WorkoutInfoView(workoutId: id)
+                                        .environmentObject(themeManager)
+                                } else {
+                                    // Return a concrete placeholder view to satisfy ViewBuilder
+                                    Text("Loading…").hidden()
+                                }
+                            },
+                            label: { EmptyView() }
+                        )
+                        .hidden()
+                        .background(EmptyView())
 
-                                // Info section
-                                VStack(alignment: .leading, spacing: 12) {
-                                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                        Text("What are Workout Routines?")
-                                            .font(.title3)
-                                            .bold()
-                                            .foregroundColor(themeManager.currentTheme.textDefault)
+                        .navigationDestination(isPresented: $showPremium) {
+                            PremiumView(coordinator: coordinator)
+                                .environmentObject(authCoordinator)
+                        }
+
+                        // Table container styled like ExerciseView
+                        VStack(spacing: 0) {
+                                VStack(spacing: 10) {
+                                    if isLoading {
+                                        HStack { Spacer(); ProgressView(); Spacer() }
+                                            .padding()
+                                    } else if let errorMessage = errorMessage {
+                                        VStack(spacing: 12) {
+                                            Image(systemName: "exclamationmark.triangle.fill")
+                                                .foregroundColor(.orange)
+                                                .imageScale(.large)
+                                            Text(errorMessage)
+                                                .multilineTextAlignment(.center)
+                                                .padding(.horizontal)
+                                                .foregroundColor(themeManager.currentTheme.textDefault)
+                                            Button("Retry") { Task { await loadWorkouts() } }
+                                                .buttonStyle(.bordered)
+                                        }
+                                        .padding()
+                                    } else if workouts.isEmpty {
+                                        VStack(spacing: 8) {
+                                            Image(systemName: "dumbbell.fill")
+                                                .font(.system(size: 44))
+                                                .foregroundColor(themeManager.currentTheme.textDefault)
+                                            Text("No Workout Routines Yet")
+                                                .font(.title3).bold()
+                                                .foregroundColor(themeManager.currentTheme.textDefault)
+                                            Text("Tap + to add your first routine.")
+                                                .foregroundColor(themeManager.currentTheme.muted)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                    } else {
+                                        VStack(spacing: 10) {
+                                            ForEach(workouts, id: \._id) { workout in
+                                                let c = colorForKey(workout.color)
+                                                NavigationLink {
+                                                    WorkoutInfoView(workoutId: workout.id)
+                                                        .environmentObject(themeManager)
+                                                } label: {
+                                                    VStack(alignment: .leading, spacing: 8) {
+                                                        HStack(spacing: 10) {
+                                                            Circle()
+                                                                .fill(c)
+                                                                .frame(width: 14, height: 14)
+                                                            Text(workout.name)
+                                                                .font(.headline)
+                                                                .foregroundColor(c)
+                                                            Spacer()
+                                                            Image(systemName: "chevron.right")
+                                                                .foregroundColor(c)
+                                                                .font(.headline)
+                                                        }
+                                                    }
+                                                    .padding(12)
+                                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                                    .background(
+                                                        RoundedRectangle(cornerRadius: 6)
+                                                            .fill(c.opacity(0.1))
+                                                    )
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
+                                        }
+                                        .padding(.horizontal)
+                                        .padding(.vertical, 8)
                                     }
-                            
-                                    Text("Workout routines are fully customizable so you can build the perfect plan for your goals. Once you create a routine, it’ll be available to add to your workout calendar whenever you’re ready.")
+
+                                    // Dashed separator
+                                    Capsule()
+                                        .stroke(style: StrokeStyle(lineWidth: 4, dash: [6, 4]))
+                                        .foregroundColor(themeManager.currentTheme.borderDefault)
+                                        .frame(height: 1)
+                                        .padding(.horizontal)
+                                        .padding(.top, 28)
+
+                                    // Info section
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                            Text("What are Workout Routines?")
+                                                .font(.title3)
+                                                .bold()
+                                                .foregroundColor(themeManager.currentTheme.textDefault)
+                                        }
+                                
+                                        Text("Workout routines are fully customizable so you can build the perfect plan for your goals. Once you create a routine, it’ll be available to add to your workout calendar whenever you’re ready.")
+                                            .font(.callout)
+                                            .foregroundColor(themeManager.currentTheme.muted)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        
+                                        (
+                                            Text("Whether you’re setting up a standard workout with ") +
+                                            Text("sets and reps").fontWeight(.heavy) +
+                                            Text(", dialing in fast-paced ") +
+                                            Text("circuit training").fontWeight(.heavy) +
+                                            Text(", or pairing movements into ") +
+                                            Text("supersets").fontWeight(.heavy) +
+                                            Text(", we’ve got you covered. Mix and match exercises from our database or create your own to tailor every routine to you.")
+                                        )
                                         .font(.callout)
                                         .foregroundColor(themeManager.currentTheme.muted)
                                         .fixedSize(horizontal: false, vertical: true)
-                                    
-                                    (
-                                        Text("Whether you’re setting up a standard workout with ") +
-                                        Text("sets and reps").fontWeight(.heavy) +
-                                        Text(", dialing in fast-paced ") +
-                                        Text("circuit training").fontWeight(.heavy) +
-                                        Text(", or pairing movements into ") +
-                                        Text("supersets").fontWeight(.heavy) +
-                                        Text(", we’ve got you covered. Mix and match exercises from our database or create your own to tailor every routine to you.")
-                                    )
-                                    .font(.callout)
-                                    .foregroundColor(themeManager.currentTheme.muted)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            
-                                    HStack(alignment: .center, spacing: 10) {
-                                        Image(systemName: "plus.circle.fill")
-                                            .foregroundColor(themeManager.currentTheme.primary)
-                                        Text("Tap the \"+\" above to create a routine — name it anything you like!")
-                                            .font(.callout)
-                                            .foregroundColor(themeManager.currentTheme.muted)
+                                
+                                        HStack(alignment: .center, spacing: 10) {
+                                            Image(systemName: "plus.circle.fill")
+                                                .foregroundColor(themeManager.currentTheme.primary)
+                                            Text("Tap the \"+\" above to create a routine — name it anything you like!")
+                                                .font(.callout)
+                                                .foregroundColor(themeManager.currentTheme.muted)
+                                        }
                                     }
+                                    .padding(16)
+                                    .padding(.top, 6)
                                 }
-                                .padding(16)
-                                .padding(.top, 6)
-                            }
-                    }
+                        }
 
+                    }
+                    .padding(.vertical, 10)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
