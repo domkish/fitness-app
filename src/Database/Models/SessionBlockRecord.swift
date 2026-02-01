@@ -1,5 +1,5 @@
 //
-//  SessionExerciseRecord.swift
+//  SessionBlockRecord.swift
 //  fitness-app
 //
 //  Created by Dominic Kish on 2/1/26.
@@ -16,7 +16,7 @@ struct SessionBlockRecord: Codable, FetchableRecord, PersistableRecord, Identifi
     var createdAt: Date
     var updatedAt: Date
 
-    static let databaseTableName = "session_exercises"
+    static let databaseTableName = "session_blocks"
 
     enum Columns: String, ColumnExpression {
         case id
@@ -26,6 +26,24 @@ struct SessionBlockRecord: Codable, FetchableRecord, PersistableRecord, Identifi
         case deletedAt = "deleted_at"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+    }
+
+    init(
+        id: Int64? = nil,
+        sessionId: Int64,
+        workoutBlockId: Int64,
+        duration: Int = 0,
+        deletedAt: Date? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.sessionId = sessionId
+        self.workoutBlockId = workoutBlockId
+        self.duration = duration
+        self.deletedAt = deletedAt
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
 
     init(from domain: SessionBlockDomain) {
@@ -50,3 +68,4 @@ struct SessionBlockRecord: Codable, FetchableRecord, PersistableRecord, Identifi
         )
     }
 }
+

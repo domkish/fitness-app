@@ -34,6 +34,30 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
         case updatedAt = "updated_at"
     }
 
+    init(
+        id: Int64? = nil,
+        sessionBlockId: Int64,
+        exerciseId: Int64,
+        exerciseName: String,
+        note: String? = nil,
+        order: Int? = nil,
+        duration: Int = 0,
+        deletedAt: Date? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.sessionBlockId = sessionBlockId
+        self.exerciseId = exerciseId
+        self.exerciseName = exerciseName
+        self.note = note
+        self.order = order
+        self.duration = duration
+        self.deletedAt = deletedAt
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
     init(from domain: SessionExerciseDomain) {
         self.id = domain.id
         self.sessionBlockId = domain.sessionBlockId
@@ -62,3 +86,4 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
         )
     }
 }
+

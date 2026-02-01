@@ -25,10 +25,10 @@ struct SessionExerciseRepository {
         }
     }
 
-    func bySession(_ sessionId: Int64) throws -> [SessionExerciseRecord] {
+    func bySessionBlock(_ sessionBlockId: Int64) throws -> [SessionExerciseRecord] {
         return try dbQueue.read { db in
             try SessionExerciseRecord
-                .filter(SessionExerciseRecord.Columns.sessionId == sessionId)
+                .filter(SessionExerciseRecord.Columns.sessionBlockId == sessionBlockId)
                 .filter(SessionExerciseRecord.Columns.deletedAt == nil)
                 .order(SessionExerciseRecord.Columns.order.asc)
                 .fetchAll(db)
@@ -37,8 +37,8 @@ struct SessionExerciseRepository {
 }
 
 extension SessionExerciseRepository {
-    func fetchTree(sessionId: Int64, setRepo: SessionSetRepository) throws -> [(exercise: SessionExerciseRecord, sets: [SessionSetRecord])] {
-        let exercises = try bySession(sessionId)
+    func fetchTree(sessionBlockId: Int64, setRepo: SessionSetRepository) throws -> [(exercise: SessionExerciseRecord, sets: [SessionSetRecord])] {
+        let exercises = try bySessionBlock(sessionBlockId)
         var result: [(SessionExerciseRecord, [SessionSetRecord])] = []
         for ex in exercises {
             let sets = try setRepo.bySessionExercise(ex.id ?? -1)

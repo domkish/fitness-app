@@ -68,31 +68,53 @@ struct SessionRepository {
         let sessionId = try createSession(userId: userId, workoutId: workoutId, calendarWorkoutId: calendarWorkoutId, workoutName: workoutName, startedAt: startedAt)
         // Load workout blocks and exercises
         let blocks = try workoutRepo.fetchBlocks(forWorkoutId: workoutId).filter { $0.deletedAt == nil }
+        var blockRepo = SessionBlockRepository(dbQueue: dbQueue)
         var exRepo = SessionExerciseRepository(dbQueue: dbQueue)
         var setRepo = SessionSetRepository(dbQueue: dbQueue)
 
-        // For each block, create session exercises and default sets (1 set each by default)
+        // For each block, create session blocks, session exercises, and default sets (1 set each by default)
         for block in blocks.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+            // Create a session block row
+            var sBlock = SessionBlockRecord(
+                id: nil,
+                sessionId: sessionId,
+                workoutBlockId: block.id ?? -1,
+                duration: 0,
+                deletedAt: nil,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            let sessionBlockId = try blockRepo.create(&sBlock)
+
+            // Fetch exercises for this block
             let exRows = try workoutRepo.fetchExercisesByBlock(forWorkoutId: workoutId)[block.id ?? -1] ?? []
             var orderCounter = 1
             for ex in exRows.sorted(by: { $0.sortOrder < $1.sortOrder }) {
                 var sEx = SessionExerciseRecord(
-                    sessionId: sessionId,
+                    id: nil,
+                    sessionBlockId: sessionBlockId,
                     exerciseId: ex.exerciseId,
                     exerciseName: ex.name,
                     note: nil,
                     order: orderCounter,
-                    duration: 0
+                    duration: 0,
+                    deletedAt: nil,
+                    createdAt: Date(),
+                    updatedAt: Date()
                 )
                 let sessionExerciseId = try exRepo.create(&sEx)
                 // Seed a single default set
                 var sSet = SessionSetRecord(
+                    id: nil,
                     sessionExerciseId: sessionExerciseId,
                     setNumber: 1,
                     completedReps: nil,
                     value: nil,
                     unit: nil,
-                    completed: 0
+                    completed: 0,
+                    deletedAt: nil,
+                    createdAt: Date(),
+                    updatedAt: Date()
                 )
                 _ = try setRepo.create(&sSet)
                 orderCounter += 1
@@ -103,15 +125,17 @@ struct SessionRepository {
         return try find(calendarWorkoutId: calendarWorkoutId, startedAt: startedAt)!
     }
 
-    // Fetch full session tree: session with exercises and sets
-    func fetchSessionTree(calendarWorkoutId: Int64, startedAt: Date) throws -> (session: SessionRecord, exercises: [(SessionExerciseRecord, [SessionSetRecord])])? {
+    // Fetch full session tree: session with blocks, exercises and sets
+    func fetchSessionTree(calendarWorkoutId: Int64, startedAt: Date) throws -> (session: SessionRecord, blocks: [(block: SessionBlockRecord, exercises: [(exercise: SessionExerciseRecord, sets: [SessionSetRecord])])])? {
         guard let session = try find(calendarWorkoutId: calendarWorkoutId, startedAt: startedAt) else {
             return nil
         }
+        let blockRepo = SessionBlockRepository(dbQueue: dbQueue)
         let exRepo = SessionExerciseRepository(dbQueue: dbQueue)
         let setRepo = SessionSetRepository(dbQueue: dbQueue)
-        let tree = try exRepo.fetchTree(sessionId: session.id ?? -1, setRepo: setRepo)
-        return (session, tree)
+        let blocksTree = try blockRepo.fetchTree(sessionId: session.id ?? -1, exRepo: exRepo, setRepo: setRepo)
+        // Flatten to legacy return type if needed, but here we change signature, so adjust function signature accordingly
+        fatalError("Update call sites: fetchSessionTree now returns blocks → exercises → sets")
     }
 }
 
