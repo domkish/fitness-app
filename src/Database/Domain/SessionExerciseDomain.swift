@@ -14,6 +14,7 @@ struct SessionExerciseDomain {
     var note: String?
     var order: Int?
     var duration: Int
+    var completed: Bool
     var deletedAt: Date?
     var createdAt: Date
     var updatedAt: Date
@@ -26,6 +27,7 @@ struct SessionExerciseDomain {
         note: String? = nil,
         order: Int? = nil,
         duration: Int = 0,
+        completed: Bool = false,
         deletedAt: Date? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
@@ -37,8 +39,10 @@ struct SessionExerciseDomain {
         self.note = note
         self.order = order
         self.duration = duration
+        self.completed = completed
         self.deletedAt = deletedAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
 }
+

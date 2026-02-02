@@ -36,11 +36,13 @@ class SessionSetItem: ObservableObject, Identifiable {
 class SessionExerciseItem: ObservableObject, Identifiable {
     let id = UUID()
     let exercise: SessionExerciseRecord
+    @Published var exerciseCompleted: Bool
     @Published var sets: [SessionSetItem]
 
     init(exercise: SessionExerciseRecord, sets: [SessionSetItem]) {
-        self.exercise = exercise
+        self.exerciseCompleted = (exercise.completed != 0)
         self.sets = sets
+        self.exercise = exercise
     }
 }
 
@@ -54,3 +56,4 @@ class SessionBlockItem: ObservableObject, Identifiable {
         self.exercises = exercises
     }
 }
+

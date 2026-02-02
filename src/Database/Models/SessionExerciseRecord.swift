@@ -15,6 +15,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
     var note: String?
     var order: Int?
     var duration: Int
+    var completed: Int
     var deletedAt: Date?
     var createdAt: Date
     var updatedAt: Date
@@ -29,6 +30,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
         case note
         case order
         case duration
+        case completed
         case deletedAt = "deleted_at"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
@@ -43,6 +45,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
         static let note = Column("note")
         static let order = Column("order")
         static let duration = Column("duration")
+        static let completed = Column("completed")
         static let deletedAt = Column("deleted_at")
         static let createdAt = Column("created_at")
         static let updatedAt = Column("updated_at")
@@ -57,6 +60,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
         note: String? = nil,
         order: Int? = nil,
         duration: Int = 0,
+        completed: Int = 0,
         deletedAt: Date? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
@@ -68,6 +72,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
         self.note = note
         self.order = order
         self.duration = duration
+        self.completed = completed
         self.deletedAt = deletedAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -81,6 +86,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
         self.note = domain.note
         self.order = domain.order
         self.duration = domain.duration
+        self.completed = domain.completed ? 1 : 0
         self.deletedAt = domain.deletedAt
         self.createdAt = domain.createdAt
         self.updatedAt = domain.updatedAt
@@ -95,6 +101,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
             note: note,
             order: order,
             duration: duration,
+            completed: completed != 0,
             deletedAt: deletedAt,
             createdAt: createdAt,
             updatedAt: updatedAt

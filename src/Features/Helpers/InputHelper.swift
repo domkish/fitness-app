@@ -2,6 +2,7 @@ import SwiftUI
 import Foundation
 
 public struct LiveDecimalTextField: UIViewRepresentable {
+    @EnvironmentObject var themeManager: ThemeManager
     @Binding var displayText: String
     @Binding var digits: String
     let maxValue: Double
@@ -17,6 +18,7 @@ public struct LiveDecimalTextField: UIViewRepresentable {
         tf.keyboardType = .decimalPad
         tf.delegate = context.coordinator
         tf.textAlignment = .center
+        tf.textColor = UIColor(themeManager.currentTheme.textDefault)
         tf.text = displayText
         tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return tf
@@ -117,14 +119,16 @@ public struct InputWithSuffixDecimal: View {
                     )
                     .cornerRadius(8)
             }
-
-            Text(suffix)
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(themeManager.currentTheme.muted)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(themeManager.currentTheme.surface)
-                .clipShape(Capsule())
+            
+            if(suffix != ""){
+                Text(suffix)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(themeManager.currentTheme.muted)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(themeManager.currentTheme.surface)
+                    .clipShape(Capsule())
+            }
         }
     }
 

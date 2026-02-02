@@ -5,21 +5,84 @@
 //  Created by Dominic Kish on 2/1/26.
 //
 import SwiftUI
+import Combine
 
 struct ExerciseCardView: View {
     @ObservedObject var exItem: SessionExerciseItem
     @EnvironmentObject var themeManager: ThemeManager
 
+    var isActive: Bool = false
+    var onCompleted: (() -> Void)? = nil
+    var onBecameActive: (() -> Void)? = nil
+
+    @State private var elapsed: Int = 0
+    @State private var lastTick: Date? = nil
+    @State private var saveTask: Task<Void, Never>? = nil
+    @State private var noteSaveTask: Task<Void, Never>? = nil
+
+    @State private var showingTimeEditor: Bool = false
+    @State private var editHours: String = "00"
+    @State private var editMinutes: String = "00"
+    @State private var editSeconds: String = "00"
+
+    @State private var noteText: String = ""
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(exItem.exercise.exerciseName)
-                .foregroundColor(themeManager.currentTheme.textDefault)
-                .padding(.vertical)
+            HStack {
+                Text(exItem.exercise.exerciseName)
+                    .foregroundColor(themeManager.currentTheme.textDefault)
+                Spacer()
+                Group {
+                    if exItem.exerciseCompleted {
+                        Button(action: { showingTimeEditor.toggle() }) {
+                            Text(formattedTime(elapsed))
+                                .foregroundColor(themeManager.currentTheme.muted)
+                        }
+                        .buttonStyle(.plain)
+                        .popover(isPresented: $showingTimeEditor, arrowEdge: .top) {
+                            timeEditor
+                                .padding()
+                                .frame(maxWidth: 260)
+                        }
+                    } else {
+                        Text(formattedTime(elapsed))
+                            .foregroundColor(themeManager.currentTheme.muted)
+                    }
+                }
+            }
+            .padding(.vertical)
+
+            ZStack(alignment: .topLeading) {
+                // Background
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(themeManager.currentTheme.background)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(themeManager.currentTheme.borderDefault, lineWidth: 1)
+                    )
+                // Growing text editor
+                GrowingTextEditor(text: $noteText, minLines: 1)
+                    .foregroundColor(themeManager.currentTheme.textDefault)
+                    .padding(8)
+                    .onChange(of: noteText) { _ in
+                        scheduleNoteDebouncedSave()
+                    }
+                // Placeholder
+                if noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("notes…")
+                        .font(.body)
+                        .foregroundColor(themeManager.currentTheme.muted)
+                        .padding(EdgeInsets(top: 8, leading: 12, bottom: 0, trailing: 0))
+                        .allowsHitTesting(false)
+                }
+            }
+            .frame(maxWidth: .infinity)
 
             VStack(spacing: 8) {
                 // Header centered container
                 HStack(spacing: 8) {
-                    Text("Set").frame(maxWidth: 40, alignment: .leading)
+                    Text("Set").frame(maxWidth: 40, alignment: .center)
                     Text("Previous").frame(maxWidth: .infinity, alignment: .leading)
                     Text("Reps").frame(maxWidth: 60, alignment: .leading)
                     Text("Value").frame(maxWidth: 200, alignment: .leading)
@@ -32,26 +95,67 @@ struct ExerciseCardView: View {
                 // Rows centered container
                 VStack(spacing: 6) {
                     ForEach(exItem.sets) { set in
-                        SetRowView(setItem: set)
-                    }
-                    HStack(spacing: 8) {
-                        Spacer()
-                        Button(action: { addSet() }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "plus")
+                        SetRowView(setItem: set, onUserInteraction: {
+                            if exItem.exerciseCompleted {
+                                exItem.exerciseCompleted = false
+                                let repo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+                                if let exId = exItem.exercise.id {
+                                    try? repo.markCompleted(id: exId, completed: false)
+                                }
                             }
-                            .padding(2)
-                            .foregroundColor(Color.white)
-                            .background(themeManager.currentTheme.success)
-                            .font(.system(size: 16, weight: .semibold))
-                            .contentShape(Rectangle())
-                            .cornerRadius(5)
+                            onBecameActive?()
+                        })
+                    }
+                    HStack(spacing: 12) {
+                        // Left-aligned Add Set
+                        Button(action: { addSet() }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "plus")
+                                Text("Add Set").bold()
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(themeManager.currentTheme.surface)
+                            .foregroundColor(themeManager.currentTheme.secondary)
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Spacer(minLength: 0)
+
+                        // Right-aligned Complete button
+                        Button(action: {
+                            exItem.exerciseCompleted.toggle()
+                            let repo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+                            if let exId = exItem.exercise.id {
+                                try? repo.markCompleted(id: exId, completed: exItem.exerciseCompleted)
+                            }
+                            if exItem.exerciseCompleted == false { onBecameActive?() }
+                            if exItem.exerciseCompleted {
+                                onCompleted?()
+                            }
+                        }) {
+                            HStack(spacing: 8) {
+                                Text(exItem.exerciseCompleted ? "Completed" : "Complete")
+                                    .bold()
+                                Image(systemName: exItem.exerciseCompleted ? "checkmark.square.fill" : "square")
+                            }
+                            .padding(.vertical, 3)
+                            .padding(.horizontal, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 5)
+                                    .fill(exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.15) : themeManager.currentTheme.primary)
+                            )
+                            .foregroundColor(exItem.exerciseCompleted ? themeManager.currentTheme.primary : themeManager.currentTheme.background)
                         }
                         .buttonStyle(.plain)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                     }
-                    .padding(.bottom)
-                    .frame(maxWidth: 600)
+                    .padding(.top, 4)
+                    .background(Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .accessibilityLabel(exItem.exerciseCompleted ? "Completed" : "Complete")
                 }
                 .frame(maxWidth: 600)
             }
@@ -60,9 +164,104 @@ struct ExerciseCardView: View {
         .padding(.vertical, 5)
         .padding(.horizontal)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(themeManager.currentTheme.surface)
+        .background(
+            exItem.exerciseCompleted
+            ? themeManager.currentTheme.primary.opacity(0.2)
+            : themeManager.currentTheme.surface
+        )
         .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    isActive && !exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.4) : Color.clear,
+                    lineWidth: isActive && !exItem.exerciseCompleted ? 2 : 0
+                )
+                .shadow(color: isActive && !exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.65) : Color.clear, radius: 8)
+        )
         .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
+        .onAppear {
+            elapsed = (exItem.exercise.duration)
+            noteText = exItem.exercise.note ?? ""
+            if isActive && !exItem.exerciseCompleted {
+                lastTick = Date()
+            }
+        }
+        .onChange(of: isActive) { newVal in
+            if newVal && !exItem.exerciseCompleted {
+                lastTick = Date()
+            } else {
+                lastTick = nil
+                persistDuration()
+            }
+        }
+        .onChange(of: exItem.exerciseCompleted) { completed in
+            if completed {
+                lastTick = nil
+                persistDuration()
+            } else if isActive {
+                lastTick = Date()
+            }
+        }
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now in
+            guard isActive && !exItem.exerciseCompleted else { return }
+            if let last = lastTick {
+                let delta = Int(now.timeIntervalSince(last))
+                if delta > 0 {
+                    elapsed += delta
+                    lastTick = now
+                    scheduleDebouncedPersist()
+                }
+            } else {
+                lastTick = now
+            }
+        }
+    }
+
+    private var timeEditor: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Edit Time").bold()
+                .foregroundColor(themeManager.currentTheme.textDefault)
+            HStack(spacing: 6) {
+                TextField("hh", text: $editHours)
+                    .keyboardType(.numberPad)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 50)
+                Text(":")
+                TextField("mm", text: $editMinutes)
+                    .keyboardType(.numberPad)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 50)
+                Text(":")
+                TextField("ss", text: $editSeconds)
+                    .keyboardType(.numberPad)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 50)
+            }
+            HStack {
+                Spacer()
+                Button("Save") {
+                    let h = Int(editHours) ?? 0
+                    let m = Int(editMinutes) ?? 0
+                    let s = Int(editSeconds) ?? 0
+                    let clampedH = max(0, h)
+                    let clampedM = max(0, min(59, m))
+                    let clampedS = max(0, min(59, s))
+                    elapsed = clampedH * 3600 + clampedM * 60 + clampedS
+                    showingTimeEditor = false
+                    scheduleDebouncedPersist()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .onAppear {
+            // Prefill editor with current elapsed
+            let hrs = elapsed / 3600
+            let mins = (elapsed % 3600) / 60
+            let secs = elapsed % 60
+            editHours = String(format: "%02d", hrs)
+            editMinutes = String(format: "%02d", mins)
+            editSeconds = String(format: "%02d", secs)
+        }
     }
 
     private func addSet() {
@@ -98,6 +297,80 @@ struct ExerciseCardView: View {
         } catch {
             print("[ExerciseCardView] Failed to add set: \(error)")
         }
+    }
+
+    private func formattedTime(_ seconds: Int) -> String {
+        let hrs = seconds / 3600
+        let mins = (seconds % 3600) / 60
+        let secs = seconds % 60
+        return String(format: "%02d:%02d:%02d", hrs, mins, secs)
+    }
+
+    private func persistDuration() {
+        // Persist current elapsed seconds to the exercise duration field
+        let repo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+        if let exId = exItem.exercise.id {
+            try? repo.updateDuration(id: exId, duration: elapsed)
+        }
+    }
+
+    private func persistNote() {
+        let repo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+        if let exId = exItem.exercise.id {
+            try? repo.updateNote(id: exId, note: noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : noteText)
+        }
+    }
+
+    private func scheduleDebouncedPersist() {
+        saveTask?.cancel()
+        saveTask = Task {
+            try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5s debounce
+            guard !Task.isCancelled else { return }
+            persistDuration()
+        }
+    }
+
+    private func scheduleNoteDebouncedSave() {
+        noteSaveTask?.cancel()
+        noteSaveTask = Task {
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            guard !Task.isCancelled else { return }
+            persistNote()
+        }
+    }
+}
+
+struct GrowingTextEditor: View {
+    @Binding var text: String
+    let minLines: Int
+    @State private var dynamicHeight: CGFloat = 0
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Text(text + " ")
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+                .foregroundColor(.clear)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 4)
+                .background(GeometryReader { geo in
+                    Color.clear
+                        .onAppear { dynamicHeight = clampHeight(geo.size.height) }
+                        .onChange(of: text) { _ in dynamicHeight = clampHeight(geo.size.height) }
+                })
+            TextEditor(text: $text)
+                .font(.body)
+                .frame(height: max(dynamicHeight, lineHeight * CGFloat(minLines)))
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
+        }
+    }
+
+    private var lineHeight: CGFloat { 20 }
+
+    private func clampHeight(_ h: CGFloat) -> CGFloat {
+        let minH = lineHeight * CGFloat(minLines)
+        return max(h, minH)
     }
 }
 

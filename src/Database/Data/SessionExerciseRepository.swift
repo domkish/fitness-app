@@ -46,4 +46,34 @@ extension SessionExerciseRepository {
         }
         return result
     }
+
+    func markCompleted(id: Int64, completed: Bool) throws {
+        try dbQueue.write { db in
+            if var rec = try SessionExerciseRecord.fetchOne(db, key: id) {
+                rec.completed = completed ? 1 : 0
+                try rec.update(db)
+            }
+        }
+    }
+
+    func updateDuration(id: Int64, duration: Int) throws {
+        try dbQueue.write { db in
+            if var rec = try SessionExerciseRecord.fetchOne(db, key: id) {
+                rec.duration = duration
+                rec.updatedAt = Date()
+                try rec.update(db)
+            }
+        }
+    }
+
+    func updateNote(id: Int64, note: String?) throws {
+        try dbQueue.write { db in
+            if var rec = try SessionExerciseRecord.fetchOne(db, key: id) {
+                rec.note = note
+                rec.updatedAt = Date()
+                try rec.update(db)
+            }
+        }
+    }
 }
+

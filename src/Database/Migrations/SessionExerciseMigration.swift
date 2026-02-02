@@ -25,6 +25,7 @@ extension DatabaseMigrator {
 
                 t.column("order", .integer) // exercise order in workout
                 t.column("duration", .integer).notNull().defaults(to: 0)
+                t.column("completed", .integer).notNull().defaults(to: 0)
 
                 t.softDeletes()
                 t.timestamps()

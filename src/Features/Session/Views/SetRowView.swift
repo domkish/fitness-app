@@ -11,17 +11,22 @@ struct SetRowView: View {
     @ObservedObject var setItem: SessionSetItem
     @EnvironmentObject var themeManager: ThemeManager
 
+    var onUserInteraction: (() -> Void)? = nil
+
     @State private var saveTask: Task<Void, Never>? = nil
+    @State private var valueDigits: String = ""
 
     var body: some View {
         HStack(spacing: 8) {
             // Set number
             Text("\(setItem.setNumber)")
-                .frame(maxWidth: 40, alignment: .leading)
+                .frame(maxWidth: 40, alignment: .center)
+                .foregroundColor(themeManager.currentTheme.textDefault)
 
             // Previous
             Text(previousSetDisplay())
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .foregroundColor(themeManager.currentTheme.muted)
 
             // Reps input
             InputWithSuffixDecimal(
@@ -35,25 +40,29 @@ struct SetRowView: View {
                 decimal: false
             )
             .frame(maxWidth: 60)
-            .onChange(of: setItem.repsText) { _ in scheduleDebouncedSave() }
+            .onChange(of: setItem.repsText) { _ in
+                onUserInteraction?()
+                scheduleDebouncedSave()
+            }
             
             // Value input
             InputWithSuffixDecimal(
                 title: nil,
-                digits: Binding<String>(
-                    get: { setItem.valueText.filter { $0.isNumber } },
-                    set: { newVal in setItem.valueText = newVal }
-                ),
+                digits: $valueDigits,
                 suffix: setItem.previousSet?.unit ?? "",
                 maxValue: 999.9,
                 decimal: true
             )
             .frame(maxWidth: 200)
-            .onChange(of: setItem.valueText) { _ in scheduleDebouncedSave() }
+            .onChange(of: valueDigits) { _ in
+                onUserInteraction?()
+                scheduleDebouncedSave()
+            }
 
             // Completed checkbox
             Button(action: {
                 setItem.completed.toggle()
+                onUserInteraction?()
                 scheduleDebouncedSave()
             }) {
                 Image(systemName: setItem.completed ? "checkmark.square.fill" : "square")
@@ -66,6 +75,10 @@ struct SetRowView: View {
             .frame(maxWidth: 24, alignment: .leading)
         }
         .padding(.vertical, 4)
+        .onAppear {
+            // Initialize valueDigits from current valueText (expected like "25.0"): remove non-digits
+            valueDigits = setItem.valueText.filter { $0.isNumber }
+        }
     }
 
     private func previousSetDisplay() -> String {
@@ -90,7 +103,12 @@ struct SetRowView: View {
         guard let setId = setItem.setId else { return }
         let repo = SessionSetRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
         let reps = Int(setItem.repsText.trimmingCharacters(in: .whitespaces))
-        let value = Double(setItem.valueText.trimmingCharacters(in: .whitespaces))
+        let value: Double? = {
+            let trimmed = valueDigits.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { return nil }
+            let raw = Double(trimmed) ?? 0
+            return raw / 10.0
+        }()
         do {
             try repo.updatePerformance(
                 id: setId,

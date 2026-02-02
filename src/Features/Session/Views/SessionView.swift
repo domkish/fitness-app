@@ -5,6 +5,7 @@
 //  Created by Dominic Kish on 1/25/26.
 //
 import SwiftUI
+import GRDB
 
 struct SessionView: View {
     @ObservedObject var coordinator: AppShellCoordinator
@@ -16,6 +17,8 @@ struct SessionView: View {
 
     @State private var sessionTree: [SessionBlockItem] = []
     @State private var isLoading = true
+    @State private var showingCompleteAlert = false
+    @State private var navigateToSummary = false
 
     var body: some View {
         ZStack {
@@ -30,6 +33,18 @@ struct SessionView: View {
                             .bold()
                             .foregroundColor(themeManager.currentTheme.textDefault)
                         Spacer()
+                        Button(action: { showingCompleteAlert = true }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "flag.checkered")
+                                Text("Complete Workout").bold()
+                            }
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 10)
+                            .background(themeManager.currentTheme.primary)
+                            .foregroundColor(themeManager.currentTheme.background)
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal)
 
@@ -57,8 +72,23 @@ struct SessionView: View {
                 }
                 .padding(.vertical)
             }
+
+            NavigationLink(isActive: $navigateToSummary) {
+                SessionSummaryView(coordinator: coordinator, session: session)
+                    .environmentObject(themeManager)
+                    .environmentObject(authCoordinator)
+            } label: { EmptyView() }
+            .hidden()
         }
         .onAppear(perform: loadSessionTree)
+        .alert("Complete Workout?", isPresented: $showingCompleteAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Complete", role: .destructive) {
+                Task { await completeWorkout() }
+            }
+        } message: {
+            Text("Are you sure you want to complete this workout? You can review the summary afterward.")
+        }
     }
 
     private func loadSessionTree() {
@@ -97,6 +127,55 @@ struct SessionView: View {
                 DispatchQueue.main.async {
                     self.isLoading = false
                 }
+            }
+        }
+    }
+
+    private func completeWorkout() async {
+        do {
+            // Compute total duration by summing all session exercise durations
+            let exRepo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+            let blockRepo = SessionBlockRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+            let sessRepo = sessionRepo
+
+            // Fetch blocks and exercises tree
+            let blocks = try blockRepo.bySession(session.id ?? -1)
+            var total: Int = 0
+            for b in blocks {
+                // For each block, sum its exercise durations
+                let exercises = try exRepo.bySessionBlock(b.id ?? -1)
+                let sumForBlock = exercises.reduce(0) { $0 + ($1.duration) }
+                total += sumForBlock
+                // Update block duration to sum of its exercises
+                try updateBlockDuration(blockId: b.id ?? -1, to: sumForBlock)
+            }
+            // Update session total duration and completedAt
+            try updateSessionCompletion(totalDuration: total)
+
+            // Navigate to summary
+            await MainActor.run { navigateToSummary = true }
+        } catch {
+            print("[SessionView] completeWorkout error: \(error)")
+        }
+    }
+
+    private func updateSessionCompletion(totalDuration: Int) throws {
+        try sessionRepo.dbQueue.write { db in
+            if var rec = try SessionRecord.fetchOne(db, key: session.id) {
+                rec.totalDuration = totalDuration
+                rec.completedAt = Date()
+                rec.updatedAt = Date()
+                try rec.update(db)
+            }
+        }
+    }
+
+    private func updateBlockDuration(blockId: Int64, to duration: Int) throws {
+        try sessionRepo.dbQueue.write { db in
+            if var rec = try SessionBlockRecord.fetchOne(db, key: blockId) {
+                rec.duration = duration
+                rec.updatedAt = Date()
+                try rec.update(db)
             }
         }
     }
