@@ -314,7 +314,6 @@ struct ExerciseInfoView: View {
 
             // Replace unit pivots and non-unit tag pivots atomically
             try await dbQueue.write { db in
-                print("[Info] Replacing unit pivots for exerciseId: \(exerciseId), unitIds: \(selectedUnitTagIDs)")
                 // Units
                 try ExerciseUnitPivotRecord
                     .filter(ExerciseUnitPivotRecord.Columns.exerciseId == exerciseId)

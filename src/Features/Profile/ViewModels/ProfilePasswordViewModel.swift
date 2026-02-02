@@ -52,10 +52,6 @@ final class ProfilePasswordViewModel: ObservableObject {
 
             let (debugData, _) = try await URLSession.shared.data(for: debugRequest)
 
-            if let body = String(data: debugData, encoding: .utf8) {
-                print("🔹 Raw debug-token response: \(body)")
-            }
-
             let debugJSON = try JSONSerialization.jsonObject(with: debugData) as? [String: Any]
             let valid = debugJSON?["valid"] as? Bool ?? false
             if !valid {

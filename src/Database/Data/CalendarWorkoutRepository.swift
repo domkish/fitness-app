@@ -71,7 +71,7 @@ struct CalendarWorkoutRepository {
     // Create a calendar workout entry
     func create(_ domain: CalendarWorkout) throws {
         try dbQueue.write { db in
-            var rec = CalendarWorkoutRecord(from: domain)
+            let rec = CalendarWorkoutRecord(from: domain)
             try rec.insert(db)
         }
     }

@@ -172,7 +172,6 @@ struct ExerciseAddView: View {
         }
         .task { await loadTags() }
         .onChange(of: selectedUnitTagIDs) { ids in
-            print("[Add] Units selection changed: \(ids)")
         }
     }
 
@@ -188,7 +187,6 @@ struct ExerciseAddView: View {
 
     // MARK: - Actions
     private func save() async {
-        print("[Add] save() tapped — name: \(name), units: \(selectedUnitTagIDs)")
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { print("[Add] save() aborted — empty name"); return }
         guard !selectedUnitTagIDs.isEmpty else { return }
         isSaving = true
@@ -196,7 +194,6 @@ struct ExerciseAddView: View {
         do {
             guard let user = try await userRepo.fetchUser() else {
                 errorMessage = "No current user found."
-                print("[Add] save() aborted — no current user")
                 return
             }
             // Create and persist the exercise via ExerciseRecord
@@ -214,18 +211,16 @@ struct ExerciseAddView: View {
                 // Ensure the generated id is captured
                 record.id = Int64(db.lastInsertedRowID)
             }
-            print("[Add] inserted exercise id: \(String(describing: record.id))")
 
             // Attach units and non-unit tags using the inserted id
             if let insertedId = record.id {
                 // Units first
                 try await dbQueue.write { db in
-                    print("[Add] Saving unit pivots for exerciseId: \(insertedId), unitIds: \(selectedUnitTagIDs)")
                     try ExerciseUnitPivotRecord
                         .filter(ExerciseUnitPivotRecord.Columns.exerciseId == insertedId)
                         .deleteAll(db)
                     for unitId in selectedUnitTagIDs {
-                        var pivot = ExerciseUnitPivotRecord(id: nil, exerciseId: insertedId, unitId: unitId, createdAt: Date(), updatedAt: Date())
+                        let pivot = ExerciseUnitPivotRecord(id: nil, exerciseId: insertedId, unitId: unitId, createdAt: Date(), updatedAt: Date())
                         try pivot.insert(db)
                     }
                 }

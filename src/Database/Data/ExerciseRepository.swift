@@ -66,7 +66,7 @@ final class ExerciseRepository {
 
     func createOrUpdate(_ exercise: ExerciseDomain) throws {
         try dbQueue.write { db in
-            var record = ExerciseRecord(from: exercise) // Domain → Record
+            let record = ExerciseRecord(from: exercise) // Domain → Record
             try record.insert(db, onConflict: .replace)
         }
     }

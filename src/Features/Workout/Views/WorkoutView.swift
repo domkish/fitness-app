@@ -326,7 +326,7 @@ struct WorkoutView: View {
                                     .font(.headline)
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .foregroundColor(themeManager.currentTheme.textDefault)
+                                    .foregroundColor(Color.white)
                                     .background(newWorkoutName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? themeManager.currentTheme.primary.opacity(0.5) : themeManager.currentTheme.primary)
                                     .cornerRadius(8)
                             }

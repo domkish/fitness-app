@@ -43,20 +43,9 @@ final class TaskRepository {
             
             // Diagnostics: print schema and sample rows before decoding
             do {
-                let pragma = try Row.fetchAll(db, sql: "PRAGMA table_info(tasks)")
-                print("[TaskRepository] PRAGMA table_info(tasks):")
-                for p in pragma { print(p) }
-
-                let rawRows = try Row.fetchAll(db, sql: sql, arguments: arguments)
-                print("[TaskRepository] Sample rows (up to 3):")
-                for (idx, r) in rawRows.prefix(3).enumerated() { print("Row #\(idx): \(r)") }
-
                 let rows = try RowModel.fetchAll(db, sql: sql, arguments: arguments)
                 return rows.map { $0.toDomain() }
             } catch {
-                print("[TaskRepository] Decoding error for tasks: \(error)")
-                print("[TaskRepository] SQL: \(sql)")
-                print("[TaskRepository] Args: \(arguments)")
                 throw error
             }
         }

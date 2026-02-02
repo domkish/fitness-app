@@ -35,6 +35,9 @@ struct DayCalendarView: View {
     @State private var activeSession: SessionRecord? = nil
     @State private var navigateToSession = false
 
+    @State private var showSessionSummary = false
+    @State private var completedSessionForSummary: SessionRecord? = nil
+
     private var isTodayOrPast: Bool {
         let today = Calendar.current.startOfDay(for: Date())
         return selectedDate <= today
@@ -241,13 +244,26 @@ struct DayCalendarView: View {
                 }
                 .environmentObject(themeManager)
             }
+            .sheet(isPresented: $showSessionSummary) {
+                if let s = completedSessionForSummary {
+                    SessionSummaryView(coordinator: coordinator, session: s)
+                        .environmentObject(themeManager)
+                        .environmentObject(authCoordinator)
+                }
+            }
         }
     }
 
     @ViewBuilder
     private var sessionDestinationView: some View {
         if let session = activeSession {
-            SessionView(coordinator: coordinator, session: session, sessionRepo: sessionRepository)
+            SessionView(coordinator: coordinator, session: session, sessionRepo: sessionRepository, onCompleted: { completed in
+                // Pop back to DayCalendarView
+                self.navigateToSession = false
+                // Present summary
+                self.completedSessionForSummary = completed
+                self.showSessionSummary = true
+            })
                 .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
         } else {

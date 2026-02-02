@@ -52,6 +52,7 @@ struct RoutinePickerSheet: View {
                                 HStack {
                                     Image(systemName: "plus")
                                     Text("Create a routine")
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
                                 }
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 12)
@@ -97,8 +98,13 @@ struct RoutinePickerSheet: View {
                     Spacer(minLength: 0)
                 }
             }
-            .navigationTitle("Select Routine")
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Select Routine")
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+                        .font(.headline)
+                }
+
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { onPicked(-1) }
                 }
@@ -164,8 +170,14 @@ struct FrequencyPickerSheet: View {
                 }
                 .listRowBackground(themeManager.currentTheme.surface)
             }
-            .navigationTitle("Frequency")
+            .scrollContentBackground(.hidden)
+            .background(themeManager.currentTheme.background)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Select Routine")
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+                        .font(.headline)
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { onPicked(-1) }
                 }
@@ -194,16 +206,26 @@ struct WeekdayPickerSheet: View {
             Form {
                 Section("Days of Week") {
                     Toggle("Sunday", isOn: $sun)
+                        .foregroundColor(themeManager.currentTheme.textDefault)
                     Toggle("Monday", isOn: $mon)
+                        .foregroundColor(themeManager.currentTheme.textDefault)
                     Toggle("Tuesday", isOn: $tues)
+                        .foregroundColor(themeManager.currentTheme.textDefault)
                     Toggle("Wednesday", isOn: $wed)
+                        .foregroundColor(themeManager.currentTheme.textDefault)
                     Toggle("Thursday", isOn: $thurs)
+                        .foregroundColor(themeManager.currentTheme.textDefault)
                     Toggle("Friday", isOn: $fri)
+                        .foregroundColor(themeManager.currentTheme.textDefault)
                     Toggle("Saturday", isOn: $sat)
+                        .foregroundColor(themeManager.currentTheme.textDefault)
                 }
+                .listRowBackground(themeManager.currentTheme.surface)
+                .foregroundColor(themeManager.currentTheme.textDefault)
             }
+            .scrollContentBackground(.hidden)
+            .background(themeManager.currentTheme.background)
             .onAppear(perform: preselect)
-            .navigationTitle("Repeat On")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {

@@ -46,17 +46,15 @@ public struct UserRepository {
     func setCurrentUserId(_ id: Int?) {
         if let id = id {
             UserDefaults.standard.set(id, forKey: currentUserKey)
-            print("[UserRepository] setCurrentUserId ->", id)
         } else {
             UserDefaults.standard.removeObject(forKey: currentUserKey)
-            print("[UserRepository] setCurrentUserId -> nil (removed)")
         }
     }
 
     /// Create or update user without using REPLACE to avoid ON DELETE CASCADE effects
     func createOrUpdate(_ user: User) throws {
         try dbQueue.write { db in
-            var record = UserRecord(from: user)
+            let record = UserRecord(from: user)
             if try UserRecord.fetchOne(db, key: record.id) != nil {
                 try record.update(db) // UPDATE existing row
             } else {
@@ -79,10 +77,8 @@ public struct UserRepository {
                 let usersTableCount = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'") ?? 0
                 let hasUsersTable = (usersTableCount > 0)
                 let schemaVersion: Int = try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
-                print("[\(tag)] DB diagnostics — users exists? \(hasUsersTable), schemaVersion: \(schemaVersion)")
             }
         } catch {
-            print("[\(tag)] DB diagnostics failed: \(error)")
         }
     }
 }

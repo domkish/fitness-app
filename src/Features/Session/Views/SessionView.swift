@@ -14,11 +14,12 @@ struct SessionView: View {
 
     let session: SessionRecord
     let sessionRepo: SessionRepository
+    let onCompleted: ((SessionRecord) -> Void)?
 
     @State private var sessionTree: [SessionBlockItem] = []
     @State private var isLoading = true
     @State private var showingCompleteAlert = false
-    @State private var navigateToSummary = false
+    @State private var showSummary = false
 
     var body: some View {
         ZStack {
@@ -32,19 +33,6 @@ struct SessionView: View {
                             .font(.title)
                             .bold()
                             .foregroundColor(themeManager.currentTheme.textDefault)
-                        Spacer()
-                        Button(action: { showingCompleteAlert = true }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "flag.checkered")
-                                Text("Complete Workout").bold()
-                            }
-                            .padding(.vertical, 6)
-                            .padding(.horizontal, 10)
-                            .background(themeManager.currentTheme.primary)
-                            .foregroundColor(themeManager.currentTheme.background)
-                            .cornerRadius(8)
-                        }
-                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal)
 
@@ -66,19 +54,29 @@ struct SessionView: View {
                                     .environmentObject(themeManager)
                                     .padding(.horizontal)
                             }
+                            // Bottom Complete Workout button
+                            HStack {
+                                Button(action: { showingCompleteAlert = true }) {
+                                    HStack(spacing: 6) {
+                                        Spacer()
+                                        Text("Complete Workout").bold()
+                                        Spacer()
+                                    }
+                                    .padding()
+                                    .background(themeManager.currentTheme.primary)
+                                    .foregroundColor(themeManager.currentTheme.background)
+                                    .cornerRadius(12)
+                                }
+                                .buttonStyle(.plain)
+                                .frame(maxWidth: .infinity)
+                            }
+                            .padding(.horizontal)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
                 .padding(.vertical)
             }
-
-            NavigationLink(isActive: $navigateToSummary) {
-                SessionSummaryView(coordinator: coordinator, session: session)
-                    .environmentObject(themeManager)
-                    .environmentObject(authCoordinator)
-            } label: { EmptyView() }
-            .hidden()
         }
         .onAppear(perform: loadSessionTree)
         .alert("Complete Workout?", isPresented: $showingCompleteAlert) {
@@ -152,8 +150,8 @@ struct SessionView: View {
             // Update session total duration and completedAt
             try updateSessionCompletion(totalDuration: total)
 
-            // Navigate to summary
-            await MainActor.run { navigateToSummary = true }
+            // Call completion callback
+            await MainActor.run { onCompleted?(session) }
         } catch {
             print("[SessionView] completeWorkout error: \(error)")
         }

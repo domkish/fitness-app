@@ -58,10 +58,6 @@ final class DatabaseService {
             let hasUsersTable = (usersTableCount > 0)
             let userCols = try Row.fetchAll(db, sql: "PRAGMA table_info(users)")
             let schemaVersion: Int = try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
-            print("🔎 Post-migration check — users table exists? \(hasUsersTable), schemaVersion: \(schemaVersion)")
-            if hasUsersTable {
-                print("🔎 users columns: \(userCols)")
-            }
         }
         
         // Seed data

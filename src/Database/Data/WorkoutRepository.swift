@@ -25,7 +25,7 @@ final class WorkoutRepository {
                 .fetchAll(db)
 
             // 2) Map to domain (without tags by default)
-            var domains = records.map { WorkoutDomain(from: $0) }
+            let domains = records.map { WorkoutDomain(from: $0) }
 
             // Build index lookup by workout id
             var indexById: [Int64: Int] = [:]
@@ -70,7 +70,7 @@ final class WorkoutRepository {
 
     func createOrUpdate(_ workout: WorkoutDomain) throws {
         try dbQueue.write { db in
-            var record = WorkoutRecord(from: workout) // Domain → Record
+            let record = WorkoutRecord(from: workout) // Domain → Record
             try record.insert(db, onConflict: .replace)
         }
     }
@@ -78,7 +78,7 @@ final class WorkoutRepository {
     @discardableResult
     func createOrUpdateReturningId(_ workout: WorkoutDomain) throws -> Int64 {
         try dbQueue.write { db in
-            var record = WorkoutRecord(from: workout)
+            let record = WorkoutRecord(from: workout)
             try record.insert(db, onConflict: .replace)
             return record.id ?? Int64(db.lastInsertedRowID)
         }
@@ -159,7 +159,7 @@ final class WorkoutRepository {
 
     func createBlock(_ block: WorkoutBlockDomain) throws {
         try dbQueue.write { db in
-            var rec = WorkoutBlockRecord(from: block)
+            let rec = WorkoutBlockRecord(from: block)
             try rec.insert(db)
         }
     }
@@ -234,7 +234,7 @@ final class WorkoutRepository {
     func addExercise(toBlockId blockId: Int64, workoutId: Int64, exerciseId: Int64, userId: Int64) throws {
         try dbQueue.write { db in
             let nextOrder: Int = try Int.fetchOne(db, sql: "SELECT MAX(sort_order) FROM workout_exercises WHERE workout_block_id = ?", arguments: [blockId]) ?? 0
-            var rec = WorkoutExerciseRecord(
+            let rec = WorkoutExerciseRecord(
                 id: nil,
                 workoutId: workoutId,
                 workoutBlockId: blockId,
@@ -315,7 +315,7 @@ final class WorkoutRepository {
                 rec.updatedAt = now
                 try rec.update(db)
             } else {
-                var rec = WorkoutRecord(
+                let rec = WorkoutRecord(
                     id: nil,
                     userId: userId,
                     name: name,
@@ -339,7 +339,7 @@ final class WorkoutRepository {
             let maxOrder: Int = try Int.fetchOne(db, sql: "SELECT MAX(sort_order) FROM workout_blocks WHERE workout_id = ?", arguments: [src.workoutId]) ?? 0
             let now = Date()
             // Create new block
-            var newBlock = WorkoutBlockRecord(
+            let newBlock = WorkoutBlockRecord(
                 id: nil,
                 userId: src.userId,
                 workoutId: src.workoutId,
@@ -360,7 +360,7 @@ final class WorkoutRepository {
             var order = 0
             for r in rows {
                 order += 1
-                var rec = WorkoutExerciseRecord(
+                let rec = WorkoutExerciseRecord(
                     id: nil,
                     workoutId: src.workoutId,
                     workoutBlockId: newBlockId,

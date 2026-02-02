@@ -24,7 +24,7 @@ struct SessionRepository {
 
     // Create a new session snapshot
     func createSession(userId: Int64, workoutId: Int64, calendarWorkoutId: Int64, workoutName: String, startedAt: Date) throws -> Int64 {
-        var rec = SessionRecord(
+        let rec = SessionRecord(
             id: nil,
             userId: userId,
             workoutId: workoutId,
@@ -68,9 +68,9 @@ struct SessionRepository {
         let sessionId = try createSession(userId: userId, workoutId: workoutId, calendarWorkoutId: calendarWorkoutId, workoutName: workoutName, startedAt: startedAt)
         // Load workout blocks and exercises
         let blocks = try workoutRepo.fetchBlocks(forWorkoutId: workoutId).filter { $0.deletedAt == nil }
-        var blockRepo = SessionBlockRepository(dbQueue: dbQueue)
-        var exRepo = SessionExerciseRepository(dbQueue: dbQueue)
-        var setRepo = SessionSetRepository(dbQueue: dbQueue)
+        let blockRepo = SessionBlockRepository(dbQueue: dbQueue)
+        let exRepo = SessionExerciseRepository(dbQueue: dbQueue)
+        let setRepo = SessionSetRepository(dbQueue: dbQueue)
 
         // For each block, create session blocks, session exercises, and default sets (1 set each by default)
         for block in blocks.sorted(by: { $0.sortOrder < $1.sortOrder }) {

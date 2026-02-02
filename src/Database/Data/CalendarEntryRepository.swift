@@ -48,7 +48,7 @@ struct CalendarEntryRepository {
 
     // MARK: - Save / Upsert
     func upsert(_ domain: CalendarEntry) throws {
-        var record = CalendarEntryRecord(from: domain)
+        let record = CalendarEntryRecord(from: domain)
         try dbQueue.write { db in
             try record.save(db)
         }

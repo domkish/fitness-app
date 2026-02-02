@@ -34,7 +34,7 @@ final class UnitRepository {
 
     func createOrUpdate(_ unit: UnitDomain) throws {
         try dbQueue.write { db in
-            var record = UnitRecord(from: unit)
+            let record = UnitRecord(from: unit)
             try record.insert(db, onConflict: .replace)
         }
     }

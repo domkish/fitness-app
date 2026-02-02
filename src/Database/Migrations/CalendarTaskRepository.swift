@@ -30,7 +30,7 @@ struct CalendarTaskRepository {
                 try existing.update(db)
                 return existing.id ?? Int64(db.lastInsertedRowID)
             } else {
-                var rec = CalendarTaskRecord(
+                let rec = CalendarTaskRecord(
                     id: nil,
                     userId: userId,
                     taskId: taskId,

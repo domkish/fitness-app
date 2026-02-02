@@ -24,7 +24,7 @@ struct ExerciseCardView: View {
     @State private var editHours: String = "00"
     @State private var editMinutes: String = "00"
     @State private var editSeconds: String = "00"
-
+    @State private var showTimerInfo = false
     @State private var noteText: String = ""
 
     var body: some View {
@@ -49,6 +49,26 @@ struct ExerciseCardView: View {
                         Text(formattedTime(elapsed))
                             .foregroundColor(themeManager.currentTheme.muted)
                     }
+                    
+                    Button {
+                        showTimerInfo.toggle()
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(themeManager.currentTheme.secondary)
+                    }
+                    .popover(isPresented: $showTimerInfo, arrowEdge: .bottom) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Editing the Timer")
+                                .font(.headline)
+                            
+                            Text("You can modify the exercise time once the exercise is marked as complete.")
+                                .font(.subheadline)
+                            
+                        }
+                        .padding()
+                        .frame(maxWidth: 250)
+                    }
+                    
                 }
             }
             .padding(.vertical)
@@ -63,7 +83,7 @@ struct ExerciseCardView: View {
                     )
                 // Growing text editor
                 GrowingTextEditor(text: $noteText, minLines: 1)
-                    .foregroundColor(themeManager.currentTheme.textDefault)
+                    .foregroundColor(themeManager.currentTheme.muted)
                     .padding(8)
                     .onChange(of: noteText) { _ in
                         scheduleNoteDebouncedSave()
@@ -73,8 +93,10 @@ struct ExerciseCardView: View {
                     Text("notes…")
                         .font(.body)
                         .foregroundColor(themeManager.currentTheme.muted)
+                        .background(themeManager.currentTheme.formDefault)
                         .padding(EdgeInsets(top: 8, leading: 12, bottom: 0, trailing: 0))
                         .allowsHitTesting(false)
+                        .scrollContentBackground(.hidden)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -113,17 +135,17 @@ struct ExerciseCardView: View {
                                 Image(systemName: "plus")
                                 Text("Add Set").bold()
                             }
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
+                            .padding(.vertical, 3)
+                            .padding(.horizontal, 6)
                             .background(themeManager.currentTheme.surface)
                             .foregroundColor(themeManager.currentTheme.secondary)
                             .cornerRadius(8)
                         }
                         .buttonStyle(.plain)
                         .frame(maxWidth: .infinity, alignment: .leading)
-
+                        
                         Spacer(minLength: 0)
-
+                        
                         // Right-aligned Complete button
                         Button(action: {
                             exItem.exerciseCompleted.toggle()
@@ -145,7 +167,7 @@ struct ExerciseCardView: View {
                             .padding(.horizontal, 6)
                             .background(
                                 RoundedRectangle(cornerRadius: 5)
-                                    .fill(exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.15) : themeManager.currentTheme.primary)
+                                    .fill(exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.15) : themeManager.currentTheme.secondary)
                             )
                             .foregroundColor(exItem.exerciseCompleted ? themeManager.currentTheme.primary : themeManager.currentTheme.background)
                         }
@@ -153,6 +175,7 @@ struct ExerciseCardView: View {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     .padding(.top, 4)
+                    .padding(.bottom, 8)
                     .background(Color.clear)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .accessibilityLabel(exItem.exerciseCompleted ? "Completed" : "Complete")
@@ -268,12 +291,18 @@ struct ExerciseCardView: View {
         guard let last = exItem.sets.last else { return }
         let repo = SessionSetRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
         let now = Date()
-        // Fetch the persisted last set to obtain its actual unit
-        let persistedSets = (try? repo.bySessionExercise(last.sessionExerciseId)) ?? []
-        let currentUnit = persistedSets.last?.unit
+        // Prefer the in-memory last set's current values
+        let lastReps: Int? = Int(last.repsText.trimmingCharacters(in: .whitespaces))
+        // valueText may be formatted; attempt Double directly, else fall back to digits->one decimal place if needed
+        let parsedValue = Double(last.valueText.trimmingCharacters(in: .whitespaces))
+        let lastValue: Double? = parsedValue
+        // Resolve unit: fall back to last.previousSet?.unit or fetch last persisted unit if needed
+        var currentUnit: String? = last.previousSet?.unit
+        if currentUnit == nil {
+            let persistedSets = (try? repo.bySessionExercise(last.sessionExerciseId)) ?? []
+            currentUnit = persistedSets.last?.unit
+        }
         // Build a new record copying from last's backing values
-        let lastReps: Int? = Int(last.repsText)
-        let lastValue: Double? = Double(last.valueText)
         var newRec = SessionSetRecord(
             id: nil,
             sessionExerciseId: last.sessionExerciseId,
@@ -288,6 +317,7 @@ struct ExerciseCardView: View {
         )
         do {
             let newId = try repo.create(&newRec)
+            newRec.id = newId
             // Build a SessionSetItem for UI
             let newItem = SessionSetItem(set: newRec, previousSet: last.previousSet)
             // Update UI on main thread
@@ -341,6 +371,9 @@ struct ExerciseCardView: View {
 }
 
 struct GrowingTextEditor: View {
+    
+    @EnvironmentObject var themeManager: ThemeManager
+    
     @Binding var text: String
     let minLines: Int
     @State private var dynamicHeight: CGFloat = 0
@@ -354,7 +387,7 @@ struct GrowingTextEditor: View {
                 .padding(.vertical, 8)
                 .padding(.horizontal, 4)
                 .background(GeometryReader { geo in
-                    Color.clear
+                    themeManager.currentTheme.formDefault
                         .onAppear { dynamicHeight = clampHeight(geo.size.height) }
                         .onChange(of: text) { _ in dynamicHeight = clampHeight(geo.size.height) }
                 })
@@ -362,7 +395,7 @@ struct GrowingTextEditor: View {
                 .font(.body)
                 .frame(height: max(dynamicHeight, lineHeight * CGFloat(minLines)))
                 .scrollContentBackground(.hidden)
-                .background(Color.clear)
+                .background(themeManager.currentTheme.formDefault)
         }
     }
 
