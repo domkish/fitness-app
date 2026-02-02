@@ -15,6 +15,19 @@ struct SessionSummaryView: View {
     
     var body: some View {
         
+        ZStack {
+            themeManager.currentTheme.background
+                .ignoresSafeArea()
+            
+            ScrollView {
+                VStack(spacing: 24) {
+                    HStack {
+                        Text("hmm")
+                            .foregroundColor(themeManager.currentTheme.textDefault)
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -39,6 +39,17 @@ struct WeekCalendarView: View {
     private let entryRepository = CalendarEntryRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
 
     @State private var weekWorkouts: [Int: [CalendarWorkoutRepository.ScheduledWorkoutRow]] = [:] // key: 0..6 offset
+    @State private var weekEntries: [Int: Bool] = [:]
+
+    // Session navigation state
+    @State private var activeSession: SessionRecord? = nil
+    @State private var navigateToSession = false
+    @State private var summarySession: SessionRecord? = nil
+    @State private var navigateToSessionSummary = false
+
+    // Repositories needed for session creation/navigation
+    private let sessionRepository = SessionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+    private let workoutRepo = WorkoutRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
 
     private func colorForKey(_ key: String?) -> Color {
         switch key ?? "primary" {
@@ -62,9 +73,34 @@ struct WeekCalendarView: View {
         Calendar.current.isDateInToday(date)
     }
     
-    // Assuming weekEntries is defined somewhere or needs to be added for the checkmark logic:
-    @State private var weekEntries: [Int: Bool] = [:]
+    private func sessionIsCompleted(_ session: SessionRecord) -> Bool {
+        let mirror = Mirror(reflecting: session)
+        for child in mirror.children {
+            guard let label = child.label else { continue }
+            if label == "isComplete", let flag = child.value as? Bool { return flag }
+            if (label == "endedAt" || label == "completedAt") {
+                let childMirror = Mirror(reflecting: child.value)
+                if childMirror.displayStyle == .optional {
+                    if childMirror.children.first != nil { return true }
+                } else if child.value is Date { return true }
+            }
+        }
+        return false
+    }
 
+    private func isWorkoutRowCompleted(_ w: CalendarWorkoutRepository.ScheduledWorkoutRow, on date: Date) -> Bool {
+        let day = Calendar.current.startOfDay(for: date)
+        do {
+            let sessionRepo = SessionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+            if let existing = try sessionRepo.find(calendarWorkoutId: w.id, startedAt: day) {
+                return sessionIsCompleted(existing)
+            }
+        } catch {
+            // Ignore errors for indicator
+        }
+        return false
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -119,21 +155,31 @@ struct WeekCalendarView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             ForEach(workouts, id: \.id) { w in
                                 let c = colorForKey(w.workoutColor)
-                                HStack(spacing: 10) {
-                                    Circle()
-                                        .fill(c)
-                                        .frame(width: 14, height: 14)
-                                    Text(w.workoutName)
-                                        .font(.headline)
-                                        .foregroundColor(c)
-                                    Spacer()
+                                Button {
+                                    Task { await ensureSessionForWorkoutRow(w, on: date) }
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Circle()
+                                            .fill(c)
+                                            .frame(width: 14, height: 14)
+                                        Text(w.workoutName)
+                                            .font(.headline)
+                                            .foregroundColor(c)
+                                        if isWorkoutRowCompleted(w, on: date) {
+                                            Spacer()
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(c)
+                                        }
+                                    }
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(c.opacity(0.1))
+                                    )
                                 }
-                                .padding(12)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(c.opacity(0.1))
-                                )
+                                .buttonStyle(.plain)
+                                .allowsHitTesting(isTodayOrPast(date))
                             }
                         }
                         .listRowBackground(themeManager.currentTheme.surface)
@@ -143,6 +189,22 @@ struct WeekCalendarView: View {
             }
             .scrollContentBackground(.hidden)
             .background(themeManager.currentTheme.background)
+
+            // Hidden NavigationLinks for session navigation
+            NavigationLink(
+                destination: sessionDestinationView,
+                isActive: $navigateToSession,
+                label: { EmptyView() }
+            )
+            .hidden()
+
+            NavigationLink(
+                destination: summaryDestinationView,
+                isActive: $navigateToSessionSummary,
+                label: { EmptyView() }
+            )
+            .hidden()
+            
             .task(id: startOfWeek) {
                 await loadWeekData()
             }
@@ -249,6 +311,64 @@ struct WeekCalendarView: View {
         let day = Calendar.current.startOfDay(for: date)
         await loadEntryContext(for: day)
         return CheckinContext(date: day, existing: self.currentEntry, prior: self.priorEntry)
+    }
+
+    private func ensureSessionForWorkoutRow(_ w: CalendarWorkoutRepository.ScheduledWorkoutRow, on date: Date) async {
+        guard let userId = authCoordinator.currentUser?.id else { return }
+        let id64 = Int64(userId)
+        let day = Calendar.current.startOfDay(for: date)
+        do {
+            let session = try sessionRepository.ensureSessionWithSeed(
+                userId: id64,
+                workoutId: w.workoutId,
+                calendarWorkoutId: w.id,
+                workoutName: w.workoutName,
+                startedAt: day,
+                workoutRepo: workoutRepo
+            )
+            let isCompleted = sessionIsCompleted(session)
+            await MainActor.run {
+                if isCompleted {
+                    self.summarySession = session
+                    self.navigateToSessionSummary = true
+                    self.activeSession = nil
+                    self.navigateToSession = false
+                } else {
+                    self.activeSession = session
+                    self.navigateToSession = true
+                }
+            }
+        } catch {
+            print("[WeekCalendarView] ensureSessionWithSeed error: \(error)")
+        }
+    }
+
+    @ViewBuilder
+    private var sessionDestinationView: some View {
+        if let session = activeSession {
+            SessionView(coordinator: AppShellCoordinator(), session: session, sessionRepo: sessionRepository, onCompleted: { completed in
+                // Pop back to WeekCalendarView by turning off navigation
+                self.navigateToSession = false
+                // Push summary
+                self.summarySession = completed
+                self.navigateToSessionSummary = true
+            })
+            .environmentObject(themeManager)
+            .environmentObject(authCoordinator)
+        } else {
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var summaryDestinationView: some View {
+        if let s = summarySession {
+            SessionSummaryView(coordinator: AppShellCoordinator(), session: s)
+                .environmentObject(themeManager)
+                .environmentObject(authCoordinator)
+        } else {
+            EmptyView()
+        }
     }
 }
 

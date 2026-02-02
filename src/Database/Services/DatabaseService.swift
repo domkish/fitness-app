@@ -55,9 +55,9 @@ final class DatabaseService {
         // Post-migration diagnostics
         try dbQueue.read { db in
             let usersTableCount = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'") ?? 0
-            let hasUsersTable = (usersTableCount > 0)
-            let userCols = try Row.fetchAll(db, sql: "PRAGMA table_info(users)")
-            let schemaVersion: Int = try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
+            let _hasUsersTable = (usersTableCount > 0)
+            let _userCols = try Row.fetchAll(db, sql: "PRAGMA table_info(users)")
+            let _schemaVersion: Int = try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
         }
         
         // Seed data

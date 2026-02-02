@@ -28,6 +28,8 @@ class ThemeManager: ObservableObject {
             currentTheme = .gas
         }else if themeKey?.lowercased() == "lipstick" {
             currentTheme = .lipstick
+        }else if themeKey?.lowercased() == "royal" {
+            currentTheme = .royal
         }else{
             currentTheme = .standard
         }
@@ -53,6 +55,8 @@ class ThemeManager: ObservableObject {
             return .gas
         } else if key?.lowercased() == "lipstick" {
             return .lipstick
+        } else if key?.lowercased() == "royal" {
+            return .royal
         }else {
             return .standard
         }

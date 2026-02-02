@@ -240,4 +240,24 @@ extension AppTheme {
         important: Color("LipstickImportant"),
         pink: Color("LipstickPink")
     )
+    
+    /// Royal theme
+    static let royal = AppTheme(
+        background: Color("RoyalBackground"),
+        surface: Color("RoyalSurface"),
+        navTop: Color("RoyalNavTop"),
+        navSide: Color("RoyalNavSide"),
+        textDefault: Color("RoyalDefault"),
+        textNav: Color("RoyalNavText"),
+        muted: Color("RoyalMuted"),
+        primary: Color("RoyalPrimary"),
+        secondary: Color("RoyalSecondary"),
+        borderDefault: Color("RoyalBorder"),
+        formDefault: Color("RoyalFormElement"),
+        success: Color("RoyalSuccess"),
+        warning: Color("RoyalWarning"),
+        error: Color("RoyalError"),
+        important: Color("RoyalImportant"),
+        pink: Color("RoyalPink")
+    )
 }

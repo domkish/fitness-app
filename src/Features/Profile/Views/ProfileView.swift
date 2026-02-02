@@ -137,14 +137,15 @@ struct ProfileView: View {
                                 }
                                 let themes: [(key: String, title: String)] = [
                                     ("classic", "Classic"),
-                                    ("midnight", "Midnight"),
-                                    ("neon", "Neon"),
-                                    ("luxury", "Luxury"),
-                                    ("arctic", "Arctic"),
                                     ("sand", "Sand"),
+                                    ("royal", "Royal"),
+                                    ("lipstick", "Lipstick"),
+                                    ("midnight", "Midnight"),
+                                    ("luxury", "Luxury"),
                                     ("forest", "Forest"),
-                                    ("gas", "Gas"),
-                                    ("lipstick", "Lipstick")
+                                    ("gas", "Gas")
+//                                    ("neon", "Neon")
+//                                    ("arctic", "Arctic")
                                 ]
                                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 60), spacing: 12)], spacing: 12) {
                                     ForEach(themes, id: \.key) { item in

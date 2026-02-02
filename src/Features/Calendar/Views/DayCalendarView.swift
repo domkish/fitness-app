@@ -35,8 +35,8 @@ struct DayCalendarView: View {
     @State private var activeSession: SessionRecord? = nil
     @State private var navigateToSession = false
 
-    @State private var showSessionSummary = false
-    @State private var completedSessionForSummary: SessionRecord? = nil
+    @State private var navigateToSessionSummary = false
+    @State private var summarySession: SessionRecord? = nil
 
     private var isTodayOrPast: Bool {
         let today = Calendar.current.startOfDay(for: Date())
@@ -121,13 +121,18 @@ struct DayCalendarView: View {
                                     Text(w.workoutName)
                                         .font(.headline)
                                         .foregroundColor(c)
-                                    Spacer()
+                                    if isWorkoutRowCompleted(w) {
+                                        Spacer()
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(c)
+                                    }
                                 }
                                 .padding(12)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(RoundedRectangle(cornerRadius: 6).fill(c.opacity(0.1)))
                             }
                             .buttonStyle(.plain)
+                            .allowsHitTesting(isTodayOrPast)
                         }
                     }
                     .padding(.bottom, 16)
@@ -195,6 +200,13 @@ struct DayCalendarView: View {
                     label: { EmptyView() }
                 )
                 .hidden()
+
+                NavigationLink(
+                    destination: summaryDestinationView,
+                    isActive: $navigateToSessionSummary,
+                    label: { EmptyView() }
+                )
+                .hidden()
             }
             .padding()
             .task(id: selectedDate) {
@@ -244,13 +256,6 @@ struct DayCalendarView: View {
                 }
                 .environmentObject(themeManager)
             }
-            .sheet(isPresented: $showSessionSummary) {
-                if let s = completedSessionForSummary {
-                    SessionSummaryView(coordinator: coordinator, session: s)
-                        .environmentObject(themeManager)
-                        .environmentObject(authCoordinator)
-                }
-            }
         }
     }
 
@@ -261,14 +266,54 @@ struct DayCalendarView: View {
                 // Pop back to DayCalendarView
                 self.navigateToSession = false
                 // Present summary
-                self.completedSessionForSummary = completed
-                self.showSessionSummary = true
+                self.summarySession = completed
+                self.navigateToSessionSummary = true
             })
                 .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
         } else {
             EmptyView()
         }
+    }
+
+    @ViewBuilder
+    private var summaryDestinationView: some View {
+        if let s = summarySession {
+            SessionSummaryView(coordinator: coordinator, session: s)
+                .environmentObject(themeManager)
+                .environmentObject(authCoordinator)
+        } else {
+            EmptyView()
+        }
+    }
+
+    private func sessionIsCompleted(_ session: SessionRecord) -> Bool {
+        let mirror = Mirror(reflecting: session)
+        for child in mirror.children {
+            guard let label = child.label else { continue }
+            if label == "isComplete", let flag = child.value as? Bool { return flag }
+            if (label == "endedAt" || label == "completedAt") {
+                let childMirror = Mirror(reflecting: child.value)
+                if childMirror.displayStyle == .optional {
+                    if childMirror.children.first != nil { return true }
+                } else if child.value is Date { return true }
+            }
+        }
+        return false
+    }
+
+    private func isWorkoutRowCompleted(_ w: CalendarWorkoutRepository.ScheduledWorkoutRow) -> Bool {
+        guard let userId = authCoordinator.currentUser?.id else { return false }
+        let day = Calendar.current.startOfDay(for: selectedDate)
+        do {
+            let sessionRepo = SessionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+            if let existing = try sessionRepo.find(calendarWorkoutId: w.id, startedAt: day) {
+                return sessionIsCompleted(existing)
+            }
+        } catch {
+            // Ignore lookup errors for indicator
+        }
+        return false
     }
 
     private var checkinBackground: some View {
@@ -396,10 +441,22 @@ struct DayCalendarView: View {
                 startedAt: day,
                 workoutRepo: workoutRepo
             )
-            // Set the active session and trigger navigation
+
+            // If the session already exists and is complete, present the summary instead of navigating into the live session.
+            // Prefer a direct property check. We first look for `endedAt` (Date?), then fall back to an `isComplete` Bool if available.
+            let isCompleted = sessionIsCompleted(session)
+
             await MainActor.run {
-                self.activeSession = session
-                self.navigateToSession = true
+                if isCompleted {
+                    self.summarySession = session
+                    self.navigateToSessionSummary = true
+                    self.activeSession = nil
+                    self.navigateToSession = false
+                } else {
+                    // Navigate to the active/live SessionView
+                    self.activeSession = session
+                    self.navigateToSession = true
+                }
             }
         } catch {
             print("[DayCalendarView] ensureSessionWithSeed error: \(error)")
