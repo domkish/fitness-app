@@ -187,17 +187,7 @@ struct DayCalendarView: View {
 
                 // MARK: - Hidden NavigationLink to SessionView
                 NavigationLink(
-                    destination: AnyView(
-                        Group {
-                            if let session = activeSession {
-                                SessionView(coordinator: coordinator, session: session)
-                                    .environmentObject(themeManager)
-                                    .environmentObject(authCoordinator)
-                            } else {
-                                EmptyView()
-                            }
-                        }
-                    ),
+                    destination: sessionDestinationView,
                     isActive: $navigateToSession,
                     label: { EmptyView() }
                 )
@@ -254,6 +244,16 @@ struct DayCalendarView: View {
         }
     }
 
+    @ViewBuilder
+    private var sessionDestinationView: some View {
+        if let session = activeSession {
+            SessionView(coordinator: coordinator, session: session, sessionRepo: sessionRepository)
+                .environmentObject(themeManager)
+                .environmentObject(authCoordinator)
+        } else {
+            EmptyView()
+        }
+    }
 
     private var checkinBackground: some View {
         let hasEntry = (entry != nil)
@@ -414,22 +414,7 @@ struct DailyCheckinSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Metrics") {
-                    InputWithSuffixDecimal(
-                        title: "Body Weight",
-                        digits: $weightText,
-                        suffix: weightUnit,
-                        maxValue: 999.9,
-                        theme: themeManager
-                    )
-                    InputWithSuffixDecimal(
-                        title: "Body Fat %",
-                        digits: $bodyFatText,
-                        suffix: "%",
-                        maxValue: 99.9,
-                        theme: themeManager
-                    )
-                }
+                metricsSection
                 Section("Progress Photo") {
                     PhotosPicker(selection: $pickedPhoto, matching: .images) {
                         HStack {
@@ -457,6 +442,26 @@ struct DailyCheckinSheet: View {
                         .disabled(!canSave)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var metricsSection: some View {
+        Section("Metrics") {
+            InputWithSuffixDecimal(
+                title: "Body Weight",
+                digits: $weightText,
+                suffix: weightUnit,
+                maxValue: 999.9,
+                decimal: true
+            )
+            InputWithSuffixDecimal(
+                title: "Body Fat %",
+                digits: $bodyFatText,
+                suffix: "%",
+                maxValue: 99.9,
+                decimal: true
+            )
         }
     }
 
@@ -529,102 +534,6 @@ struct DailyCheckinSheet: View {
         } catch {
             print("[DailyCheckinSheet] save error: \(error)")
         }
-    }
-}
-
-private struct LiveDecimalTextField: UIViewRepresentable {
-    @Binding var displayText: String
-    @Binding var digits: String
-    let maxValue: Double
-
-    func makeUIView(context: Context) -> UITextField {
-        let tf = UITextField(frame: .zero)
-        tf.keyboardType = .decimalPad
-        tf.delegate = context.coordinator
-        tf.text = displayText
-        tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return tf
-    }
-
-    func updateUIView(_ uiView: UITextField, context: Context) {
-        if uiView.text != displayText { uiView.text = displayText }
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    final class Coordinator: NSObject, UITextFieldDelegate {
-        let parent: LiveDecimalTextField
-        init(_ parent: LiveDecimalTextField) { self.parent = parent }
-
-        func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-            let current = textField.text ?? ""
-            guard let r = Range(range, in: current) else { return true }
-            let proposed = current.replacingCharacters(in: r, with: string)
-
-            // Build digits-only from proposed
-            let rawDigits = proposed.filter { $0.isNumber }
-            if rawDigits.isEmpty {
-                parent.displayText = ""
-                parent.digits = ""
-                return true
-            }
-
-            // Clamp implicit one-decimal value
-            var clamped = String(rawDigits)
-            while !clamped.isEmpty {
-                let v = (Double(clamped) ?? 0) / 10.0
-                if v <= parent.maxValue { break }
-                clamped.removeLast()
-            }
-
-            parent.digits = clamped
-            let value = (Double(clamped) ?? 0) / 10.0
-            parent.displayText = String(format: "%.1f", value)
-
-            // Update the text field text immediately
-            textField.text = parent.displayText
-            // Place cursor at end
-            let end = textField.endOfDocument
-            textField.selectedTextRange = textField.textRange(from: end, to: end)
-            return false
-        }
-    }
-}
-
-private struct InputWithSuffixDecimal: View {
-    let title: String
-    @Binding var digits: String // raw digits only, implicit 1 decimal place
-    let suffix: String
-    let maxValue: Double
-    @ObservedObject var theme: ThemeManager
-    @State private var displayText: String = ""
-
-    var body: some View {
-        HStack(spacing: 8) {
-            LiveDecimalTextField(displayText: $displayText, digits: $digits, maxValue: maxValue)
-                .foregroundColor(theme.currentTheme.textDefault)
-                .onAppear {
-                    if digits.isEmpty {
-                        displayText = ""
-                    } else {
-                        displayText = formatted(from: digits)
-                    }
-                }
-
-            Text(suffix)
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(theme.currentTheme.muted)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(theme.currentTheme.surface)
-                .clipShape(Capsule())
-        }
-    }
-
-    private func formatted(from digits: String) -> String {
-        guard !digits.isEmpty else { return "" }
-        let value = (Double(digits) ?? 0) / 10.0
-        return String(format: "%.1f", value)
     }
 }
 

@@ -126,16 +126,32 @@ struct SessionRepository {
     }
 
     // Fetch full session tree: session with blocks, exercises and sets
-    func fetchSessionTree(calendarWorkoutId: Int64, startedAt: Date) throws -> (session: SessionRecord, blocks: [(block: SessionBlockRecord, exercises: [(exercise: SessionExerciseRecord, sets: [SessionSetRecord])])])? {
+    func fetchSessionTree(calendarWorkoutId: Int64, startedAt: Date) throws -> [(block: SessionBlockRecord, exercises: [(exercise: SessionExerciseRecord, sets: [SessionSetRecord])])] {
+        // First, find the session
         guard let session = try find(calendarWorkoutId: calendarWorkoutId, startedAt: startedAt) else {
-            return nil
+            return [] // or throw an error
         }
+
         let blockRepo = SessionBlockRepository(dbQueue: dbQueue)
         let exRepo = SessionExerciseRepository(dbQueue: dbQueue)
         let setRepo = SessionSetRepository(dbQueue: dbQueue)
+
+        // Fetch full tree using session.id
         let blocksTree = try blockRepo.fetchTree(sessionId: session.id ?? -1, exRepo: exRepo, setRepo: setRepo)
-        // Flatten to legacy return type if needed, but here we change signature, so adjust function signature accordingly
-        fatalError("Update call sites: fetchSessionTree now returns blocks → exercises → sets")
+
+        return blocksTree
+    }
+
+    /// Fetch the most recent set for a session exercise that occurred before a given date
+    func fetchPreviousSet(for sessionExerciseId: Int64, before date: Date) throws -> SessionSetRecord? {
+        return try dbQueue.read { db in
+            try SessionSetRecord
+                .filter(SessionSetRecord.Columns.sessionExerciseId == sessionExerciseId)
+                .filter(SessionSetRecord.Columns.deletedAt == nil)
+                .filter(SessionSetRecord.Columns.createdAt < date)
+                .order(SessionSetRecord.Columns.createdAt.desc)
+                .fetchOne(db)
+        }
     }
 }
 
