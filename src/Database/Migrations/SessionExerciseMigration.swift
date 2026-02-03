@@ -22,6 +22,7 @@ extension DatabaseMigrator {
 
                 t.column("exercise_name", .text).notNull()
                 t.column("note", .text)
+                t.column("unit", .text)
 
                 t.column("order", .integer) // exercise order in workout
                 t.column("duration", .integer).notNull().defaults(to: 0)

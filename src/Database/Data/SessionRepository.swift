@@ -96,6 +96,7 @@ struct SessionRepository {
                     exerciseId: ex.exerciseId,
                     exerciseName: ex.name,
                     note: nil,
+                    unit: ex.unit,
                     order: orderCounter,
                     duration: 0,
                     deletedAt: nil,

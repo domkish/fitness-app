@@ -6,6 +6,8 @@ struct RoutinePickerSheet: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authCoordinator: AuthCoordinator
 
+    @ObservedObject var coordinator: AppShellCoordinator
+
     let onPicked: (Int64) -> Void
 
     private let workoutRepo = WorkoutRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
@@ -13,6 +15,11 @@ struct RoutinePickerSheet: View {
     @State private var routines: [WorkoutDomain] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+
+    init(coordinator: AppShellCoordinator, onPicked: @escaping (Int64) -> Void) {
+        self.coordinator = coordinator
+        self.onPicked = onPicked
+    }
 
     var body: some View {
         NavigationStack {
@@ -44,10 +51,9 @@ struct RoutinePickerSheet: View {
                             Text("Create a routine first, then add it to your calendar.")
                                 .font(.footnote)
                                 .foregroundColor(themeManager.currentTheme.muted)
-                            NavigationLink {
-                                WorkoutView(coordinator: AppShellCoordinator())
-                                    .environmentObject(authCoordinator)
-                                    .environmentObject(themeManager)
+                            Button {
+                                coordinator.currentStep = .workout
+                                onPicked(-1) // dismiss the sheet
                             } label: {
                                 HStack {
                                     Image(systemName: "plus")

@@ -12,6 +12,7 @@ struct SessionExerciseDomain {
     var exerciseId: Int64
     var exerciseName: String
     var note: String?
+    var unit: String?
     var order: Int?
     var duration: Int
     var completed: Bool
@@ -25,6 +26,7 @@ struct SessionExerciseDomain {
         exerciseId: Int64,
         exerciseName: String,
         note: String? = nil,
+        unit: String? = nil,
         order: Int? = nil,
         duration: Int = 0,
         completed: Bool = false,
@@ -37,6 +39,7 @@ struct SessionExerciseDomain {
         self.exerciseId = exerciseId
         self.exerciseName = exerciseName
         self.note = note
+        self.unit = unit
         self.order = order
         self.duration = duration
         self.completed = completed

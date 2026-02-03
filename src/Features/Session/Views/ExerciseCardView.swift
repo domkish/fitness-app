@@ -35,7 +35,7 @@ struct ExerciseCardView: View {
     @State private var noteText: String = ""
 
     private var maxSetsAllowed: Int {
-        if authCoordinator.currentUser?.isPremium == true { return 20 }
+        if authCoordinator.currentUser?.isPremium == true { return 10 }
         return 5
     }
 
@@ -116,7 +116,7 @@ struct ExerciseCardView: View {
                         Text("Set").frame(maxWidth: 40, alignment: .center)
                         Text("Previous").frame(maxWidth: .infinity, alignment: .leading)
                         Text("Reps").frame(maxWidth: 60, alignment: .leading)
-                        Text("Value").frame(maxWidth: 200, alignment: .leading)
+                        Text(exItem.exercise.unit ?? "Value").frame(maxWidth: 200, alignment: .leading)
                         Text("").frame(maxWidth: 24, alignment: .leading)
                     }
                     .font(.caption)

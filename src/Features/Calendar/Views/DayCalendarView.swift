@@ -245,7 +245,7 @@ struct DayCalendarView: View {
                 .environmentObject(authCoordinator)
             }
             .sheet(isPresented: $showingRoutinePicker) {
-                RoutinePickerSheet { pickedId in
+                RoutinePickerSheet(coordinator: coordinator) { pickedId in
                     if pickedId <= 0 { showingRoutinePicker = false; return }
                     pendingWorkoutId = pickedId
                     showingRoutinePicker = false

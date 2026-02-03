@@ -13,6 +13,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
     var exerciseId: Int64
     var exerciseName: String
     var note: String?
+    var unit: String?
     var order: Int?
     var duration: Int
     var completed: Int
@@ -28,6 +29,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
         case exerciseId = "exercise_id"
         case exerciseName = "exercise_name"
         case note
+        case unit
         case order
         case duration
         case completed
@@ -43,6 +45,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
         static let exerciseId = Column("exercise_id")
         static let exerciseName = Column("exercise_name")
         static let note = Column("note")
+        static let unit = Column("unit")
         static let order = Column("order")
         static let duration = Column("duration")
         static let completed = Column("completed")
@@ -58,6 +61,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
         exerciseId: Int64,
         exerciseName: String,
         note: String? = nil,
+        unit: String? = nil,
         order: Int? = nil,
         duration: Int = 0,
         completed: Int = 0,
@@ -70,6 +74,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
         self.exerciseId = exerciseId
         self.exerciseName = exerciseName
         self.note = note
+        self.unit = unit
         self.order = order
         self.duration = duration
         self.completed = completed
@@ -84,6 +89,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
         self.exerciseId = domain.exerciseId
         self.exerciseName = domain.exerciseName
         self.note = domain.note
+        self.unit = domain.unit
         self.order = domain.order
         self.duration = domain.duration
         self.completed = domain.completed ? 1 : 0
@@ -99,6 +105,7 @@ struct SessionExerciseRecord: Codable, FetchableRecord, PersistableRecord, Ident
             exerciseId: exerciseId,
             exerciseName: exerciseName,
             note: note,
+            unit: unit,
             order: order,
             duration: duration,
             completed: completed != 0,
