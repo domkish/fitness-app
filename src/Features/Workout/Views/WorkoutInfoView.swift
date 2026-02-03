@@ -296,6 +296,7 @@ struct WorkoutInfoView: View {
                                                 Task { await persistOrder(forBlock: bid, items: resequenced) }
                                             }
                                         }
+                                        .environment(\.editMode, .constant(editingBlocks.contains(bid) ? .active : .inactive))
                                         .listStyle(.plain)
                                         .scrollDisabled(true)
                                         .frame(height: CGFloat((items.count + 1)) * 56)
