@@ -16,6 +16,7 @@ import Combine
 struct ExerciseCardView: View {
     @ObservedObject var exItem: SessionExerciseItem
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var authCoordinator: AuthCoordinator
 
     var isActive: Bool = false
     var onCompleted: (() -> Void)? = nil
@@ -32,6 +33,11 @@ struct ExerciseCardView: View {
     @State private var editSeconds: String = "00"
     @State private var showTimerInfo = false
     @State private var noteText: String = ""
+
+    private var maxSetsAllowed: Int {
+        if authCoordinator.currentUser?.isPremium == true { return 20 }
+        return 5
+    }
 
     var body: some View {
         ZStack {
@@ -145,6 +151,7 @@ struct ExerciseCardView: View {
                             }
                             .buttonStyle(.plain)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .disabled(exItem.sets.count >= maxSetsAllowed)
 
                             Spacer(minLength: 0)
 
@@ -333,6 +340,9 @@ struct ExerciseCardView: View {
     // MARK: - Helper Methods
 
     private func addSet() {
+        // Enforce set limit based on premium status
+        if exItem.sets.count >= maxSetsAllowed { return }
+
         guard let last = exItem.sets.last else { return }
         let repo = SessionSetRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
         let now = Date()
@@ -443,3 +453,4 @@ struct GrowingTextEditor: View {
         return max(h, minH)
     }
 }
+
