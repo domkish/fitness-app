@@ -13,7 +13,7 @@ struct BlockCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Circuit: \(blockItem.block.workoutBlockId)")
+            Text("Circuit")
                 .font(.headline)
                 .foregroundColor(themeManager.currentTheme.muted)
 

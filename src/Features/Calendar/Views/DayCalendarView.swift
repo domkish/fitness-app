@@ -66,8 +66,29 @@ struct DayCalendarView: View {
                 // MARK: - Today button / Check-in / Add Workout
                 ZStack {
                     // Center: Go to Today
-                    Button("Go to Today") { selectedDate = Calendar.current.startOfDay(for: Date()) }
-                        .foregroundColor(themeManager.currentTheme.primary)
+                    switch relativeDay {
+                    case .yesterday:
+                        Text("Yesterday")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(themeManager.currentTheme.muted)
+
+                    case .today:
+                        Text("Today")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(themeManager.currentTheme.muted)
+
+                    case .tomorrow:
+                        Text("Tomorrow")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(themeManager.currentTheme.muted)
+
+                    case .other:
+                        Button("Go to Today") {
+                            selectedDate = Calendar.current.startOfDay(for: Date())
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(themeManager.currentTheme.muted)
+                    }
 
                     // Leading: Check-in button (today or past)
                     HStack {
@@ -460,6 +481,26 @@ struct DayCalendarView: View {
             }
         } catch {
             print("[DayCalendarView] ensureSessionWithSeed error: \(error)")
+        }
+    }
+    
+    private enum RelativeDay {
+        case yesterday, today, tomorrow, other
+    }
+
+    private var relativeDay: RelativeDay {
+        let calendar = Calendar.current
+        let selected = calendar.startOfDay(for: selectedDate)
+        let today = calendar.startOfDay(for: Date())
+
+        if selected == calendar.date(byAdding: .day, value: -1, to: today) {
+            return .yesterday
+        } else if selected == today {
+            return .today
+        } else if selected == calendar.date(byAdding: .day, value: 1, to: today) {
+            return .tomorrow
+        } else {
+            return .other
         }
     }
 }

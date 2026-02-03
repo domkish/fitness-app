@@ -73,6 +73,51 @@ struct WeekCalendarView: View {
         Calendar.current.isDateInToday(date)
     }
     
+    private func workoutRowMatchesDate(_ w: CalendarWorkoutRepository.ScheduledWorkoutRow, on date: Date) -> Bool {
+        let cal = Calendar.current
+        let day = cal.startOfDay(for: date)
+
+        // Normalize startsOn/endsOn which may be String or Date in the row
+        func parseDateAny(_ any: Any?) -> Date? {
+            if let d = any as? Date { return cal.startOfDay(for: d) }
+            if let s = any as? String { return CalendarWorkout.date(from: s).map { cal.startOfDay(for: $0) } }
+            return nil
+        }
+
+        let starts = parseDateAny(w.startsOn)
+        let ends = parseDateAny(w.endsOn)
+
+        guard let startsDay = starts else { return true }
+        if day < startsDay { return false }
+        if let endsDay = ends, day > endsDay { return false }
+
+        // One-time if frequency is nil
+        if w.frequency == nil {
+            return cal.isDate(day, inSameDayAs: startsDay)
+        }
+
+        // Weekday flags may be optional Bools; read safely
+        let weekday = cal.component(.weekday, from: day)
+        let weekdayAllowed: Bool = {
+            switch weekday {
+            case 1: return (w.sun ?? false)
+            case 2: return (w.mon ?? false)
+            case 3: return (w.tues ?? false)
+            case 4: return (w.wed ?? false)
+            case 5: return (w.thurs ?? false)
+            case 6: return (w.fri ?? false)
+            case 7: return (w.sat ?? false)
+            default: return false
+            }
+        }()
+        guard weekdayAllowed else { return false }
+
+        // Frequency logic: every N weeks from startsOn
+        let freq = w.frequency ?? 1
+        guard let weeks = cal.dateComponents([.weekOfYear], from: startsDay, to: day).weekOfYear else { return false }
+        return weeks % freq == 0
+    }
+    
     private func sessionIsCompleted(_ session: SessionRecord) -> Bool {
         let mirror = Mirror(reflecting: session)
         for child in mirror.children {
