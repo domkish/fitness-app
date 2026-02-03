@@ -31,7 +31,8 @@ struct MonthCalendarView: View {
                 Button { shiftMonth(1) } label: { Image(systemName: "chevron.right") }
             }
             .padding(.horizontal)
-            .padding(.bottom, 8)
+            .padding(.bottom, 32)
+            .padding(.top, 16)
 
 
             let grid = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)

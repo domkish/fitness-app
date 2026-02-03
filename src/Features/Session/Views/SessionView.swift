@@ -4,6 +4,7 @@
 //
 //  Created by Dominic Kish on 1/25/26.
 //
+
 import SwiftUI
 import GRDB
 
@@ -11,10 +12,12 @@ struct SessionView: View {
     @ObservedObject var coordinator: AppShellCoordinator
     @EnvironmentObject var authCoordinator: AuthCoordinator
     @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.dismiss) private var dismiss
 
     let session: SessionRecord
     let sessionRepo: SessionRepository
     let onCompleted: ((SessionRecord) -> Void)?
+    var hideCompleteButton: Bool = false
 
     @State private var sessionTree: [SessionBlockItem] = []
     @State private var isLoading = true
@@ -42,7 +45,6 @@ struct SessionView: View {
                                 ProgressView()
                             }
                             .frame(maxWidth: .infinity)
-                            .frame(maxWidth: .infinity)
                             .padding()
                             .background(themeManager.currentTheme.surface)
                             .cornerRadius(16)
@@ -54,40 +56,102 @@ struct SessionView: View {
                                     .environmentObject(themeManager)
                                     .padding(.horizontal)
                             }
+
                             // Bottom Complete Workout button
-                            HStack {
-                                Button(action: { showingCompleteAlert = true }) {
-                                    HStack(spacing: 6) {
-                                        Spacer()
-                                        Text("Complete Workout").bold()
-                                        Spacer()
+                            if !hideCompleteButton {
+                                HStack {
+                                    Button(action: { showingCompleteAlert = true }) {
+                                        HStack {
+                                            Spacer()
+                                            Text("Complete Workout")
+                                                .bold()
+                                            Spacer()
+                                        }
+                                        .padding()
+                                        .background(themeManager.currentTheme.primary)
+                                        .foregroundColor(themeManager.currentTheme.background)
+                                        .cornerRadius(12)
                                     }
-                                    .padding()
-                                    .background(themeManager.currentTheme.primary)
-                                    .foregroundColor(themeManager.currentTheme.background)
-                                    .cornerRadius(12)
+                                    .buttonStyle(.plain)
+                                    .frame(maxWidth: .infinity)
                                 }
-                                .buttonStyle(.plain)
-                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal)
                             }
-                            .padding(.horizontal)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
                 .padding(.vertical)
             }
-        }
-        .onAppear(perform: loadSessionTree)
-        .alert("Complete Workout?", isPresented: $showingCompleteAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Complete", role: .destructive) {
-                Task { await completeWorkout() }
+
+            // MARK: - Complete Workout Confirmation Popup
+            if showingCompleteAlert {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        showingCompleteAlert = false
+                    }
+
+                VStack(spacing: 16) {
+                    Text("Complete Workout?")
+                        .font(.title3)
+                        .bold()
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+
+                    Text("Are you sure you want to complete this workout? You can review the summary afterward.")
+                        .font(.body)
+                        .foregroundColor(themeManager.currentTheme.secondary)
+                        .multilineTextAlignment(.center)
+
+                    HStack(spacing: 16) {
+                        Button {
+                            showingCompleteAlert = false
+                        } label: {
+                            Text("Cancel")
+                                .font(.headline)
+                                .foregroundColor(themeManager.currentTheme.primary)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(themeManager.currentTheme.surface)
+                                .cornerRadius(8)
+                        }
+
+                        Button {
+                            showingCompleteAlert = false
+                            Task { await completeWorkout() }
+                        } label: {
+                            Text("Complete")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .foregroundColor(.white)
+                                .background(themeManager.currentTheme.primary)
+                                .cornerRadius(8)
+                        }
+                    }
+                }
+                .padding(24)
+                .background(themeManager.currentTheme.background)
+                .cornerRadius(16)
+                .padding(.horizontal, 40)
+                .shadow(radius: 20)
+                .transition(.scale.combined(with: .opacity))
             }
-        } message: {
-            Text("Are you sure you want to complete this workout? You can review the summary afterward.")
+        }
+        .animation(.easeOut(duration: 0.2), value: showingCompleteAlert)
+        .onAppear(perform: loadSessionTree)
+        .toolbar {
+            if hideCompleteButton {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
         }
     }
+
+    // MARK: - Data Loading
 
     private func loadSessionTree() {
         isLoading = true
@@ -129,28 +193,24 @@ struct SessionView: View {
         }
     }
 
+    // MARK: - Completion
+
     private func completeWorkout() async {
         do {
-            // Compute total duration by summing all session exercise durations
             let exRepo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
             let blockRepo = SessionBlockRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
-            let sessRepo = sessionRepo
 
-            // Fetch blocks and exercises tree
             let blocks = try blockRepo.bySession(session.id ?? -1)
             var total: Int = 0
+
             for b in blocks {
-                // For each block, sum its exercise durations
                 let exercises = try exRepo.bySessionBlock(b.id ?? -1)
-                let sumForBlock = exercises.reduce(0) { $0 + ($1.duration) }
+                let sumForBlock = exercises.reduce(0) { $0 + $1.duration }
                 total += sumForBlock
-                // Update block duration to sum of its exercises
                 try updateBlockDuration(blockId: b.id ?? -1, to: sumForBlock)
             }
-            // Update session total duration and completedAt
-            try updateSessionCompletion(totalDuration: total)
 
-            // Call completion callback
+            try updateSessionCompletion(totalDuration: total)
             await MainActor.run { onCompleted?(session) }
         } catch {
             print("[SessionView] completeWorkout error: \(error)")
@@ -178,4 +238,3 @@ struct SessionView: View {
         }
     }
 }
-

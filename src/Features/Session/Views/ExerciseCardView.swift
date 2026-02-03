@@ -49,7 +49,7 @@ struct ExerciseCardView: View {
                     Spacer()
                     HStack(spacing: 8) {
                         // Timer display button
-                        Button(action: { showingTimeEditor.toggle() }) {
+                        Button(action: { if exItem.exerciseCompleted { showingTimeEditor = true } else { showTimerInfo = true } }) {
                             Text(formattedTime(elapsed))
                                 .foregroundColor(exItem.exerciseCompleted
                                     ? themeManager.currentTheme.muted
@@ -126,13 +126,6 @@ struct ExerciseCardView: View {
                     VStack(spacing: 6) {
                         ForEach(exItem.sets) { set in
                             SetRowView(setItem: set, onUserInteraction: {
-                                if exItem.exerciseCompleted {
-                                    exItem.exerciseCompleted = false
-                                    let repo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
-                                    if let exId = exItem.exercise.id {
-                                        try? repo.markCompleted(id: exId, completed: false)
-                                    }
-                                }
                                 onBecameActive?()
                             })
                         }
@@ -311,6 +304,10 @@ struct ExerciseCardView: View {
             }
 
             HStack {
+                Button("Cancel") {
+                    showingTimeEditor = false
+                }
+                .buttonStyle(.bordered)
                 Spacer()
                 Button("Save") {
                     let h = Int(editHours) ?? 0
@@ -337,22 +334,27 @@ struct ExerciseCardView: View {
         }
     }
 
-    // MARK: - Helper Methods
-
     private func addSet() {
         // Enforce set limit based on premium status
         if exItem.sets.count >= maxSetsAllowed { return }
 
         guard let last = exItem.sets.last else { return }
+
         let repo = SessionSetRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
         let now = Date()
+
+        // Parse last values from visible text fields
         let lastReps: Int? = Int(last.repsText.trimmingCharacters(in: .whitespaces))
         let lastValue: Double? = Double(last.valueText.trimmingCharacters(in: .whitespaces))
-        var currentUnit: String? = last.previousSet?.unit
+
+        // Prefer the current set's unit if available; otherwise, try to fetch from persisted sets
+        var currentUnit: String? = last.unit ?? last.previousSet?.unit
         if currentUnit == nil {
             let persistedSets = (try? repo.bySessionExercise(last.sessionExerciseId)) ?? []
             currentUnit = persistedSets.last?.unit
         }
+
+        // Build a new record using flattened properties from SessionSetItem
         var newRec = SessionSetRecord(
             id: nil,
             sessionExerciseId: last.sessionExerciseId,
@@ -365,9 +367,12 @@ struct ExerciseCardView: View {
             createdAt: now,
             updatedAt: now
         )
+
         do {
             let newId = try repo.create(&newRec)
             newRec.id = newId
+
+            // Preserve previousSet reference for charting/summary features
             let newItem = SessionSetItem(set: newRec, previousSet: last.previousSet)
             DispatchQueue.main.async {
                 exItem.sets.append(newItem)
@@ -375,13 +380,6 @@ struct ExerciseCardView: View {
         } catch {
             print("[ExerciseCardView] Failed to add set: \(error)")
         }
-    }
-
-    private func formattedTime(_ seconds: Int) -> String {
-        let hrs = seconds / 3600
-        let mins = (seconds % 3600) / 60
-        let secs = seconds % 60
-        return String(format: "%02d:%02d:%02d", hrs, mins, secs)
     }
 
     private func persistDuration() {

@@ -21,27 +21,31 @@ struct SummaryExerciseView: View {
                     .foregroundColor(themeManager.currentTheme.textDefault)
 
                 Spacer()
-
-                if isPR {
-                    Text("PR")
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(themeManager.currentTheme.primary)
-                        .foregroundColor(themeManager.currentTheme.background)
-                        .cornerRadius(8)
-                }
             }
 
-            // Total time formatted
-            Text("Total time: \(formattedTime(totalDuration))")
-                .font(.subheadline)
-                .foregroundColor(themeManager.currentTheme.secondary)
-
-            // Chart
-            SetsChartView(
-                points: chartPoints
-            )
+            // Chart or single set summary
+            if hasSingleSet, let summary = singleSetSummary {
+                VStack(alignment: .center, spacing: 4) {
+                    Text(summary.valueUnit)
+                        .font(.headline)
+                        .foregroundColor(themeManager.currentTheme.primary)
+                    Text(summary.duration)
+                        .font(.subheadline)
+                        .foregroundColor(themeManager.currentTheme.secondary)
+                }
+                .padding(.vertical)
+                .frame(maxWidth: .infinity)
+            } else {
+                
+                // Total time formatted
+                Text(formattedDurationLong(totalDuration))
+                    .font(.subheadline)
+                    .foregroundColor(themeManager.currentTheme.secondary)
+                
+                SetsChartView(
+                    points: chartPoints
+                )
+            }
         }
         .padding()
         .background(themeManager.currentTheme.background.opacity(0.5))
@@ -107,6 +111,20 @@ struct SummaryExerciseView: View {
         let secs = seconds % 60
         return String(format: "%02d:%02d:%02d", hrs, mins, secs)
     }
+
+    private var hasSingleSet: Bool {
+        exercise.sets.count == 1
+    }
+
+    private var singleSetSummary: (valueUnit: String, duration: String)? {
+        guard let first = exercise.sets.first else { return nil }
+        let unit = first.unit ?? exercise.exercise.unit ?? ""
+        let valueText = first.valueText.trimmingCharacters(in: .whitespaces)
+        let safeValue = valueText.isEmpty ? "0" : valueText
+        let durationText = formattedDurationLong(exercise.exercise.duration)
+        let valueUnit = (safeValue + " " + unit).trimmingCharacters(in: .whitespaces)
+        return (valueUnit, durationText)
+    }
 }
 
 // MARK: - Convenience extension for SessionSetItem
@@ -114,3 +132,4 @@ extension SessionSetItem {
     var value: Double? { Double(valueText) }
     var reps: Int { Int(repsText) ?? 0 }
 }
+

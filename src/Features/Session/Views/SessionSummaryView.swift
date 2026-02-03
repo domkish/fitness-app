@@ -16,6 +16,7 @@ struct SessionSummaryView: View {
 
     @State private var sessionTree: [SessionBlockItem] = []
     @State private var isLoading = true
+    @State private var showingEditor = false
 
     var body: some View {
         ZStack {
@@ -33,7 +34,7 @@ struct SessionSummaryView: View {
                             .foregroundColor(themeManager.currentTheme.textDefault)
 
                         if !isLoading {
-                            Text("Total time: \(formattedTime(totalDuration))")
+                            Text(formattedDurationLong(totalDuration))
                                 .font(.subheadline)
                                 .foregroundColor(themeManager.currentTheme.secondary)
                         }
@@ -51,12 +52,41 @@ struct SessionSummaryView: View {
                             )
                             .padding(.horizontal)
                         }
+                        HStack {
+                            Button(action: { showingEditor = true }) {
+                                HStack(spacing: 6) {
+                                    Spacer()
+                                    Text("Edit Session").bold()
+                                    Spacer()
+                                }
+                                .padding()
+                                .background(themeManager.currentTheme.secondary)
+                                .foregroundColor(themeManager.currentTheme.background)
+                                .cornerRadius(12)
+                            }
+                            .buttonStyle(.plain)
+                            .frame(maxWidth: .infinity)
+                        }
+                        .padding(.horizontal)
                     }
                 }
                 .padding(.vertical)
             }
         }
         .onAppear(perform: loadSessionTree)
+        .sheet(isPresented: $showingEditor, onDismiss: {
+            loadSessionTree()
+        }) {
+            SessionView(
+                coordinator: coordinator,
+                session: session,
+                sessionRepo: sessionRepo,
+                onCompleted: { _ in },
+                hideCompleteButton: true
+            )
+            .environmentObject(authCoordinator)
+            .environmentObject(themeManager)
+        }
     }
 
     // MARK: - Helpers

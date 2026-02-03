@@ -43,7 +43,8 @@ public struct LiveDecimalTextField: UIViewRepresentable {
             } else {
                 let intPart = String(d.dropLast())
                 let fracPart = String(d.suffix(1))
-                let display = fracPart == "0" ? intPart : intPart + "." + fracPart
+                // Always show the decimal part, even when it's .0
+                let display = intPart + "." + fracPart
                 textField.text = display
                 parent.displayText = display
             }

@@ -12,6 +12,7 @@ class SessionSetItem: ObservableObject, Identifiable {
     let setId: Int64?
     let sessionExerciseId: Int64
     let setNumber: Int
+    let unit: String?
     var previousSet: SessionSetRecord?
 
     @Published var repsText: String
@@ -22,6 +23,7 @@ class SessionSetItem: ObservableObject, Identifiable {
         self.setId = set.id
         self.sessionExerciseId = set.sessionExerciseId
         self.setNumber = set.setNumber
+        self.unit = set.unit
         self.repsText = (set.completedReps != nil) ? String(set.completedReps!) : ""
         if let v = set.value {
             self.valueText = String(v)

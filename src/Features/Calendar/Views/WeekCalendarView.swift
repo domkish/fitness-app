@@ -113,14 +113,15 @@ struct WeekCalendarView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(date.formatted(.dateTime.weekday(.wide)))
                                 .font(.subheadline)
-                                .foregroundColor(isTodayCell ? themeManager.currentTheme.important : themeManager.currentTheme.textDefault)
+                                .fontWeight(isTodayCell ? .bold : .regular)
+                                .foregroundColor(isTodayCell ? themeManager.currentTheme.primary : themeManager.currentTheme.textDefault)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     onSelectDate?(date)
                                 }
                             Text(date.formatted(date: .abbreviated, time: .omitted))
                                 .font(.caption)
-                                .foregroundColor(isTodayCell ? themeManager.currentTheme.important : themeManager.currentTheme.textDefault.opacity(0.8))
+                                .foregroundColor(isTodayCell ? themeManager.currentTheme.primary : themeManager.currentTheme.textDefault.opacity(0.8))
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     onSelectDate?(date)
@@ -147,6 +148,7 @@ struct WeekCalendarView: View {
                                 Image(systemName: hasEntry ? "checkmark.seal.fill" : "pencil.and.list.clipboard")
                                     .foregroundColor(hasEntry ? themeManager.currentTheme.primary : themeManager.currentTheme.muted)
                             }
+                            .buttonStyle(.plain) 
                         }
                     }
                     .listRowBackground(themeManager.currentTheme.surface)
@@ -223,6 +225,7 @@ struct WeekCalendarView: View {
                 .environmentObject(authCoordinator)
             }
         }
+        .padding(.top, 8)
     }
 
     private var header: some View {

@@ -18,6 +18,9 @@ struct SetsChartView: View {
         ZStack {
             chartBody
             tooltipOverlay
+            sessionPROverlay
+                .padding(.trailing, 24)
+                .padding(.bottom, 20)
         }
         .frame(height: 220)
         .padding(.vertical, 8)
@@ -108,11 +111,35 @@ struct SetsChartView: View {
                     .foregroundColor(themeManager.currentTheme.secondary)
             }
             .position(x: tooltipPosition.x,
-                      y: tooltipPosition.y + 50)
+                      y: tooltipPosition.y + 30)
             .transition(.scale.combined(with: .opacity))
             .onTapGesture {
                 selectedPointID = nil
             }
+        }
+    }
+
+    @ViewBuilder
+    private var sessionPROverlay: some View {
+        if let pr = sessionPR {
+            VStack(alignment: .center, spacing: 4) {
+                Text("Session PR")
+                    .font(.caption.bold())
+                    .foregroundColor(themeManager.currentTheme.primary)
+                    .padding(.horizontal)
+                Text("\(Int(pr.value)) \(pr.unit) x \(pr.reps) reps")
+                    .font(.caption2)
+                    .foregroundColor(themeManager.currentTheme.textDefault)
+                    .padding(.horizontal)
+            }
+            .padding(.vertical, 4)
+            .background(themeManager.currentTheme.surface)
+            .border(themeManager.currentTheme.borderDefault)
+            .cornerRadius(8)
+            .padding([.trailing, .bottom], 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .allowsHitTesting(false)
+            .transition(.opacity)
         }
     }
 
@@ -121,23 +148,74 @@ struct SetsChartView: View {
         points.map { $0.setIndex }.max() ?? 0
     }
 
+    private var sessionPR: SetChartPoint? {
+        guard !points.isEmpty else { return nil }
+        return points.sorted {
+            if $0.value != $1.value {
+                return $0.value > $1.value
+            } else {
+                return $0.reps > $1.reps
+            }
+        }.first
+    }
+
     private var yAxisRange: ClosedRange<Double> {
         guard let minValue = points.map({ $0.value }).min(),
               let maxValue = points.map({ $0.value }).max() else {
+            // Default domain if no data
             return 0...100
         }
-        let lower = floor(minValue - 10)
-        let upper = ceil(maxValue + 10)
+
+        // Start from a small padding and snap to multiples of 5
+        let baseStep: Double = 5
+        let paddedMin = minValue - baseStep / 2
+        let paddedMax = maxValue + baseStep / 2
+        let lower = floor(paddedMin / baseStep) * baseStep
+        let upper = ceil(paddedMax / baseStep) * baseStep
+
+        // Ensure non-degenerate domain
+        if lower == upper {
+            return (lower - baseStep)...(upper + baseStep)
+        }
         return lower...upper
     }
 
     private var yAxisTicks: [Double] {
-        let minY = yAxisRange.lowerBound
-        let maxY = yAxisRange.upperBound
-        let step: Double = 5
-        return stride(from: (minY / step).rounded(.down) * step,
-                      through: (maxY / step).rounded(.up) * step,
-                      by: step).map { $0 }
+        let lower = yAxisRange.lowerBound
+        let upper = yAxisRange.upperBound
+        let span = max(upper - lower, 0)
+
+        // Choose a step (multiple of 5) such that tick count <= 10
+        let baseStep: Double = 5
+        let maxTicks = 10.0
+
+        // Start with base step and increase until we get <= 10 ticks
+        var step = baseStep
+        if span > 0 {
+            let initialCount = span / step
+            if initialCount > maxTicks {
+                // Increase step by factors of 2 until the tick count is within limit
+                // (keeping it a multiple of 5)
+                var factor: Double = 1
+                while (span / (baseStep * factor)) > maxTicks {
+                    factor *= 2
+                }
+                step = baseStep * factor
+            }
+        }
+
+        // Snap lower/upper to the chosen step to align ticks nicely
+        let snappedLower = (lower / step).rounded(.down) * step
+        let snappedUpper = (upper / step).rounded(.up) * step
+
+        // Generate the ticks
+        var ticks: [Double] = []
+        var v = snappedLower
+        while v <= snappedUpper + 1e-9 { // small epsilon to include upper bound
+            ticks.append(v)
+            v += step
+        }
+        return ticks
     }
 
     // MARK: - Nested chart model
