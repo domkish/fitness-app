@@ -77,15 +77,17 @@ struct SessionSummaryView: View {
         .sheet(isPresented: $showingEditor, onDismiss: {
             loadSessionTree()
         }) {
-            SessionView(
-                coordinator: coordinator,
-                session: session,
-                sessionRepo: sessionRepo,
-                onCompleted: { _ in },
-                hideCompleteButton: true
-            )
-            .environmentObject(authCoordinator)
-            .environmentObject(themeManager)
+            NavigationStack {
+                SessionView(
+                    coordinator: coordinator,
+                    session: session,
+                    sessionRepo: sessionRepo,
+                    onCompleted: { _ in },
+                    hideCompleteButton: true
+                )
+                .environmentObject(authCoordinator)
+                .environmentObject(themeManager)
+            }
         }
     }
 
