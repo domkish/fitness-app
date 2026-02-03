@@ -179,8 +179,7 @@ struct ProfileView: View {
                                             )
                                         }
                                         .buttonStyle(.plain)
-                                        .disabled(!(authCoordinator.currentUser?.isPremium ?? false) && item.key != (authCoordinator.currentUser?.theme.lowercased() ?? "classic"))
-                                        .opacity(!(authCoordinator.currentUser?.isPremium ?? false) && item.key != (authCoordinator.currentUser?.theme.lowercased() ?? "classic") ? 0.5 : 1.0)
+                                        .opacity(1.0)
                                         .overlay(
                                             Group {
                                                 if !(authCoordinator.currentUser?.isPremium ?? false) && item.key != (authCoordinator.currentUser?.theme.lowercased() ?? "classic") {
@@ -189,8 +188,8 @@ struct ProfileView: View {
                                                         Text("Premium")
                                                             .font(.caption2)
                                                             .padding(4)
-                                                            .background(Color.black.opacity(0.5))
-                                                            .foregroundColor(.white)
+                                                            .background(swatchTheme.surface)
+                                                            .foregroundColor(swatchTheme.textDefault)
                                                             .clipShape(Capsule())
                                                             .padding(6)
                                                     }
@@ -198,6 +197,11 @@ struct ProfileView: View {
                                             }
                                         )
                                     }
+                                }
+                                HStack {
+                                    Text("Only the 'classic' theme is available to free users. Feel free to select premium themes to see what they look like for a short period of time!")
+                                        .foregroundColor(themeManager.currentTheme.muted)
+                                        .padding(.vertical)
                                 }
                             }
                             .padding()
@@ -226,8 +230,35 @@ struct ProfileView: View {
 
     private func selectTheme(_ key: String) async {
         guard var user = authCoordinator.currentUser else { return }
-        // If not premium and trying to select non-default, ignore
-        if !user.isPremium && key.lowercased() != (user.theme.lowercased()) && key.lowercased() != "classic" { return }
+
+        let isPremiumTheme = key.lowercased() != "classic"
+
+        if !user.isPremium && isPremiumTheme {
+            await MainActor.run {
+                themeManager.previewThemeKey = key
+                themeManager.previewTimeRemaining = 10 // seconds
+                themeManager.update(for: key)
+            }
+
+            // Countdown
+            Task {
+                for remaining in stride(from: 10, through: 0, by: -0.1) {
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+                    await MainActor.run {
+                        themeManager.previewTimeRemaining = remaining
+                    }
+                }
+                await MainActor.run {
+                    themeManager.previewThemeKey = nil
+                    themeManager.previewTimeRemaining = 0
+                    themeManager.update(for: "classic") // revert
+                }
+            }
+            return
+        }
+
+
+        // Normal theme change for premium users or classic theme
         user = User(
             id: user.id,
             name: user.name,
@@ -239,16 +270,19 @@ struct ProfileView: View {
             createdAt: user.createdAt,
             updatedAt: Date()
         )
+        
         await MainActor.run { authCoordinator.currentUser = user }
+        
         do {
             try authCoordinator.userRepository.createOrUpdate(user)
-            // Reassert current user id to preserve scoping for repositories after theme change
             authCoordinator.userRepository.setCurrentUserId(user.id)
         } catch {
             print("[ProfileView] Failed to persist theme:", error)
         }
+        
         await MainActor.run { themeManager.update(for: user.theme) }
     }
+
 }
 
 struct DiagonalTriangle: Shape {

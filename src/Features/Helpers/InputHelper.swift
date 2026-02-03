@@ -21,6 +21,27 @@ public struct LiveDecimalTextField: UIViewRepresentable {
         tf.textColor = UIColor(themeManager.currentTheme.textDefault)
         tf.text = displayText
         tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // Add accessory toolbar with Done button to dismiss keyboard
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+        // Apply theme-based colors
+        toolbar.isTranslucent = false
+        toolbar.barTintColor = UIColor(themeManager.currentTheme.formDefault)
+        toolbar.backgroundColor = UIColor(themeManager.currentTheme.formDefault)
+        toolbar.tintColor = UIColor(themeManager.currentTheme.textDefault)
+        // Add a thin top border to mirror input borders
+        let borderHeight: CGFloat = 1.0 / UIScreen.main.scale
+        let topBorder = UIView(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: borderHeight))
+        topBorder.backgroundColor = UIColor(themeManager.currentTheme.borderDefault)
+        topBorder.autoresizingMask = [.flexibleWidth, .flexibleBottomMargin]
+        toolbar.addSubview(topBorder)
+
+        let flexible = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+        let done = UIBarButtonItem(title: "Done", style: .done, target: context.coordinator, action: #selector(Coordinator.doneTapped))
+        // Ensure the done button adopts theme tint
+        done.tintColor = UIColor(themeManager.currentTheme.textDefault)
+        toolbar.items = [flexible, done]
+        tf.inputAccessoryView = toolbar
         return tf
     }
 
@@ -118,6 +139,11 @@ public struct LiveDecimalTextField: UIViewRepresentable {
             let end = textField.endOfDocument
             textField.selectedTextRange = textField.textRange(from: end, to: end)
             return false
+        }
+
+        @objc func doneTapped() {
+            // Dismiss the keyboard by resigning first responder on the active field
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
     }
 }

@@ -241,7 +241,7 @@ struct WorkoutView: View {
                             // Info section
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                    Text("What are Workout Routines?")
+                                    Text("About Workout Routines")
                                         .font(.title3)
                                         .bold()
                                         .foregroundColor(themeManager.currentTheme.textDefault)

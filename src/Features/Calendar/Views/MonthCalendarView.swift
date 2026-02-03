@@ -55,11 +55,11 @@ struct MonthCalendarView: View {
                                 // Invisible spacer to reserve height
                                 Color.clear.frame(height: 8)
                                 HStack(spacing: 4) {
+                                    if let d = dateFor(day: day), hasEntry(d) {
+                                        Rectangle().fill(themeManager.currentTheme.primary).frame(width: 5, height: 5)
+                                    }
                                     if let d = dateFor(day: day), hasWorkouts(d) {
                                         Circle().fill(themeManager.currentTheme.error).frame(width: 5, height: 5)
-                                    }
-                                    if let d = dateFor(day: day), hasEntry(d) {
-                                        Circle().fill(themeManager.currentTheme.primary).frame(width: 5, height: 5)
                                     }
                                 }
                             }
@@ -80,12 +80,12 @@ struct MonthCalendarView: View {
             // Legend
             HStack(spacing: 12) {
                 HStack(spacing: 6) {
-                    Circle().fill(themeManager.currentTheme.error).frame(width: 6, height: 6)
-                    Text("Has Workout(s)").foregroundColor(themeManager.currentTheme.muted)
+                    Rectangle().fill(themeManager.currentTheme.primary).frame(width: 6, height: 6)
+                    Text("Has Daily Check-in").foregroundColor(themeManager.currentTheme.muted)
                 }
                 HStack(spacing: 6) {
-                    Circle().fill(themeManager.currentTheme.primary).frame(width: 6, height: 6)
-                    Text("Has Daily Check-in").foregroundColor(themeManager.currentTheme.muted)
+                    Circle().fill(themeManager.currentTheme.error).frame(width: 6, height: 6)
+                    Text("Has Workout(s)").foregroundColor(themeManager.currentTheme.muted)
                 }
                 Spacer()
             }

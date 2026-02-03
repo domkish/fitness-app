@@ -4,6 +4,9 @@ import Combine
 /// Manages the current application theme and publishes updates to subscribers.
 @MainActor
 class ThemeManager: ObservableObject {
+    @Published var previewThemeKey: String? = nil
+    @Published var previewTimeRemaining: TimeInterval = 0
+    
     /// The currently selected app theme.
     @Published var currentTheme: AppTheme = .standard
     
