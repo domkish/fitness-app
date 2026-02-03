@@ -4,6 +4,12 @@
 //
 //  Created by Dominic Kish on 2/1/26.
 //
+//
+//  ExerciseCardView.swift
+//  fitness-app
+//
+//  Created by Dominic Kish on 2/1/26.
+//
 import SwiftUI
 import Combine
 
@@ -28,238 +34,275 @@ struct ExerciseCardView: View {
     @State private var noteText: String = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(exItem.exercise.exerciseName)
-                    .foregroundColor(themeManager.currentTheme.textDefault)
-                Spacer()
-                Group {
-                    if exItem.exerciseCompleted {
+        ZStack {
+            // Main card content
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(exItem.exercise.exerciseName)
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+                    Spacer()
+                    HStack(spacing: 8) {
+                        // Timer display button
                         Button(action: { showingTimeEditor.toggle() }) {
                             Text(formattedTime(elapsed))
-                                .foregroundColor(themeManager.currentTheme.muted)
+                                .foregroundColor(exItem.exerciseCompleted
+                                    ? themeManager.currentTheme.muted
+                                    : themeManager.currentTheme.muted)
                         }
                         .buttonStyle(.plain)
-                        .popover(isPresented: $showingTimeEditor, arrowEdge: .top) {
-                            timeEditor
+
+                        // Info button
+                        Button {
+                            showTimerInfo.toggle()
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .foregroundColor(themeManager.currentTheme.secondary)
+                        }
+                        .popover(isPresented: $showTimerInfo, arrowEdge: .bottom) {
+                            ZStack {
+                                themeManager.currentTheme.surface
+                                    .ignoresSafeArea()
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Editing the Timer")
+                                        .font(.headline)
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                    Text("You can modify the exercise time once the exercise is marked as complete.")
+                                        .font(.subheadline)
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                }
                                 .padding()
-                                .frame(maxWidth: 260)
+                                .frame(maxWidth: 250)
+                            }
                         }
-                    } else {
-                        Text(formattedTime(elapsed))
-                            .foregroundColor(themeManager.currentTheme.muted)
                     }
-                    
-                    Button {
-                        showTimerInfo.toggle()
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .foregroundColor(themeManager.currentTheme.secondary)
-                    }
-                    .popover(isPresented: $showTimerInfo, arrowEdge: .bottom) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Editing the Timer")
-                                .font(.headline)
-                            
-                            Text("You can modify the exercise time once the exercise is marked as complete.")
-                                .font(.subheadline)
-                            
-                        }
-                        .padding()
-                        .frame(maxWidth: 250)
-                    }
-                    
                 }
-            }
-            .padding(.vertical)
+                .padding(.vertical)
 
-            ZStack(alignment: .topLeading) {
-                // Background
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(themeManager.currentTheme.background)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(themeManager.currentTheme.borderDefault, lineWidth: 1)
-                    )
-                // Growing text editor
-                GrowingTextEditor(text: $noteText, minLines: 1)
-                    .foregroundColor(themeManager.currentTheme.muted)
-                    .padding(8)
-                    .onChange(of: noteText) { _ in
-                        scheduleNoteDebouncedSave()
-                    }
-                // Placeholder
-                if noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text("notes…")
-                        .font(.body)
+                ZStack(alignment: .topLeading) {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(themeManager.currentTheme.background)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(themeManager.currentTheme.borderDefault, lineWidth: 1)
+                        )
+
+                    GrowingTextEditor(text: $noteText, minLines: 1)
                         .foregroundColor(themeManager.currentTheme.muted)
-                        .background(themeManager.currentTheme.formDefault)
-                        .padding(EdgeInsets(top: 8, leading: 12, bottom: 0, trailing: 0))
-                        .allowsHitTesting(false)
-                        .scrollContentBackground(.hidden)
-                }
-            }
-            .frame(maxWidth: .infinity)
+                        .padding(8)
+                        .onChange(of: noteText) { _ in
+                            scheduleNoteDebouncedSave()
+                        }
 
-            VStack(spacing: 8) {
-                // Header centered container
-                HStack(spacing: 8) {
-                    Text("Set").frame(maxWidth: 40, alignment: .center)
-                    Text("Previous").frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Reps").frame(maxWidth: 60, alignment: .leading)
-                    Text("Value").frame(maxWidth: 200, alignment: .leading)
-                    Text("").frame(maxWidth: 24, alignment: .leading)
+                    if noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("notes…")
+                            .font(.body)
+                            .foregroundColor(themeManager.currentTheme.muted)
+                            .background(themeManager.currentTheme.formDefault)
+                            .padding(EdgeInsets(top: 8, leading: 12, bottom: 0, trailing: 0))
+                            .allowsHitTesting(false)
+                            .scrollContentBackground(.hidden)
+                    }
                 }
-                .font(.caption)
-                .foregroundColor(themeManager.currentTheme.textDefault)
-                .frame(maxWidth: 600) // constrain table width
+                .frame(maxWidth: .infinity)
 
-                // Rows centered container
-                VStack(spacing: 6) {
-                    ForEach(exItem.sets) { set in
-                        SetRowView(setItem: set, onUserInteraction: {
-                            if exItem.exerciseCompleted {
-                                exItem.exerciseCompleted = false
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        Text("Set").frame(maxWidth: 40, alignment: .center)
+                        Text("Previous").frame(maxWidth: .infinity, alignment: .leading)
+                        Text("Reps").frame(maxWidth: 60, alignment: .leading)
+                        Text("Value").frame(maxWidth: 200, alignment: .leading)
+                        Text("").frame(maxWidth: 24, alignment: .leading)
+                    }
+                    .font(.caption)
+                    .foregroundColor(themeManager.currentTheme.textDefault)
+                    .frame(maxWidth: 600)
+
+                    VStack(spacing: 6) {
+                        ForEach(exItem.sets) { set in
+                            SetRowView(setItem: set, onUserInteraction: {
+                                if exItem.exerciseCompleted {
+                                    exItem.exerciseCompleted = false
+                                    let repo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+                                    if let exId = exItem.exercise.id {
+                                        try? repo.markCompleted(id: exId, completed: false)
+                                    }
+                                }
+                                onBecameActive?()
+                            })
+                        }
+
+                        HStack(spacing: 12) {
+                            Button(action: { addSet() }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus")
+                                    Text("Add Set").bold()
+                                }
+                                .padding(.vertical, 3)
+                                .padding(.horizontal, 6)
+                                .background(themeManager.currentTheme.surface)
+                                .foregroundColor(themeManager.currentTheme.secondary)
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                            Spacer(minLength: 0)
+
+                            Button(action: {
+                                exItem.exerciseCompleted.toggle()
                                 let repo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
                                 if let exId = exItem.exercise.id {
-                                    try? repo.markCompleted(id: exId, completed: false)
+                                    try? repo.markCompleted(id: exId, completed: exItem.exerciseCompleted)
                                 }
+                                if exItem.exerciseCompleted == false { onBecameActive?() }
+                                if exItem.exerciseCompleted { onCompleted?() }
+                            }) {
+                                HStack(spacing: 8) {
+                                    Text(exItem.exerciseCompleted ? "Completed" : "Complete")
+                                        .bold()
+                                    Image(systemName: exItem.exerciseCompleted ? "checkmark.square.fill" : "square")
+                                }
+                                .padding(.vertical, 3)
+                                .padding(.horizontal, 6)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .fill(exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.15) : themeManager.currentTheme.secondary)
+                                )
+                                .foregroundColor(exItem.exerciseCompleted ? themeManager.currentTheme.primary : themeManager.currentTheme.background)
                             }
-                            onBecameActive?()
-                        })
-                    }
-                    HStack(spacing: 12) {
-                        // Left-aligned Add Set
-                        Button(action: { addSet() }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "plus")
-                                Text("Add Set").bold()
-                            }
-                            .padding(.vertical, 3)
-                            .padding(.horizontal, 6)
-                            .background(themeManager.currentTheme.surface)
-                            .foregroundColor(themeManager.currentTheme.secondary)
-                            .cornerRadius(8)
+                            .buttonStyle(.plain)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                         }
-                        .buttonStyle(.plain)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        
-                        Spacer(minLength: 0)
-                        
-                        // Right-aligned Complete button
-                        Button(action: {
-                            exItem.exerciseCompleted.toggle()
-                            let repo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
-                            if let exId = exItem.exercise.id {
-                                try? repo.markCompleted(id: exId, completed: exItem.exerciseCompleted)
-                            }
-                            if exItem.exerciseCompleted == false { onBecameActive?() }
-                            if exItem.exerciseCompleted {
-                                onCompleted?()
-                            }
-                        }) {
-                            HStack(spacing: 8) {
-                                Text(exItem.exerciseCompleted ? "Completed" : "Complete")
-                                    .bold()
-                                Image(systemName: exItem.exerciseCompleted ? "checkmark.square.fill" : "square")
-                            }
-                            .padding(.vertical, 3)
-                            .padding(.horizontal, 6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 5)
-                                    .fill(exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.15) : themeManager.currentTheme.secondary)
-                            )
-                            .foregroundColor(exItem.exerciseCompleted ? themeManager.currentTheme.primary : themeManager.currentTheme.background)
-                        }
-                        .buttonStyle(.plain)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.top, 4)
+                        .padding(.bottom, 8)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .accessibilityLabel(exItem.exerciseCompleted ? "Completed" : "Complete")
                     }
-                    .padding(.top, 4)
-                    .padding(.bottom, 8)
-                    .background(Color.clear)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .accessibilityLabel(exItem.exerciseCompleted ? "Completed" : "Complete")
+                    .frame(maxWidth: 600)
                 }
-                .frame(maxWidth: 600)
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
-        }
-        .padding(.vertical, 5)
-        .padding(.horizontal)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            exItem.exerciseCompleted
-            ? themeManager.currentTheme.primary.opacity(0.2)
-            : themeManager.currentTheme.surface
-        )
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    isActive && !exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.4) : Color.clear,
-                    lineWidth: isActive && !exItem.exerciseCompleted ? 2 : 0
-                )
-                .shadow(color: isActive && !exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.65) : Color.clear, radius: 8)
-        )
-        .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
-        .onAppear {
-            elapsed = (exItem.exercise.duration)
-            noteText = exItem.exercise.note ?? ""
-            if isActive && !exItem.exerciseCompleted {
-                lastTick = Date()
+            .padding(.vertical, 5)
+            .padding(.horizontal)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                exItem.exerciseCompleted
+                    ? themeManager.currentTheme.primary.opacity(0.2)
+                    : themeManager.currentTheme.surface
+            )
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        isActive && !exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.4) : Color.clear,
+                        lineWidth: isActive && !exItem.exerciseCompleted ? 2 : 0
+                    )
+                    .shadow(color: isActive && !exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.65) : Color.clear, radius: 8)
+            )
+            .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
+            .onAppear {
+                elapsed = exItem.exercise.duration
+                noteText = exItem.exercise.note ?? ""
+                if isActive && !exItem.exerciseCompleted {
+                    lastTick = Date()
+                }
             }
-        }
-        .onChange(of: isActive) { newVal in
-            if newVal && !exItem.exerciseCompleted {
-                lastTick = Date()
-            } else {
-                lastTick = nil
-                persistDuration()
+            .onChange(of: isActive) { newVal in
+                if newVal && !exItem.exerciseCompleted {
+                    lastTick = Date()
+                } else {
+                    lastTick = nil
+                    persistDuration()
+                }
             }
-        }
-        .onChange(of: exItem.exerciseCompleted) { completed in
-            if completed {
-                lastTick = nil
-                persistDuration()
-            } else if isActive {
-                lastTick = Date()
+            .onChange(of: exItem.exerciseCompleted) { completed in
+                if completed {
+                    lastTick = nil
+                    persistDuration()
+                } else if isActive {
+                    lastTick = Date()
+                }
             }
-        }
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now in
-            guard isActive && !exItem.exerciseCompleted else { return }
-            if let last = lastTick {
-                let delta = Int(now.timeIntervalSince(last))
-                if delta > 0 {
-                    elapsed += delta
+            .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now in
+                guard isActive && !exItem.exerciseCompleted else { return }
+                if let last = lastTick {
+                    let delta = Int(now.timeIntervalSince(last))
+                    if delta > 0 {
+                        elapsed += delta
+                        lastTick = now
+                        scheduleDebouncedPersist()
+                    }
+                } else {
                     lastTick = now
-                    scheduleDebouncedPersist()
                 }
-            } else {
-                lastTick = now
+            }
+
+            // MARK: - Custom Time Editor Overlay
+            if showingTimeEditor {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .onTapGesture { showingTimeEditor = false }
+
+                timeEditor
+                    .frame(maxWidth: 260)
+                    .background(themeManager.currentTheme.surface)
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
+                    .transition(.scale.combined(with: .opacity))
+                    .zIndex(1)
             }
         }
     }
 
+    // MARK: - Time Editor
     private var timeEditor: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Edit Time").bold()
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Edit Time")
+                .bold()
                 .foregroundColor(themeManager.currentTheme.textDefault)
+
             HStack(spacing: 6) {
                 TextField("hh", text: $editHours)
                     .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
+                    .foregroundColor(themeManager.currentTheme.textDefault)
+                    .padding(.vertical, 8)
+                    .multilineTextAlignment(.center)
+                    .background(themeManager.currentTheme.formDefault)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(themeManager.currentTheme.borderDefault, lineWidth: 1)
+                    )
                     .frame(width: 50)
-                Text(":")
+
+                Text(":").foregroundColor(themeManager.currentTheme.textDefault)
+
                 TextField("mm", text: $editMinutes)
                     .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
+                    .foregroundColor(themeManager.currentTheme.textDefault)
+                    .padding(.vertical, 8)
+                    .multilineTextAlignment(.center)
+                    .background(themeManager.currentTheme.formDefault)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(themeManager.currentTheme.borderDefault, lineWidth: 1)
+                    )
                     .frame(width: 50)
-                Text(":")
+
+                Text(":").foregroundColor(themeManager.currentTheme.textDefault)
+
                 TextField("ss", text: $editSeconds)
                     .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
+                    .foregroundColor(themeManager.currentTheme.textDefault)
+                    .padding(.vertical, 8)
+                    .multilineTextAlignment(.center)
+                    .background(themeManager.currentTheme.formDefault)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(themeManager.currentTheme.borderDefault, lineWidth: 1)
+                    )
                     .frame(width: 50)
             }
+
             HStack {
                 Spacer()
                 Button("Save") {
@@ -276,8 +319,8 @@ struct ExerciseCardView: View {
                 .buttonStyle(.borderedProminent)
             }
         }
+        .padding(16)
         .onAppear {
-            // Prefill editor with current elapsed
             let hrs = elapsed / 3600
             let mins = (elapsed % 3600) / 60
             let secs = elapsed % 60
@@ -287,22 +330,19 @@ struct ExerciseCardView: View {
         }
     }
 
+    // MARK: - Helper Methods
+
     private func addSet() {
         guard let last = exItem.sets.last else { return }
         let repo = SessionSetRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
         let now = Date()
-        // Prefer the in-memory last set's current values
         let lastReps: Int? = Int(last.repsText.trimmingCharacters(in: .whitespaces))
-        // valueText may be formatted; attempt Double directly, else fall back to digits->one decimal place if needed
-        let parsedValue = Double(last.valueText.trimmingCharacters(in: .whitespaces))
-        let lastValue: Double? = parsedValue
-        // Resolve unit: fall back to last.previousSet?.unit or fetch last persisted unit if needed
+        let lastValue: Double? = Double(last.valueText.trimmingCharacters(in: .whitespaces))
         var currentUnit: String? = last.previousSet?.unit
         if currentUnit == nil {
             let persistedSets = (try? repo.bySessionExercise(last.sessionExerciseId)) ?? []
             currentUnit = persistedSets.last?.unit
         }
-        // Build a new record copying from last's backing values
         var newRec = SessionSetRecord(
             id: nil,
             sessionExerciseId: last.sessionExerciseId,
@@ -318,9 +358,7 @@ struct ExerciseCardView: View {
         do {
             let newId = try repo.create(&newRec)
             newRec.id = newId
-            // Build a SessionSetItem for UI
             let newItem = SessionSetItem(set: newRec, previousSet: last.previousSet)
-            // Update UI on main thread
             DispatchQueue.main.async {
                 exItem.sets.append(newItem)
             }
@@ -337,7 +375,6 @@ struct ExerciseCardView: View {
     }
 
     private func persistDuration() {
-        // Persist current elapsed seconds to the exercise duration field
         let repo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
         if let exId = exItem.exercise.id {
             try? repo.updateDuration(id: exId, duration: elapsed)
@@ -354,7 +391,7 @@ struct ExerciseCardView: View {
     private func scheduleDebouncedPersist() {
         saveTask?.cancel()
         saveTask = Task {
-            try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5s debounce
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
             guard !Task.isCancelled else { return }
             persistDuration()
         }
@@ -371,9 +408,9 @@ struct ExerciseCardView: View {
 }
 
 struct GrowingTextEditor: View {
-    
+
     @EnvironmentObject var themeManager: ThemeManager
-    
+
     @Binding var text: String
     let minLines: Int
     @State private var dynamicHeight: CGFloat = 0
@@ -406,4 +443,3 @@ struct GrowingTextEditor: View {
         return max(h, minH)
     }
 }
-

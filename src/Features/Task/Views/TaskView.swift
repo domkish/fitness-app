@@ -178,7 +178,7 @@ struct TaskView: View {
                                         .foregroundColor(themeManager.currentTheme.textDefault)
                                 }
 
-                                Text("Tasks are your simple, repeatable goals that show up on your Dashboard as a friendly checklist. Make them daily or weekly — whatever fits your routine.")
+                                Text("Tasks are your simple, repeatable goals that show up on your calendar as a friendly checklist. Make them daily or weekly — whatever fits your routine.")
                                     .font(.callout)
                                     .foregroundColor(themeManager.currentTheme.muted)
                                     .fixedSize(horizontal: false, vertical: true)

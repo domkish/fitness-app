@@ -231,7 +231,7 @@ final class WorkoutRepository {
         }
     }
 
-    func addExercise(toBlockId blockId: Int64, workoutId: Int64, exerciseId: Int64, userId: Int64) throws {
+    func addExercise(toBlockId blockId: Int64, workoutId: Int64, exerciseId: Int64, userId: Int64, unit: String?) throws {
         try dbQueue.write { db in
             let nextOrder: Int = try Int.fetchOne(db, sql: "SELECT MAX(sort_order) FROM workout_exercises WHERE workout_block_id = ?", arguments: [blockId]) ?? 0
             let rec = WorkoutExerciseRecord(
@@ -240,7 +240,7 @@ final class WorkoutRepository {
                 workoutBlockId: blockId,
                 exerciseId: exerciseId,
                 userId: userId,
-                unit: nil,
+                unit: unit,
                 sortOrder: nextOrder + 1,
                 deletedAt: nil,
                 createdAt: Date(),

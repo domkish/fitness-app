@@ -182,15 +182,21 @@ struct WorkoutInfoView: View {
                                             get: { infoPopoverBlockId == (block.id ?? -1) },
                                             set: { newVal in if !newVal { infoPopoverBlockId = nil } }
                                         ), arrowEdge: .top) {
-                                            VStack(alignment: .leading, spacing: 8) {
-                                                Text("Exercise Blocks")
-                                                    .font(.headline)
-                                                Text("Blocks are a way to establish groups of exercises. Standard routines may use one block, but circuit training could use several.")
-                                                    .font(.subheadline)
-                                                    .foregroundColor(.secondary)
+                                            ZStack {
+                                                effectiveThemeManager.currentTheme.surface // <-- entire popover background
+                                                    .ignoresSafeArea()
+                                                VStack(alignment: .leading, spacing: 8) {
+                                                    Text("Exercise Blocks")
+                                                        .font(.headline)
+                                                        .foregroundColor(effectiveThemeManager.currentTheme.textDefault)
+                                                    Text("Blocks are a way to establish groups of exercises. Standard routines may use one block, but circuit training could use several.")
+                                                        .font(.subheadline)
+                                                        .foregroundColor(effectiveThemeManager.currentTheme.textDefault)
+                                                }
+                                                .padding()
+                                                .frame(maxWidth: 320)
+                                                .cornerRadius(12)
                                             }
-                                            .padding()
-                                            .frame(maxWidth: 320)
                                         }
                                     }
                                     Spacer()
@@ -271,21 +277,27 @@ struct WorkoutInfoView: View {
                                         }
                                     } else {
                                         // Use a nested List for reliable swipe and move support
-                                        LazyVStack(spacing: 0) {
+                                        List {
                                             ForEach(items) { ex in
                                                 exerciseRow(for: ex, bid: bid)
-                                                    .background(effectiveThemeManager.currentTheme.surface)
-                                                    .clipShape(Rectangle())
-                                                    .padding(.vertical, 4)
-                                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                                        Button(role: .destructive) {
-                                                            Task { await deleteExercises(ids: [ex.id], forBlock: bid) }
-                                                        } label: {
-                                                            Label("Delete", systemImage: "trash")
-                                                        }
-                                                    }
+                                                    .listRowBackground(effectiveThemeManager.currentTheme.surface)
+                                            }
+                                            .onMove { indices, newOffset in
+                                                // Update local order and persist
+                                                var updated = items
+                                                updated.move(fromOffsets: indices, toOffset: newOffset)
+                                                // Reassign sortOrder sequentially starting at 1
+                                                let resequenced: [ExerciseInBlock] = updated.enumerated().map { idx, ex in
+                                                    ExerciseInBlock(id: ex.id, exerciseId: ex.exerciseId, name: ex.name, unit: ex.unit, sortOrder: idx + 1)
+                                                }
+                                                // Update local cache for this block id
+                                                self.exercisesByBlock[bid] = resequenced
+                                                Task { await persistOrder(forBlock: bid, items: resequenced) }
                                             }
                                         }
+                                        .listStyle(.plain)
+                                        .scrollDisabled(true)
+                                        .frame(height: CGFloat((items.count + 1)) * 56)
                                         .padding(.top, 4)
                                         
                                         // Add Exercise button moved to bottom of exercise list
@@ -837,7 +849,20 @@ struct WorkoutInfoView: View {
 
     private func didSelectExercise(_ item: ExerciseItem) async {
         guard let blockId = targetBlockIdForAdd, let workoutId = workoutId else { return }
-
+        
+        // Ensure we have units for this exercise (ordered as shown in UI)
+        var unitsForExercise = self.unitsByExercise[item.id] ?? []
+        if unitsForExercise.isEmpty {
+            // Fetch just-in-time and cache
+            do {
+                let fetched = try workoutRepo.loadUnitsForExercises([item.id])
+                unitsForExercise = fetched[item.id] ?? []
+                self.unitsByExercise[item.id] = unitsForExercise
+            } catch {
+                // If load fails, leave units empty
+            }
+        }
+        
         let maxPerBlock = isPremiumUser ? 10 : 5
         let currentCount = exercisesByBlock[blockId]?.count ?? 0
         if currentCount >= maxPerBlock {
@@ -847,6 +872,8 @@ struct WorkoutInfoView: View {
             }
             return
         }
+        
+        let defaultUnit = unitsForExercise.first
 
         do {
             guard let currentUser = try? await userRepo.fetchUser() else { return }
@@ -855,7 +882,8 @@ struct WorkoutInfoView: View {
                 toBlockId: blockId,
                 workoutId: workoutId,
                 exerciseId: item.id,
-                userId: Int64(currentUser.id)
+                userId: Int64(currentUser.id),
+                unit: defaultUnit
             )
 
             await MainActor.run {
