@@ -28,6 +28,55 @@ struct CalendarWorkoutRepository {
         let sun: Bool
     }
 
+    static func matches(_ row: ScheduledWorkoutRow, on date: Date) -> Bool {
+        let cal = Calendar.current
+        let day = cal.startOfDay(for: date)
+
+        // Robust parser for YYYY-MM-DD stored strings
+        func parse(_ s: String?) -> Date? {
+            guard let s else { return nil }
+            if let d = CalendarWorkout.date(from: s) { return cal.startOfDay(for: d) }
+            // Fallback: yyyy-MM-dd
+            let df = DateFormatter()
+            df.calendar = cal
+            df.locale = Locale(identifier: "en_US_POSIX")
+            df.timeZone = TimeZone(secondsFromGMT: 0)
+            df.dateFormat = "yyyy-MM-dd"
+            if let d = df.date(from: s) { return cal.startOfDay(for: d) }
+            return nil
+        }
+
+        guard let startsDay = parse(row.startsOn) else { return true }
+        if day < startsDay { return false }
+        if let endsDay = parse(row.endsOn), day > endsDay { return false }
+
+        // One-time (no frequency): only on the startsDay
+        if row.frequency == nil {
+            return cal.isDate(day, inSameDayAs: startsDay)
+        }
+
+        // Repeating: must match selected weekday and cadence
+        let weekday = cal.component(.weekday, from: day)
+        let weekdayAllowed: Bool = {
+            switch weekday {
+            case 1: return row.sun
+            case 2: return row.mon
+            case 3: return row.tues
+            case 4: return row.wed
+            case 5: return row.thurs
+            case 6: return row.fri
+            case 7: return row.sat
+            default: return false
+            }
+        }()
+        guard weekdayAllowed else { return false }
+
+        let freq = row.frequency ?? 1
+        // Compute the number of full weeks between startsDay and day
+        guard let weeks = cal.dateComponents([.weekOfYear], from: startsDay, to: day).weekOfYear else { return false }
+        return weeks % freq == 0
+    }
+
     func workouts(on date: Date, userId: Int64) throws -> [CalendarWorkoutRecord] {
         let day = CalendarWorkout.dbString(from: date)
         return try dbQueue.read { db in

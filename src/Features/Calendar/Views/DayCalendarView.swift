@@ -366,7 +366,8 @@ struct DayCalendarView: View {
             let id64 = Int64(userId)
             entry = try repository.entry(for: id64, on: selectedDate)
             priorEntry = try repository.mostRecentPriorEntry(before: selectedDate, userId: id64)
-            workouts = try workoutRepository.workoutsWithDetails(on: selectedDate, userId: id64)
+            let rows = try workoutRepository.workoutsWithDetails(on: selectedDate, userId: id64)
+            workouts = rows.filter { CalendarWorkoutRepository.matches($0, on: selectedDate) }
             dailyTasks = try taskRepository.tasks(on: selectedDate, userId: id64)
             scheduledTasks = try workoutRepo.activeTasks(on: selectedDate, userId: id64)
         } catch {

@@ -156,7 +156,8 @@ struct MonthCalendarView: View {
             guard let date = cal.date(from: comps) else { continue }
             let dayDate = cal.startOfDay(for: date)
             do {
-                let wrks = try workoutRepository.workoutsWithDetails(on: dayDate, userId: id64)
+                let rows = try workoutRepository.workoutsWithDetails(on: dayDate, userId: id64)
+                let wrks = rows.filter { CalendarWorkoutRepository.matches($0, on: dayDate) }
                 if !wrks.isEmpty { workoutsDays.insert(day) }
                 let has = (try? entryRepository.entry(for: id64, on: dayDate)) != nil
                 if has { entriesDays.insert(day) }
