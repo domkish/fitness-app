@@ -187,6 +187,13 @@ struct TaskInfoView: View {
             }
         }
         .task { await loadIfNeeded() }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") {
+                    dismiss()
+                }
+            }
+        }
     }
 
     // MARK: - Subviews

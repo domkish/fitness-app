@@ -17,6 +17,7 @@ struct ExerciseCardView: View {
     @ObservedObject var exItem: SessionExerciseItem
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authCoordinator: AuthCoordinator
+    @Environment(\.scenePhase) private var scenePhase
 
     var isActive: Bool = false
     var onCompleted: (() -> Void)? = nil
@@ -37,6 +38,11 @@ struct ExerciseCardView: View {
     private var maxSetsAllowed: Int {
         if authCoordinator.currentUser?.isPremium == true { return 10 }
         return 5
+    }
+    
+    private var shouldDimAndDisable: Bool {
+        // Dim and disable when this card is neither the active one nor completed
+        return !isActive && !exItem.exerciseCompleted
     }
 
     var body: some View {
@@ -126,26 +132,37 @@ struct ExerciseCardView: View {
                     VStack(spacing: 6) {
                         ForEach(exItem.sets) { set in
                             SetRowView(setItem: set, onUserInteraction: {
-                                onBecameActive?()
+                                if !exItem.exerciseCompleted {
+                                    onBecameActive?()
+                                }
                             })
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    deleteSet(set)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                .disabled(exItem.exerciseCompleted)
+                            }
                         }
 
                         HStack(spacing: 12) {
-                            Button(action: { addSet() }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "plus")
-                                    Text("Add Set").bold()
+                            if(!exItem.exerciseCompleted){
+                                Button(action: { addSet() }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "plus")
+                                        Text("Add Set").bold()
+                                    }
+                                    .padding(.vertical, 3)
+                                    .padding(.horizontal, 6)
+                                    .background(themeManager.currentTheme.surface)
+                                    .foregroundColor(themeManager.currentTheme.secondary)
+                                    .cornerRadius(8)
                                 }
-                                .padding(.vertical, 3)
-                                .padding(.horizontal, 6)
-                                .background(themeManager.currentTheme.surface)
-                                .foregroundColor(themeManager.currentTheme.secondary)
-                                .cornerRadius(8)
+                                .buttonStyle(.plain)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .disabled(exItem.sets.count >= maxSetsAllowed)
                             }
-                            .buttonStyle(.plain)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .disabled(exItem.sets.count >= maxSetsAllowed)
-
                             Spacer(minLength: 0)
 
                             Button(action: {
@@ -160,7 +177,10 @@ struct ExerciseCardView: View {
                                 HStack(spacing: 8) {
                                     Text(exItem.exerciseCompleted ? "Completed" : "Complete")
                                         .bold()
-                                    Image(systemName: exItem.exerciseCompleted ? "checkmark.square.fill" : "square")
+                                    if(exItem.exerciseCompleted){
+                                        Image(systemName: "checkmark.square.fill")
+                                    }
+                                    
                                 }
                                 .padding(.vertical, 3)
                                 .padding(.horizontal, 6)
@@ -199,7 +219,8 @@ struct ExerciseCardView: View {
                     )
                     .shadow(color: isActive && !exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.65) : Color.clear, radius: 8)
             )
-            .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
+            .opacity(shouldDimAndDisable ? 0.4 : 1.0)
+            .disabled(shouldDimAndDisable)
             .onAppear {
                 elapsed = exItem.exercise.duration
                 noteText = exItem.exercise.note ?? ""
@@ -235,6 +256,44 @@ struct ExerciseCardView: View {
                 } else {
                     lastTick = now
                 }
+            }
+            .onChange(of: scenePhase) { phase in
+                // Keep timer consistent across app lifecycle changes
+                switch phase {
+                case .active:
+                    // When returning to active, reconcile elapsed using wall-clock delta
+                    guard isActive && !exItem.exerciseCompleted else { return }
+                    let now = Date()
+                    if let last = lastTick {
+                        let delta = Int(now.timeIntervalSince(last))
+                        if delta > 0 {
+                            elapsed += delta
+                        }
+                    }
+                    lastTick = now
+                    scheduleDebouncedPersist()
+                case .inactive, .background:
+                    // Persist current duration when leaving foreground
+                    persistDuration()
+                    // Keep lastTick so we can compute delta on return
+                @unknown default:
+                    break
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+                persistDuration()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                guard isActive && !exItem.exerciseCompleted else { return }
+                let now = Date()
+                if let last = lastTick {
+                    let delta = Int(now.timeIntervalSince(last))
+                    if delta > 0 {
+                        elapsed += delta
+                    }
+                }
+                lastTick = now
+                scheduleDebouncedPersist()
             }
 
             // MARK: - Custom Time Editor Overlay
@@ -379,6 +438,48 @@ struct ExerciseCardView: View {
             }
         } catch {
             print("[ExerciseCardView] Failed to add set: \(error)")
+        }
+    }
+
+    private func deleteSet(_ setItem: SessionSetItem) {
+        // Prevent deleting sets on completed exercises (already disabled in UI)
+        guard !exItem.exerciseCompleted else { return }
+
+        let repo = SessionSetRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+        do {
+            // Soft delete the target set
+            if let setId = setItem.setId {
+                try repo.softDelete(id: setId)
+            }
+
+            // Fetch remaining sets for this exercise, ordered by setNumber
+            let records = try repo.bySessionExercise(exItem.exercise.id!)
+
+            // Resequence set numbers in persistence to keep them contiguous (1...n)
+            for (index, rec) in records.enumerated() {
+                let desiredNumber = index + 1
+                if rec.setNumber != desiredNumber {
+                    try repo.updateSetNumber(id: rec.id!, setNumber: desiredNumber)
+                }
+            }
+
+            // Refetch after resequencing to build fresh view models
+            let resequenced = try repo.bySessionExercise(exItem.exercise.id!)
+
+            // Rebuild SessionSetItem array. Preserve previousSet where possible by matching on setNumber-1
+            var rebuilt: [SessionSetItem] = []
+            for (idx, rec) in resequenced.enumerated() {
+                let previous = idx > 0 ? resequenced[idx - 1] : nil
+                let prevItem = previous.map { $0 }
+                let item = SessionSetItem(set: rec, previousSet: prevItem)
+                rebuilt.append(item)
+            }
+
+            DispatchQueue.main.async {
+                exItem.sets = rebuilt
+            }
+        } catch {
+            print("[ExerciseCardView] Failed to delete set: \(error)")
         }
     }
 

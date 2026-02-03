@@ -66,8 +66,9 @@ struct WorkoutInfoView: View {
         self.workoutId = workoutId
         self.onDismiss = onDismiss
     }
-
-    var body: some View {
+    
+    @ViewBuilder
+    private var mainContent: some View {
         ZStack {
             effectiveThemeManager.currentTheme.background.ignoresSafeArea()
             ScrollView {
@@ -481,6 +482,10 @@ struct WorkoutInfoView: View {
                 .padding(.top, 24)
             }
         }
+    }
+
+    var body: some View {
+        mainContent
         .sheet(isPresented: $isPresentingExercisePicker) {
             NavigationStack {
                 ZStack {
@@ -580,6 +585,13 @@ struct WorkoutInfoView: View {
             await loadBlocks()
             await loadExercises()
             await loadExercisesForBlocks()
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") {
+                    dismiss()
+                }
+            }
         }
     }
 

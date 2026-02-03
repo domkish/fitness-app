@@ -34,6 +34,24 @@ struct SessionSetRepository {
                 .fetchAll(db)
         }
     }
+    
+    func softDelete(id: Int64) throws {
+        try dbQueue.write { db in
+            if var rec = try SessionSetRecord.fetchOne(db, key: id) {
+                rec.deletedAt = Date()
+                try rec.update(db)
+            }
+        }
+    }
+
+    func updateSetNumber(id: Int64, setNumber: Int) throws {
+        try dbQueue.write { db in
+            if var rec = try SessionSetRecord.fetchOne(db, key: id) {
+                rec.setNumber = setNumber
+                try rec.update(db)
+            }
+        }
+    }
 }
 
 extension SessionSetRepository {
