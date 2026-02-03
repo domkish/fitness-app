@@ -10,6 +10,7 @@ import SwiftUI
 struct LoginView: View {
     @ObservedObject var coordinator: AuthCoordinator
     @StateObject private var repo: LoginViewRepository
+    @EnvironmentObject var themeManager: ThemeManager
 
     init(coordinator: AuthCoordinator) {
         self.coordinator = coordinator
@@ -20,7 +21,7 @@ struct LoginView: View {
         ZStack {
             // Background
             LinearGradient(
-                colors: [AppColors.important.opacity(0.6), AppColors.primary.opacity(0.6)],
+                colors: [themeManager.currentTheme.important.opacity(0.6), themeManager.currentTheme.primary.opacity(0.6)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -34,11 +35,11 @@ struct LoginView: View {
                             Text("Fitness-App")
                                 .font(.largeTitle)
                                 .fontWeight(.bold)
-                                .foregroundColor(AppColors.surface)
+                                .foregroundColor(themeManager.currentTheme.surface)
 
                             Text("Welcome back. Let’s get you signed in.")
                                 .font(.subheadline)
-                                .foregroundColor(AppColors.surface.opacity(0.9))
+                                .foregroundColor(themeManager.currentTheme.surface.opacity(0.9))
                         }
 
                         // Login Card
@@ -46,13 +47,20 @@ struct LoginView: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 Label("Email", systemImage: "envelope")
                                     .font(.caption)
-                                    .foregroundColor(AppColors.textDefault)
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
 
                                 TextField("", text: $repo.email)
                                     .textInputAutocapitalization(.never)
                                     .keyboardType(.emailAddress)
                                     .autocorrectionDisabled(true)
-                                    .textFieldStyle(.roundedBorder)
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
+                                    .padding()
+                                    .background(themeManager.currentTheme.formDefault)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(themeManager.currentTheme.borderDefault, lineWidth: 1)
+                                    )
+                                    .cornerRadius(8)
                                     .onChange(of: repo.email) { newValue in
                                         repo.email = newValue.lowercased()
                                     }
@@ -61,10 +69,16 @@ struct LoginView: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 Label("Password", systemImage: "lock")
                                     .font(.caption)
-                                    .foregroundColor(AppColors.textDefault)
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
 
                                 SecureField("••••••••", text: $repo.password)
-                                    .textFieldStyle(.roundedBorder)
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
+                                    .padding()
+                                    .background(themeManager.currentTheme.formDefault)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(themeManager.currentTheme.borderDefault, lineWidth: 1)
+                                    )
                             }
 
                             if let error = repo.errorMessage {
@@ -100,7 +114,7 @@ struct LoginView: View {
                                 .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.borderedProminent)
-                            .tint(AppColors.important)
+                            .tint(themeManager.currentTheme.important)
                             .controlSize(.large)
                             .disabled(repo.isLoading)
 
@@ -122,7 +136,7 @@ struct LoginView: View {
                         .padding(24)
                         .background(
                             RoundedRectangle(cornerRadius: 20)
-                                .fill(AppColors.surface)
+                                .fill(themeManager.currentTheme.surface)
                                 .shadow(color: .black.opacity(0.15), radius: 20, y: 10)
                         )
                         .padding(.horizontal)

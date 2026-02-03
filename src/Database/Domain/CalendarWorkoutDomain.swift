@@ -53,22 +53,29 @@ extension CalendarWorkout: Codable {
 
 // MARK: - Date Formatting Helpers
 extension CalendarWorkout {
-    /// A shared ISO8601DateFormatter for encoding/decoding date-only fields to/from database TEXT.
-    static let iso8601DateOnlyFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withFullDate]
-        f.timeZone = TimeZone(secondsFromGMT: 0)
-        return f
+    /// A shared DateFormatter for encoding/decoding date-only fields to/from database TEXT.
+    /// We intentionally format using the user's current calendar and time zone so the stored
+    /// YYYY-MM-DD corresponds to the day the user selected in the UI (no UTC day-shift).
+    private static let dayFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.calendar = Calendar.current
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = TimeZone.current
+        df.dateFormat = "yyyy-MM-dd"
+        return df
     }()
 
-    /// Convert a Date to the DB string (YYYY-MM-DD)
+    /// Convert a Date to the DB string (YYYY-MM-DD) using the user's calendar day.
     static func dbString(from date: Date) -> String {
-        iso8601DateOnlyFormatter.string(from: date)
+        // Ensure we take the start of the day in the user's current calendar/time zone
+        let dayStart = Calendar.current.startOfDay(for: date)
+        return dayFormatter.string(from: dayStart)
     }
 
-    /// Parse DB date string (YYYY-MM-DD) to Date (at midnight UTC)
+    /// Parse DB date string (YYYY-MM-DD) back to a Date at the start of that day in the user's time zone.
     static func date(from dbString: String) -> Date? {
-        iso8601DateOnlyFormatter.date(from: dbString)
+        guard let d = dayFormatter.date(from: dbString) else { return nil }
+        return Calendar.current.startOfDay(for: d)
     }
 }
 

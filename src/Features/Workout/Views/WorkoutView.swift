@@ -254,11 +254,9 @@ struct WorkoutView: View {
                                 
                                 (
                                     Text("Whether you’re setting up a standard workout with ") +
-                                    Text("sets and reps").fontWeight(.heavy) +
-                                    Text(", dialing in fast-paced ") +
+                                    Text("sets and reps ").fontWeight(.heavy) +
+                                    Text("or dialing in fast-paced ") +
                                     Text("circuit training").fontWeight(.heavy) +
-                                    Text(", or pairing movements into ") +
-                                    Text("supersets").fontWeight(.heavy) +
                                     Text(", we’ve got you covered. Mix and match exercises from our database or create your own to tailor every routine to you.")
                                 )
                                 .font(.callout)

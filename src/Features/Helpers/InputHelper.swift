@@ -34,30 +34,86 @@ public struct LiveDecimalTextField: UIViewRepresentable {
         let parent: LiveDecimalTextField
         init(_ parent: LiveDecimalTextField) { self.parent = parent }
 
+        public func textFieldDidBeginEditing(_ textField: UITextField) {
+            // Show current display (reconstruct from digits if needed)
+            let d = parent.digits
+            if d.isEmpty {
+                textField.text = ""
+                parent.displayText = ""
+            } else {
+                let intPart = String(d.dropLast())
+                let fracPart = String(d.suffix(1))
+                let display = fracPart == "0" ? intPart : intPart + "." + fracPart
+                textField.text = display
+                parent.displayText = display
+            }
+        }
+
+        public func textFieldDidEndEditing(_ textField: UITextField) {
+            // Normalize to one decimal place on end editing
+            let d = parent.digits
+            if d.isEmpty {
+                parent.displayText = ""
+                textField.text = ""
+                return
+            }
+            let intPart = String(d.dropLast())
+            let fracPart = String(d.suffix(1))
+            let display = intPart + "." + fracPart
+            parent.displayText = display
+            textField.text = display
+        }
+
         public func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
             let current = textField.text ?? ""
             guard let r = Range(range, in: current) else { return true }
-            let proposed = current.replacingCharacters(in: r, with: string)
+            var proposed = current.replacingCharacters(in: r, with: string)
 
-            let rawDigits = proposed.filter { $0.isNumber }
-            if rawDigits.isEmpty {
-                parent.displayText = ""
-                parent.digits = ""
-                return true
+            // Allow only digits and at most one decimal point
+            // Remove invalid characters
+            let allowedSet = CharacterSet(charactersIn: "0123456789.")
+            proposed = String(proposed.unicodeScalars.filter { allowedSet.contains($0) })
+
+            // Enforce at most one decimal point
+            if proposed.filter({ $0 == "." }).count > 1 {
+                return false
             }
 
-            var clamped = String(rawDigits)
-            while !clamped.isEmpty {
-                let v = (Double(clamped) ?? 0) / 10.0
-                if v <= parent.maxValue { break }
-                clamped.removeLast()
+            // Split into integer and fraction
+            let parts = proposed.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
+            var intPart = parts.count > 0 ? String(parts[0]) : ""
+            var fracPart = parts.count == 2 ? String(parts[1]) : nil
+
+            // Remove leading zeros unless the number is zero or we have a decimal prefix like ".x"
+            if !intPart.isEmpty {
+                intPart = String(intPart.drop { $0 == "0" })
+                if intPart.isEmpty { intPart = "0" }
             }
 
-            parent.digits = clamped
-            let value = (Double(clamped) ?? 0) / 10.0
-            parent.displayText = String(format: "%.1f", value)
+            // Enforce max 3 integer digits when there's no decimal entered
+            if fracPart == nil && intPart.count > 3 { return false }
 
-            textField.text = parent.displayText
+            // Enforce at most 1 fractional digit
+            if let f = fracPart {
+                if f.count > 1 { return false }
+            }
+
+            // Build a normalized displayed string (during editing)
+            var display = intPart
+            if let f = fracPart { display += "." + f }
+
+            // Compute numeric value to enforce maxValue
+            let value: Double = Double(display) ?? 0
+            if value > parent.maxValue { return false }
+
+            // Update bindings: digits is raw implied-1-decimal digits (pad fractional 0 if absent)
+            let fracDigit: String = (fracPart?.isEmpty == false) ? String(fracPart!.prefix(1)) : "0"
+            let rawDigits = (intPart == "" ? "0" : intPart) + fracDigit
+            parent.digits = rawDigits
+            parent.displayText = display
+            textField.text = display
+
+            // Move caret to end
             let end = textField.endOfDocument
             textField.selectedTextRange = textField.textRange(from: end, to: end)
             return false
@@ -125,9 +181,7 @@ public struct InputWithSuffixDecimal: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(themeManager.currentTheme.muted)
                     .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(themeManager.currentTheme.surface)
-                    .clipShape(Capsule())
+                    .padding(.vertical, 8)
             }
         }
     }

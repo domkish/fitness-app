@@ -84,7 +84,7 @@ struct MonthCalendarView: View {
                 }
                 HStack(spacing: 6) {
                     Circle().fill(themeManager.currentTheme.primary).frame(width: 6, height: 6)
-                    Text("Has Entry").foregroundColor(themeManager.currentTheme.muted)
+                    Text("Has Daily Check-in").foregroundColor(themeManager.currentTheme.muted)
                 }
                 Spacer()
             }

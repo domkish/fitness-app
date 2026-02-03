@@ -105,15 +105,13 @@ struct DayCalendarView: View {
                         Spacer()
                     }
 
-                    // Trailing: + Workout button (today or future)
+                    // Trailing: + Workout button (always shown)
                     HStack {
                         Spacer()
-                        if isTodayOrFuture {
-                            Button(action: { showingRoutinePicker = true }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "plus")
-                                    Text("Workout")
-                                }
+                        Button(action: { showingRoutinePicker = true }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "plus")
+                                Text("Workout")
                             }
                         }
                     }
@@ -364,12 +362,20 @@ struct DayCalendarView: View {
         guard let userId = authCoordinator.currentUser?.id else { return }
         do {
             let id64 = Int64(userId)
-            entry = try repository.entry(for: id64, on: selectedDate)
-            priorEntry = try repository.mostRecentPriorEntry(before: selectedDate, userId: id64)
+            let fetchedEntry = try repository.entry(for: id64, on: selectedDate)
+            let fetchedPrior = try repository.mostRecentPriorEntry(before: selectedDate, userId: id64)
             let rows = try workoutRepository.workoutsWithDetails(on: selectedDate, userId: id64)
-            workouts = rows.filter { CalendarWorkoutRepository.matches($0, on: selectedDate) }
-            dailyTasks = try taskRepository.tasks(on: selectedDate, userId: id64)
-            scheduledTasks = try workoutRepo.activeTasks(on: selectedDate, userId: id64)
+            let filteredWorkouts = rows.filter { CalendarWorkoutRepository.matches($0, on: selectedDate) }
+            let fetchedDailyTasks = try taskRepository.tasks(on: selectedDate, userId: id64)
+            let fetchedScheduledTasks = try workoutRepo.activeTasks(on: selectedDate, userId: id64)
+
+            await MainActor.run {
+                self.entry = fetchedEntry
+                self.priorEntry = fetchedPrior
+                self.workouts = filteredWorkouts
+                self.dailyTasks = fetchedDailyTasks
+                self.scheduledTasks = fetchedScheduledTasks
+            }
         } catch {
             print("[DayCalendarView] loadData error: \(error)")
         }
@@ -378,7 +384,10 @@ struct DayCalendarView: View {
     private func createOneTimeCalendarWorkout() async {
         guard let userId = authCoordinator.currentUser?.id, let wid = pendingWorkoutId else { return }
         let id64 = Int64(userId)
-        let day = Calendar.current.startOfDay(for: selectedDate)
+        let selectedStart = Calendar.current.startOfDay(for: selectedDate)
+        // Normalize to the exact DB day boundary to avoid timezone mismatches
+        let dbDayString = CalendarWorkout.dbString(from: selectedStart)
+        let day = CalendarWorkout.date(from: dbDayString) ?? selectedStart
         let now = Date()
         let domain = CalendarWorkout(
             id: nil,
@@ -405,7 +414,10 @@ struct DayCalendarView: View {
     private func createRepeatingCalendarWorkout(days: (mon: Bool, tues: Bool, wed: Bool, thurs: Bool, fri: Bool, sat: Bool, sun: Bool)) async {
         guard let userId = authCoordinator.currentUser?.id, let wid = pendingWorkoutId, let freq = pendingFrequency else { return }
         let id64 = Int64(userId)
-        let day = Calendar.current.startOfDay(for: selectedDate)
+        let selectedStart = Calendar.current.startOfDay(for: selectedDate)
+        // Normalize to the exact DB day boundary to avoid timezone mismatches
+        let dbDayString = CalendarWorkout.dbString(from: selectedStart)
+        let day = CalendarWorkout.date(from: dbDayString) ?? selectedStart
         let now = Date()
         let domain = CalendarWorkout(
             id: nil,
@@ -528,33 +540,45 @@ struct DailyCheckinSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                metricsSection
-                Section("Progress Photo") {
-                    PhotosPicker(selection: $pickedPhoto, matching: .images) {
-                        HStack {
-                            Image(systemName: "photo")
-                            Text(localPhotoPath == nil ? "Select Photo" : "Replace Photo")
+            ZStack {
+                themeManager.currentTheme.background
+                    .ignoresSafeArea()
+                Form {
+                    metricsSection
+                    Section("Progress Photo") {
+                        PhotosPicker(selection: $pickedPhoto, matching: .images) {
+                            HStack {
+                                Image(systemName: "photo")
+                                Text(localPhotoPath == nil ? "Select Photo" : "Replace Photo")
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
+                            }
                         }
                     }
+                    .scrollContentBackground(.hidden)
+                    .listRowBackground(themeManager.currentTheme.surface)
+                    .foregroundColor(themeManager.currentTheme.muted)
                 }
-            }
-            .onAppear(perform: prefill)
-            .onChange(of: existing?.id) { _, _ in
-                prefill()
-            }
-            .onChange(of: prior?.id) { _, _ in
-                // Only prefill remaining empty fields so we don't overwrite user edits.
-                prefill()
-            }
-            .navigationTitle("Daily Check‑in")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { onSaved(false) }
+                .scrollContentBackground(.hidden)
+                .onAppear(perform: prefill)
+                .onChange(of: existing?.id) { _, _ in
+                    prefill()
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { Task { await save() } }
-                        .disabled(!canSave)
+                .onChange(of: prior?.id) { _, _ in
+                    // Only prefill remaining empty fields so we don't overwrite user edits.
+                    prefill()
+                }
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { onSaved(false) }
+                    }
+                    ToolbarItem(placement: .principal) {
+                        Text("Daily Check-in")
+                            .foregroundColor(themeManager.currentTheme.textDefault)
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") { Task { await save() } }
+                            .disabled(!canSave)
+                    }
                 }
             }
         }
@@ -563,21 +587,29 @@ struct DailyCheckinSheet: View {
     @ViewBuilder
     private var metricsSection: some View {
         Section("Metrics") {
-            InputWithSuffixDecimal(
-                title: "Body Weight",
-                digits: $weightText,
-                suffix: weightUnit,
-                maxValue: 999.9,
-                decimal: true
-            )
-            InputWithSuffixDecimal(
-                title: "Body Fat %",
-                digits: $bodyFatText,
-                suffix: "%",
-                maxValue: 99.9,
-                decimal: true
-            )
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Body Weight")
+                InputWithSuffixDecimal(
+                    title: "Body Weight",
+                    digits: $weightText,
+                    suffix: weightUnit,
+                    maxValue: 999.9,
+                    decimal: true
+                )
+
+                Text("Body Fat %")
+                InputWithSuffixDecimal(
+                    title: "Body Fat %",
+                    digits: $bodyFatText,
+                    suffix: "%",
+                    maxValue: 99.9,
+                    decimal: true
+                )
+            }
+            .foregroundColor(themeManager.currentTheme.textDefault)
+            .listRowBackground(themeManager.currentTheme.surface)
         }
+        .foregroundColor(themeManager.currentTheme.muted)
     }
 
     private var canSave: Bool {
