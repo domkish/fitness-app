@@ -11,15 +11,7 @@ struct CalendarView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authCoordinator: AuthCoordinator
 
-    @State private var mode: Mode = .day
-    @State private var selectedDayDate: Date = Calendar.current.startOfDay(for: Date())
-    private let calendarRepo = CalendarEntryRepository(
-        dbQueue: DatabaseQueueProvider.shared.dbQueue
-    )
-
-    enum Mode {
-        case day, week, month
-    }
+    @StateObject private var viewModel = CalendarViewModel()
 
     var body: some View {
         ZStack {
@@ -43,19 +35,23 @@ struct CalendarView: View {
 
                 // MARK: - Calendar Content
                 Group {
-                    switch mode {
+                    switch viewModel.mode {
                     case .day:
-                        DayCalendarView(coordinator: coordinator, repository: calendarRepo, selectedDate: $selectedDayDate)
+                        DayCalendarView(
+                            coordinator: coordinator,
+                            repository: viewModel.calendarRepo,
+                            selectedDate: $viewModel.selectedDayDate
+                        )
+
                     case .week:
-                        WeekCalendarView(onSelectDate: { date in
-                            selectedDayDate = Calendar.current.startOfDay(for: date)
-                            mode = .day
-                        })
+                        WeekCalendarView { date in
+                            viewModel.selectDate(date)
+                        }
+
                     case .month:
-                        MonthCalendarView(onSelectDate: { date in
-                            selectedDayDate = Calendar.current.startOfDay(for: date)
-                            mode = .day
-                        })
+                        MonthCalendarView { date in
+                            viewModel.selectDate(date)
+                        }
                     }
                 }
                 .environmentObject(themeManager)
@@ -69,11 +65,14 @@ struct CalendarView: View {
     // MARK: - Mode Button
 
     @ViewBuilder
-    private func modeButton(title: String, value: Mode) -> some View {
+    private func modeButton(
+        title: String,
+        value: CalendarViewModel.Mode
+    ) -> some View {
         Text(title)
             .font(.subheadline.weight(.semibold))
             .foregroundColor(
-                mode == value
+                viewModel.mode == value
                 ? themeManager.currentTheme.background
                 : themeManager.currentTheme.textDefault
             )
@@ -82,17 +81,14 @@ struct CalendarView: View {
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(
-                        mode == value
+                        viewModel.mode == value
                         ? themeManager.currentTheme.primary
                         : themeManager.currentTheme.surface
                     )
             )
             .contentShape(Rectangle())
             .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    mode = value
-                }
+                viewModel.selectMode(value)
             }
     }
 }
-
