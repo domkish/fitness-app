@@ -129,78 +129,88 @@ struct ExerciseCardView: View {
                     .foregroundColor(themeManager.currentTheme.textDefault)
                     .frame(maxWidth: 600)
 
-                    VStack(spacing: 6) {
+                    List {
                         ForEach(exItem.sets) { set in
                             SetRowView(setItem: set, onUserInteraction: {
                                 if !exItem.exerciseCompleted {
                                     onBecameActive?()
                                 }
                             })
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    deleteSet(set)
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
+                            .contentShape(Rectangle())
+                            .if(exItem.sets.count > 1) { view in
+                                view.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        deleteSet(set)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
                                 }
-                                .disabled(exItem.exerciseCompleted)
                             }
+                            .listRowInsets(EdgeInsets(top: 3, leading: 0, bottom: 3, trailing: 0))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                         }
+                    }
+                    .listStyle(.plain)
+                    .listRowSeparator(.hidden)
+                    .scrollContentBackground(.hidden)
+                    .scrollDisabled(true)
+                    .frame(minHeight: CGFloat(max(1, exItem.sets.count)) * 55)
+                    .padding(.vertical, 0)
 
-                        HStack(spacing: 12) {
-                            if(!exItem.exerciseCompleted){
-                                Button(action: { addSet() }) {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "plus")
-                                        Text("Add Set").bold()
-                                    }
-                                    .padding(.vertical, 3)
-                                    .padding(.horizontal, 6)
-                                    .background(themeManager.currentTheme.surface)
-                                    .foregroundColor(themeManager.currentTheme.secondary)
-                                    .cornerRadius(8)
-                                }
-                                .buttonStyle(.plain)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .disabled(exItem.sets.count >= maxSetsAllowed)
-                            }
-                            Spacer(minLength: 0)
-
-                            Button(action: {
-                                exItem.exerciseCompleted.toggle()
-                                let repo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
-                                if let exId = exItem.exercise.id {
-                                    try? repo.markCompleted(id: exId, completed: exItem.exerciseCompleted)
-                                }
-                                if exItem.exerciseCompleted == false { onBecameActive?() }
-                                if exItem.exerciseCompleted { onCompleted?() }
-                            }) {
-                                HStack(spacing: 8) {
-                                    Text(exItem.exerciseCompleted ? "Completed" : "Complete")
-                                        .bold()
-                                    if(exItem.exerciseCompleted){
-                                        Image(systemName: "checkmark.square.fill")
-                                    }
-                                    
+                    HStack(spacing: 12) {
+                        if(!exItem.exerciseCompleted){
+                            Button(action: { addSet() }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus")
+                                    Text("Add Set").bold()
                                 }
                                 .padding(.vertical, 3)
                                 .padding(.horizontal, 6)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 5)
-                                        .fill(exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.15) : themeManager.currentTheme.secondary)
-                                )
-                                .foregroundColor(exItem.exerciseCompleted ? themeManager.currentTheme.primary : themeManager.currentTheme.background)
+                                .background(themeManager.currentTheme.surface)
+                                .foregroundColor(themeManager.currentTheme.secondary)
+                                .cornerRadius(8)
                             }
                             .buttonStyle(.plain)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .disabled(exItem.sets.count >= maxSetsAllowed)
                         }
-                        .padding(.top, 4)
-                        .padding(.bottom, 8)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .accessibilityLabel(exItem.exerciseCompleted ? "Completed" : "Complete")
+                        Spacer(minLength: 0)
+
+                        Button(action: {
+                            exItem.exerciseCompleted.toggle()
+                            let repo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+                            if let exId = exItem.exercise.id {
+                                try? repo.markCompleted(id: exId, completed: exItem.exerciseCompleted)
+                            }
+                            if exItem.exerciseCompleted == false { onBecameActive?() }
+                            if exItem.exerciseCompleted { onCompleted?() }
+                        }) {
+                            HStack(spacing: 8) {
+                                Text(exItem.exerciseCompleted ? "Completed" : "Complete")
+                                    .bold()
+                                if(exItem.exerciseCompleted){
+                                    Image(systemName: "checkmark.square.fill")
+                                }
+                                
+                            }
+                            .padding(.vertical, 3)
+                            .padding(.horizontal, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 5)
+                                    .fill(exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.15) : themeManager.currentTheme.secondary)
+                            )
+                            .foregroundColor(exItem.exerciseCompleted ? themeManager.currentTheme.primary : themeManager.currentTheme.background)
+                        }
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                     }
-                    .frame(maxWidth: 600)
+                    .padding(.top, 4)
+                    .padding(.bottom, 8)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .accessibilityLabel(exItem.exerciseCompleted ? "Completed" : "Complete")
                 }
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: 600)
             }
             .padding(.vertical, 5)
             .padding(.horizontal)
@@ -220,7 +230,6 @@ struct ExerciseCardView: View {
                     .shadow(color: isActive && !exItem.exerciseCompleted ? themeManager.currentTheme.primary.opacity(0.65) : Color.clear, radius: 8)
             )
             .opacity(shouldDimAndDisable ? 0.4 : 1.0)
-            .disabled(shouldDimAndDisable)
             .onAppear {
                 elapsed = exItem.exercise.duration
                 noteText = exItem.exercise.note ?? ""
@@ -442,8 +451,8 @@ struct ExerciseCardView: View {
     }
 
     private func deleteSet(_ setItem: SessionSetItem) {
-        // Prevent deleting sets on completed exercises (already disabled in UI)
-        guard !exItem.exerciseCompleted else { return }
+        // Prevent deleting sets when only one remains regardless of completion status
+        guard exItem.sets.count > 1 else { return }
 
         let repo = SessionSetRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
         do {
@@ -466,12 +475,13 @@ struct ExerciseCardView: View {
             // Refetch after resequencing to build fresh view models
             let resequenced = try repo.bySessionExercise(exItem.exercise.id!)
 
-            // Rebuild SessionSetItem array. Preserve previousSet where possible by matching on setNumber-1
+            // Rebuild SessionSetItem array. Preserve previousSet for display, but clear per-row unit so it doesn't render a unit column.
             var rebuilt: [SessionSetItem] = []
             for (idx, rec) in resequenced.enumerated() {
                 let previous = idx > 0 ? resequenced[idx - 1] : nil
-                let prevItem = previous.map { $0 }
-                let item = SessionSetItem(set: rec, previousSet: prevItem)
+                var adjustedRec = rec
+                adjustedRec.unit = nil
+                let item = SessionSetItem(set: adjustedRec, previousSet: previous)
                 rebuilt.append(item)
             }
 
@@ -550,6 +560,17 @@ struct GrowingTextEditor: View {
     private func clampHeight(_ h: CGFloat) -> CGFloat {
         let minH = lineHeight * CGFloat(minLines)
         return max(h, minH)
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
     }
 }
 

@@ -47,7 +47,7 @@ struct SetRowView: View {
             InputWithSuffixDecimal(
                 title: nil,
                 digits: $valueDigits,
-                suffix: setItem.previousSet?.unit ?? "",
+                suffix: "",
                 maxValue: 999.9,
                 decimal: true
             )
@@ -110,13 +110,7 @@ struct SetRowView: View {
             return raw / 10.0
         }()
         
-        // Resolve unit: prefer previousSet?.unit, else fall back to last persisted set unit
-        var unitToUse: String? = setItem.previousSet?.unit
-        if unitToUse == nil {
-            let setRepo = SessionSetRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
-            let persistedSets = (try? setRepo.bySessionExercise(setItem.sessionExerciseId)) ?? []
-            unitToUse = persistedSets.last?.unit
-        }
+        let unitToUse: String? = nil
         
         do {
             try repo.updatePerformance(
