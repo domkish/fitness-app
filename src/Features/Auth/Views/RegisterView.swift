@@ -18,7 +18,6 @@ struct RegisterView: View {
                 authService: coordinator.authService
             )
         )
-
     }
     
     var body: some View {
@@ -47,7 +46,9 @@ struct RegisterView: View {
             .buttonStyle(.borderedProminent)
             .disabled(viewModel.isLoading)
 
-            Button("Back to Login") { coordinator.goToLogin() }
+            Button("Back to Login") {
+                coordinator.goToLogin()
+            }
 
             Spacer()
         }

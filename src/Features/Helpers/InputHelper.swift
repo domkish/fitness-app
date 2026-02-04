@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import UIKit
 
 public struct LiveDecimalTextField: UIViewRepresentable {
     @EnvironmentObject var themeManager: ThemeManager
@@ -21,27 +22,31 @@ public struct LiveDecimalTextField: UIViewRepresentable {
         tf.textColor = UIColor(themeManager.currentTheme.textDefault)
         tf.text = displayText
         tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        // Add accessory toolbar with Done button to dismiss keyboard
-        let toolbar = UIToolbar()
-        toolbar.sizeToFit()
-        // Apply theme-based colors
-        toolbar.isTranslucent = false
-        toolbar.barTintColor = UIColor(themeManager.currentTheme.formDefault)
-        toolbar.backgroundColor = UIColor(themeManager.currentTheme.formDefault)
-        toolbar.tintColor = UIColor(themeManager.currentTheme.textDefault)
-        // Add a thin top border to mirror input borders
-        let borderHeight: CGFloat = 1.0 / UIScreen.main.scale
-        let topBorder = UIView(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: borderHeight))
-        topBorder.backgroundColor = UIColor(themeManager.currentTheme.borderDefault)
-        topBorder.autoresizingMask = [.flexibleWidth, .flexibleBottomMargin]
-        toolbar.addSubview(topBorder)
 
-        let flexible = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
-        let done = UIBarButtonItem(title: "Done", style: .done, target: context.coordinator, action: #selector(Coordinator.doneTapped))
-        // Ensure the done button adopts theme tint
-        done.tintColor = UIColor(themeManager.currentTheme.textDefault)
-        toolbar.items = [flexible, done]
-        tf.inputAccessoryView = toolbar
+        // Use custom numeric keyboard as inputView
+        let hosting = UIHostingController(rootView: CustomNumericKeyboard(
+            onInsert: { ch in
+                context.coordinator.insert(ch, in: tf)
+            },
+            onDelete: {
+                context.coordinator.delete(in: tf)
+            },
+            onHide: {
+                tf.resignFirstResponder()
+            },
+            onNext: {
+                // Try to move to the next UITextField in the window hierarchy first
+                focusNextTextField(from: tf)
+                // Also broadcast so SwiftUI containers can manage focus order explicitly
+                NotificationCenter.default.post(name: NSNotification.Name("CustomNumericKeyboardNext"), object: nil)
+            }
+        ))
+        hosting.view.backgroundColor = .clear
+        hosting.view.translatesAutoresizingMaskIntoConstraints = false
+        hosting.view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 280)
+        hosting.view.setNeedsLayout()
+        hosting.view.layoutIfNeeded()
+        tf.inputView = hosting.view
         return tf
     }
 
@@ -54,6 +59,22 @@ public struct LiveDecimalTextField: UIViewRepresentable {
     public final class Coordinator: NSObject, UITextFieldDelegate {
         let parent: LiveDecimalTextField
         init(_ parent: LiveDecimalTextField) { self.parent = parent }
+
+        func insert(_ ch: String, in textField: UITextField) {
+            let current = textField.text ?? ""
+            let proposed = current + ch
+            _ = self.textField(textField, shouldChangeCharactersIn: NSRange(location: current.count, length: 0), replacementString: ch)
+        }
+        func delete(in textField: UITextField) {
+            let current = textField.text ?? ""
+            guard !current.isEmpty else { return }
+            let new = String(current.dropLast())
+            _ = self.textField(textField, shouldChangeCharactersIn: NSRange(location: max(current.count-1,0), length: 1), replacementString: "")
+            if new.isEmpty {
+                parent.displayText = ""
+                parent.digits = ""
+            }
+        }
 
         public func textFieldDidBeginEditing(_ textField: UITextField) {
             // Show current display (reconstruct from digits if needed)
@@ -146,6 +167,99 @@ public struct LiveDecimalTextField: UIViewRepresentable {
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
     }
+
+    private func focusNextTextField(from current: UIView) {
+        guard let window = current.window else { return }
+        let all = window.recursiveSubviews().compactMap { $0 as? UITextField }
+        guard let currentTF = current as? UITextField,
+              let idx = all.firstIndex(of: currentTF) else { return }
+        let nextIndex = all.index(after: idx)
+        if nextIndex < all.count {
+            all[nextIndex].becomeFirstResponder()
+        } else {
+            currentTF.resignFirstResponder()
+        }
+    }
+}
+
+private extension UIView {
+    func recursiveSubviews() -> [UIView] {
+        return subviews + subviews.flatMap { $0.recursiveSubviews() }
+    }
+}
+
+public struct LiveIntegerTextField: UIViewRepresentable {
+    @EnvironmentObject var themeManager: ThemeManager
+    @Binding var digits: String
+    let maxValue: Int
+
+    public init(digits: Binding<String>, maxValue: Int) {
+        self._digits = digits
+        self.maxValue = maxValue
+    }
+
+    public func makeUIView(context: Context) -> UITextField {
+        let tf = UITextField(frame: .zero)
+        tf.keyboardType = .numberPad
+        tf.delegate = context.coordinator
+        tf.textAlignment = .center
+        tf.textColor = UIColor(themeManager.currentTheme.textDefault)
+        tf.text = digits
+        tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // Custom numeric keyboard
+        let hosting = UIHostingController(rootView: CustomNumericKeyboard(
+            onInsert: { ch in context.coordinator.insert(ch, in: tf) },
+            onDelete: { context.coordinator.delete(in: tf) },
+            onHide: { tf.resignFirstResponder() },
+            onNext: {
+                focusNextTextField(from: tf)
+                NotificationCenter.default.post(name: NSNotification.Name("CustomNumericKeyboardNext"), object: nil)
+            }
+        ))
+        hosting.view.backgroundColor = .clear
+        hosting.view.translatesAutoresizingMaskIntoConstraints = false
+        hosting.view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 280)
+        hosting.view.setNeedsLayout()
+        hosting.view.layoutIfNeeded()
+        tf.inputView = hosting.view
+        return tf
+    }
+
+    public func updateUIView(_ uiView: UITextField, context: Context) {
+        if uiView.text != digits { uiView.text = digits }
+    }
+
+    public func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    public final class Coordinator: NSObject, UITextFieldDelegate {
+        let parent: LiveIntegerTextField
+        init(_ parent: LiveIntegerTextField) { self.parent = parent }
+
+        func insert(_ ch: String, in textField: UITextField) {
+            let current = textField.text ?? ""
+            let proposed = current + ch
+            _ = self.textField(textField, shouldChangeCharactersIn: NSRange(location: current.count, length: 0), replacementString: ch)
+        }
+        func delete(in textField: UITextField) {
+            let current = textField.text ?? ""
+            guard !current.isEmpty else { return }
+            _ = self.textField(textField, shouldChangeCharactersIn: NSRange(location: max(current.count-1,0), length: 1), replacementString: "")
+        }
+
+        public func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+            let current = textField.text ?? ""
+            guard let r = Range(range, in: current) else { return true }
+            var proposed = current.replacingCharacters(in: r, with: string)
+            // digits only
+            proposed = proposed.filter { $0.isNumber }
+            if proposed.count > 3 { return false }
+            let value = Int(proposed) ?? 0
+            if value > parent.maxValue { return false }
+            parent.digits = proposed
+            textField.text = proposed
+            return false
+        }
+    }
 }
 
 public struct InputWithSuffixDecimal: View {
@@ -189,9 +303,7 @@ public struct InputWithSuffixDecimal: View {
                         }
                     }
             } else {
-                // Non-decimal: do not force decimals; accept digits as-is
-                TextField("", text: $digits)
-                    .keyboardType(.numberPad)
+                LiveIntegerTextField(digits: $digits, maxValue: Int(maxValue))
                     .foregroundColor(themeManager.currentTheme.textDefault)
                     .padding(.vertical, 8)
                     .multilineTextAlignment(.center)
@@ -217,6 +329,19 @@ public struct InputWithSuffixDecimal: View {
         guard !digits.isEmpty else { return "" }
         let value = (Double(digits) ?? 0) / 10.0
         return String(format: "%.1f", value)
+    }
+}
+
+private func focusNextTextField(from current: UIView) {
+    guard let window = current.window else { return }
+    let all = window.recursiveSubviews().compactMap { $0 as? UITextField }
+    guard let currentTF = current as? UITextField,
+          let idx = all.firstIndex(of: currentTF) else { return }
+    let nextIndex = all.index(after: idx)
+    if nextIndex < all.count {
+        all[nextIndex].becomeFirstResponder()
+    } else {
+        currentTF.resignFirstResponder()
     }
 }
 

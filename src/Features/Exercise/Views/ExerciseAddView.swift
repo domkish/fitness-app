@@ -152,7 +152,9 @@ struct ExerciseAddView: View {
                     }
 
                     // Save button
-                    Button(action: { Task { await save() } }) {
+                    Button(action: {
+                        Task { await save() }
+                    }) {
                         HStack {
                             if isSaving { ProgressView() }
                             Text(isSaving ? "Saving…" : "Save Exercise").bold()

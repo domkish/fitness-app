@@ -188,7 +188,9 @@ struct ExerciseInfoView: View {
 
                     // Save button (only if not locked)
                     if !locked {
-                        Button(action: { Task { await save() } }) {
+                        Button(action: {
+                            Task { await save() }
+                        }) {
                             HStack {
                                 if isSaving { ProgressView() }
                                 Text(isSaving ? "Saving…" : "Save Changes").bold()

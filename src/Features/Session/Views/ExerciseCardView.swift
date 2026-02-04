@@ -32,6 +32,11 @@ struct ExerciseCardView: View {
     @State private var editHours: String = "00"
     @State private var editMinutes: String = "00"
     @State private var editSeconds: String = "00"
+
+    private enum TimeField: Hashable { case hours, minutes, seconds }
+    @FocusState private var focusedTimeField: TimeField?
+    @State private var showNumericKeyboard: Bool = false
+
     @State private var showTimerInfo = false
     @State private var noteText: String = ""
 
@@ -331,7 +336,13 @@ struct ExerciseCardView: View {
 
             HStack(spacing: 6) {
                 TextField("hh", text: $editHours)
-                    .keyboardType(.numberPad)
+                    //.keyboardType(.numberPad) // removed as per instructions
+                    .focused($focusedTimeField, equals: .hours)
+                    .onTapGesture {
+                        focusedTimeField = .hours
+                        showNumericKeyboard = true
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
                     .foregroundColor(themeManager.currentTheme.textDefault)
                     .padding(.vertical, 8)
                     .multilineTextAlignment(.center)
@@ -345,7 +356,13 @@ struct ExerciseCardView: View {
                 Text(":").foregroundColor(themeManager.currentTheme.textDefault)
 
                 TextField("mm", text: $editMinutes)
-                    .keyboardType(.numberPad)
+                    //.keyboardType(.numberPad) // removed as per instructions
+                    .focused($focusedTimeField, equals: .minutes)
+                    .onTapGesture {
+                        focusedTimeField = .minutes
+                        showNumericKeyboard = true
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
                     .foregroundColor(themeManager.currentTheme.textDefault)
                     .padding(.vertical, 8)
                     .multilineTextAlignment(.center)
@@ -359,7 +376,13 @@ struct ExerciseCardView: View {
                 Text(":").foregroundColor(themeManager.currentTheme.textDefault)
 
                 TextField("ss", text: $editSeconds)
-                    .keyboardType(.numberPad)
+                    //.keyboardType(.numberPad) // removed as per instructions
+                    .focused($focusedTimeField, equals: .seconds)
+                    .onTapGesture {
+                        focusedTimeField = .seconds
+                        showNumericKeyboard = true
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
                     .foregroundColor(themeManager.currentTheme.textDefault)
                     .padding(.vertical, 8)
                     .multilineTextAlignment(.center)
@@ -392,6 +415,53 @@ struct ExerciseCardView: View {
             }
         }
         .padding(16)
+        .customNumericKeyboard(
+            isPresented: $showNumericKeyboard,
+            onInsert: { ch in
+                guard ch.allSatisfy({ $0.isNumber }) else { return }
+                switch focusedTimeField {
+                case .hours:
+                    if editHours.count < 2 { editHours.append(contentsOf: ch) }
+                case .minutes:
+                    var proposed = editMinutes
+                    if proposed.count < 2 { proposed.append(contentsOf: ch) }
+                    let val = Int(proposed) ?? 0
+                    if proposed.count <= 2 && val <= 59 { editMinutes = proposed }
+                case .seconds:
+                    var proposed = editSeconds
+                    if proposed.count < 2 { proposed.append(contentsOf: ch) }
+                    let val = Int(proposed) ?? 0
+                    if proposed.count <= 2 && val <= 59 { editSeconds = proposed }
+                case nil:
+                    break
+                }
+            },
+            onDelete: {
+                switch focusedTimeField {
+                case .hours:
+                    if !editHours.isEmpty { _ = editHours.removeLast() }
+                case .minutes:
+                    if !editMinutes.isEmpty { _ = editMinutes.removeLast() }
+                case .seconds:
+                    if !editSeconds.isEmpty { _ = editSeconds.removeLast() }
+                case nil:
+                    break
+                }
+            },
+            onHide: { showNumericKeyboard = false },
+            onNext: {
+                switch focusedTimeField {
+                case .hours:
+                    focusedTimeField = .minutes
+                case .minutes:
+                    focusedTimeField = .seconds
+                case .seconds, .none:
+                    focusedTimeField = nil
+                    showNumericKeyboard = false
+                }
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
+        )
         .onAppear {
             let hrs = elapsed / 3600
             let mins = (elapsed % 3600) / 60
@@ -399,6 +469,11 @@ struct ExerciseCardView: View {
             editHours = String(format: "%02d", hrs)
             editMinutes = String(format: "%02d", mins)
             editSeconds = String(format: "%02d", secs)
+        }
+        .onChange(of: showNumericKeyboard) { isPresented in
+            if isPresented {
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
         }
     }
 

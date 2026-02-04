@@ -17,6 +17,9 @@ struct SetRowView: View {
     @State private var valueDigits: String = ""
     @State private var repsDigits: String = ""
 
+    private enum Field: Hashable { case reps, value }
+    @FocusState private var focusedField: Field?
+
     var body: some View {
         HStack(spacing: 8) {
             // Set number
@@ -42,6 +45,7 @@ struct SetRowView: View {
                 onUserInteraction?()
                 scheduleDebouncedSave()
             }
+            .focused($focusedField, equals: .reps)
             
             // Value input
             InputWithSuffixDecimal(
@@ -56,6 +60,7 @@ struct SetRowView: View {
                 onUserInteraction?()
                 scheduleDebouncedSave()
             }
+            .focused($focusedField, equals: .value)
 
             // Completed checkbox
             Button(action: {
@@ -76,6 +81,14 @@ struct SetRowView: View {
         .onAppear {
             repsDigits = setItem.repsText.filter { $0.isNumber }
             valueDigits = setItem.valueText.filter { $0.isNumber }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("CustomNumericKeyboardNext"))) { _ in
+            switch focusedField {
+            case .reps:
+                focusedField = .value
+            default:
+                focusedField = nil
+            }
         }
     }
 

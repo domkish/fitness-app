@@ -534,6 +534,9 @@ struct DailyCheckinSheet: View {
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var localPhotoPath: String?
 
+    private enum Field: Hashable { case weight, bodyFat }
+    @FocusState private var focusedField: Field?
+
     private var weightUnit: String {
         authCoordinator.currentUser?.isImperial == true ? "lbs" : "kg"
     }
@@ -581,6 +584,14 @@ struct DailyCheckinSheet: View {
                     }
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("CustomNumericKeyboardNext"))) { _ in
+                switch focusedField {
+                case .weight:
+                    focusedField = .bodyFat
+                default:
+                    focusedField = nil
+                }
+            }
         }
     }
 
@@ -596,6 +607,7 @@ struct DailyCheckinSheet: View {
                     maxValue: 999.9,
                     decimal: true
                 )
+                .focused($focusedField, equals: .weight)
 
                 Text("Body Fat %")
                 InputWithSuffixDecimal(
@@ -605,6 +617,7 @@ struct DailyCheckinSheet: View {
                     maxValue: 99.9,
                     decimal: true
                 )
+                .focused($focusedField, equals: .bodyFat)
             }
             .foregroundColor(themeManager.currentTheme.textDefault)
             .listRowBackground(themeManager.currentTheme.surface)

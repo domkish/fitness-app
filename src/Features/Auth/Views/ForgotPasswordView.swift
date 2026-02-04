@@ -43,10 +43,13 @@ struct ResetPasswordView: View {
             .buttonStyle(.borderedProminent)
             .disabled(viewModel.isLoading)
 
-            Button("Back to Login") { coordinator.goToLogin() }
+            Button("Back to Login") {
+                coordinator.goToLogin()
+            }
 
             Spacer()
         }
         .padding()
     }
 }
+
