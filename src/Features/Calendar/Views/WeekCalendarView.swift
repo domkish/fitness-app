@@ -26,6 +26,22 @@ struct WeekCalendarView: View {
     @State private var currentEntry: CalendarEntryRecord?
     @State private var priorEntry: CalendarEntryRecord?
     
+    // Session navigation state
+    @State private var activeSession: SessionRecord? = nil
+    @State private var navigateToSession = false
+    @State private var summarySession: SessionRecord? = nil
+    @State private var navigateToSessionSummary = false
+
+    // Quick actions popover state (mirror DayCalendarView)
+    @State private var showingWorkoutPopover = false
+    @State private var selectedWorkoutRow: CalendarWorkoutRepository.ScheduledWorkoutRow? = nil
+    @State private var selectedWorkoutExercises: [String] = []
+    @State private var exerciseLoadTask: Task<Void, Never>? = nil
+    @State private var exerciseLoadError: String? = nil
+    @State private var lastLoadedWorkoutId: Int64? = nil
+    @State private var exerciseCache: [Int64: [String]] = [:]
+    @State private var selectedWorkoutDate: Date? = nil
+
     struct CheckinContext: Identifiable {
         let id = UUID()
         let date: Date
@@ -40,12 +56,6 @@ struct WeekCalendarView: View {
 
     @State private var weekWorkouts: [Int: [CalendarWorkoutRepository.ScheduledWorkoutRow]] = [:] // key: 0..6 offset
     @State private var weekEntries: [Int: Bool] = [:]
-
-    // Session navigation state
-    @State private var activeSession: SessionRecord? = nil
-    @State private var navigateToSession = false
-    @State private var summarySession: SessionRecord? = nil
-    @State private var navigateToSessionSummary = false
 
     // Repositories needed for session creation/navigation
     private let sessionRepository = SessionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
@@ -148,7 +158,7 @@ struct WeekCalendarView: View {
                                 Image(systemName: hasEntry ? "checkmark.seal.fill" : "pencil.and.list.clipboard")
                                     .foregroundColor(hasEntry ? themeManager.currentTheme.primary : themeManager.currentTheme.muted)
                             }
-                            .buttonStyle(.plain) 
+                            .buttonStyle(.plain)
                         }
                     }
                     .listRowBackground(themeManager.currentTheme.surface)
@@ -158,7 +168,40 @@ struct WeekCalendarView: View {
                             ForEach(workouts, id: \.id) { w in
                                 let c = colorForKey(w.workoutColor)
                                 Button {
-                                    Task { await ensureSessionForWorkoutRow(w, on: date) }
+                                    self.exerciseLoadTask?.cancel()
+                                    self.exerciseLoadTask = nil
+                                    self.exerciseLoadError = nil
+                                    self.selectedWorkoutRow = nil
+                                    self.selectedWorkoutExercises = []
+
+                                    self.selectedWorkoutDate = Calendar.current.startOfDay(for: date)
+
+                                    let workoutId = w.workoutId
+
+                                    // If we have cached exercises, present immediately; otherwise fetch before showing popover
+                                    if let cached = exerciseCache[workoutId], !cached.isEmpty {
+                                        Task { @MainActor in
+                                            self.selectedWorkoutRow = w
+                                            self.selectedWorkoutExercises = cached
+                                            self.showingWorkoutPopover = true
+                                        }
+                                        // Optionally refresh cache in background without affecting UI
+                                        self.exerciseLoadTask = Task {
+                                            await loadExercisesForWorkout(workoutId: workoutId)
+                                            await MainActor.run { self.exerciseLoadTask = nil }
+                                        }
+                                    } else {
+                                        // No cache yet: fetch first, then present
+                                        self.exerciseLoadTask = Task {
+                                            await loadExercisesForWorkout(workoutId: workoutId)
+                                            await MainActor.run {
+                                                self.selectedWorkoutRow = w
+                                                self.selectedWorkoutExercises = self.exerciseCache[workoutId] ?? []
+                                                self.showingWorkoutPopover = true
+                                                self.exerciseLoadTask = nil
+                                            }
+                                        }
+                                    }
                                 } label: {
                                     HStack(spacing: 10) {
                                         Circle()
@@ -181,7 +224,6 @@ struct WeekCalendarView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
-                                .allowsHitTesting(isTodayOrPast(date))
                             }
                         }
                         .listRowBackground(themeManager.currentTheme.surface)
@@ -223,6 +265,37 @@ struct WeekCalendarView: View {
                 .id(sheetIdentity)
                 .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
+            }
+            .popover(isPresented: Binding(get: { showingWorkoutPopover && selectedWorkoutRow != nil }, set: { showingWorkoutPopover = $0 }), arrowEdge: .top) {
+                if let row = selectedWorkoutRow {
+                    let canEnter = selectedWorkoutDate.map { isTodayOrPast($0) } ?? false
+                    WorkoutQuickActionsPopover(
+                        themeManager: themeManager,
+                        workoutRow: row,
+                        exercises: selectedWorkoutExercises,
+                        canEnterSession: canEnter,
+                        error: exerciseLoadError,
+                        onEnterSession: {
+                            self.exerciseLoadTask?.cancel()
+                            self.exerciseLoadTask = nil
+                            self.showingWorkoutPopover = false
+                            Task { await ensureSessionForWorkoutRow(row, on: selectedWorkoutDate ?? Date()) }
+                        },
+                        onDelete: {
+                            // Deletion from week view should refresh the week data
+                            Task {
+                                await MainActor.run {
+                                    self.exerciseLoadTask?.cancel()
+                                    self.exerciseLoadTask = nil
+                                    self.showingWorkoutPopover = false
+                                    self.selectedWorkoutRow = nil
+                                }
+                                await loadWeekData()
+                            }
+                        }
+                    )
+                    .environmentObject(authCoordinator)
+                }
             }
         }
         .padding(.top, 8)
@@ -344,6 +417,37 @@ struct WeekCalendarView: View {
         } catch {
             print("[WeekCalendarView] ensureSessionWithSeed error: \(error)")
         }
+    }
+
+    private func loadExercisesForWorkout(workoutId: Int64) async {
+        await MainActor.run {
+            self.exerciseLoadError = nil
+        }
+        print("[WeekCalendarView] loadExercisesForWorkout start id=\(workoutId)")
+        do {
+            try Task.checkCancellation()
+            let grouped = try workoutRepo.fetchExercisesByBlock(forWorkoutId: workoutId)
+            try Task.checkCancellation()
+            let orderedBlockIds = grouped.keys.sorted()
+            var names: [String] = []
+            for bid in orderedBlockIds {
+                let rows = grouped[bid] ?? []
+                for r in rows { names.append(r.name) }
+            }
+            try Task.checkCancellation()
+            print("[WeekCalendarView] loadExercisesForWorkout fetched names=\(names.count)")
+            await MainActor.run {
+                self.exerciseCache[workoutId] = names
+                self.selectedWorkoutExercises = names
+                self.lastLoadedWorkoutId = workoutId
+            }
+        } catch is CancellationError {
+            print("[WeekCalendarView] loadExercisesForWorkout cancelled")
+        } catch {
+            print("[WeekCalendarView] loadExercisesForWorkout error: \(error)")
+            await MainActor.run { self.exerciseLoadError = error.localizedDescription }
+        }
+        print("[WeekCalendarView] loadExercisesForWorkout end id=\(workoutId)")
     }
 
     @ViewBuilder

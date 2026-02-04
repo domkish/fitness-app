@@ -38,6 +38,16 @@ struct DayCalendarView: View {
     @State private var navigateToSessionSummary = false
     @State private var summarySession: SessionRecord? = nil
 
+    @State private var showingWorkoutPopover = false
+    @State private var selectedWorkoutRow: CalendarWorkoutRepository.ScheduledWorkoutRow? = nil
+    @State private var selectedWorkoutExercises: [String] = []
+    @State private var exerciseLoadTask: Task<Void, Never>? = nil
+
+    @State private var exerciseLoadError: String? = nil
+    @State private var lastLoadedWorkoutId: Int64? = nil
+    
+    @State private var exerciseCache: [Int64: [String]] = [:]
+
     private var isTodayOrPast: Bool {
         let today = Calendar.current.startOfDay(for: Date())
         return selectedDate <= today
@@ -93,7 +103,14 @@ struct DayCalendarView: View {
                     // Leading: Check-in button (today or past)
                     HStack {
                         if isTodayOrPast {
-                            Button(action: { showingCheckin = true }) {
+                            Button(action: {
+                                // Cancel any in-flight exercise load
+                                self.exerciseLoadTask?.cancel()
+                                self.exerciseLoadTask = nil
+                                self.exerciseLoadError = nil
+                                self.selectedWorkoutRow = nil
+                                showingCheckin = true
+                            }) {
                                 HStack(spacing: 6) {
                                     Image(systemName: entry != nil ? "checkmark.seal.fill" : "pencil.and.list.clipboard")
                                 }
@@ -129,8 +146,37 @@ struct DayCalendarView: View {
                         ForEach(workouts, id: \.id) { w in
                             let c = colorForKey(w.workoutColor)
                             Button {
-                                Task {
-                                    await ensureSessionForWorkoutRow(w)
+                                self.exerciseLoadTask?.cancel()
+                                self.exerciseLoadTask = nil
+                                self.exerciseLoadError = nil
+                                self.selectedWorkoutRow = nil
+                                self.selectedWorkoutExercises = []
+
+                                let workoutId = w.workoutId
+
+                                // If we have cached exercises, present immediately; otherwise fetch before showing popover
+                                if let cached = exerciseCache[workoutId], !cached.isEmpty {
+                                    Task { @MainActor in
+                                        self.selectedWorkoutRow = w
+                                        self.selectedWorkoutExercises = cached
+                                        self.showingWorkoutPopover = true
+                                    }
+                                    // Optionally refresh cache in background without affecting UI
+                                    self.exerciseLoadTask = Task {
+                                        await loadExercisesForWorkout(workoutId: workoutId)
+                                        await MainActor.run { self.exerciseLoadTask = nil }
+                                    }
+                                } else {
+                                    // No cache yet: fetch first, then present
+                                    self.exerciseLoadTask = Task {
+                                        await loadExercisesForWorkout(workoutId: workoutId)
+                                        await MainActor.run {
+                                            self.selectedWorkoutRow = w
+                                            self.selectedWorkoutExercises = self.exerciseCache[workoutId] ?? []
+                                            self.showingWorkoutPopover = true
+                                            self.exerciseLoadTask = nil
+                                        }
+                                    }
                                 }
                             } label: {
                                 HStack(spacing: 10) {
@@ -151,7 +197,7 @@ struct DayCalendarView: View {
                                 .background(RoundedRectangle(cornerRadius: 6).fill(c.opacity(0.1)))
                             }
                             .buttonStyle(.plain)
-                            .allowsHitTesting(isTodayOrPast)
+                            // Removed .allowsHitTesting(isTodayOrPast) to make future workouts tappable
                         }
                     }
                     .padding(.bottom, 16)
@@ -274,6 +320,27 @@ struct DayCalendarView: View {
                     Task { await createRepeatingCalendarWorkout(days: days) }
                 }
                 .environmentObject(themeManager)
+            }
+            .popover(isPresented: Binding(get: { showingWorkoutPopover && selectedWorkoutRow != nil }, set: { showingWorkoutPopover = $0 }), arrowEdge: .top) {
+                if let row = selectedWorkoutRow {
+                    WorkoutQuickActionsPopover(
+                        themeManager: themeManager,
+                        workoutRow: row,
+                        exercises: selectedWorkoutExercises,
+                        canEnterSession: isTodayOrPast,
+                        error: exerciseLoadError,
+                        onEnterSession: {
+                            self.exerciseLoadTask?.cancel()
+                            self.exerciseLoadTask = nil
+                            showingWorkoutPopover = false
+                            Task { await ensureSessionForWorkoutRow(row) }
+                        },
+                        onDelete: {
+                            Task { await deleteCalendarWorkout(row) }
+                        }
+                    )
+                    .environmentObject(authCoordinator)
+                }
             }
         }
     }
@@ -497,6 +564,53 @@ struct DayCalendarView: View {
         }
     }
     
+    private func loadExercisesForWorkout(workoutId: Int64) async {
+        await MainActor.run {
+            // Do not toggle a loading state; keep any existing exercises shown
+            self.exerciseLoadError = nil
+        }
+        print("[DayCalendarView] loadExercisesForWorkout start id=\(workoutId)")
+        do {
+            try Task.checkCancellation()
+            let grouped = try workoutRepo.fetchExercisesByBlock(forWorkoutId: workoutId)
+            try Task.checkCancellation()
+            let orderedBlockIds = grouped.keys.sorted()
+            var names: [String] = []
+            for bid in orderedBlockIds {
+                let rows = grouped[bid] ?? []
+                for r in rows { names.append(r.name) }
+            }
+            try Task.checkCancellation()
+            print("[DayCalendarView] loadExercisesForWorkout fetched names=\(names.count)")
+            await MainActor.run {
+                self.exerciseCache[workoutId] = names
+                self.selectedWorkoutExercises = names
+                self.lastLoadedWorkoutId = workoutId
+            }
+        } catch is CancellationError {
+            print("[DayCalendarView] loadExercisesForWorkout cancelled")
+        } catch {
+            print("[DayCalendarView] loadExercisesForWorkout error: \(error)")
+            await MainActor.run { self.exerciseLoadError = error.localizedDescription }
+        }
+        print("[DayCalendarView] loadExercisesForWorkout end id=\(workoutId) loading=false")
+    }
+    
+    private func deleteCalendarWorkout(_ row: CalendarWorkoutRepository.ScheduledWorkoutRow) async {
+        do {
+            // Cancel any in-flight exercise load
+            await MainActor.run {
+                self.exerciseLoadTask?.cancel()
+                self.exerciseLoadTask = nil
+                self.showingWorkoutPopover = false
+                self.selectedWorkoutRow = nil
+            }
+            await loadData()
+        } catch {
+            print("[DayCalendarView] deleteCalendarWorkout error: \(error)")
+        }
+    }
+
     private enum RelativeDay {
         case yesterday, today, tomorrow, other
     }
@@ -694,6 +808,73 @@ struct DailyCheckinSheet: View {
         } catch {
             print("[DailyCheckinSheet] save error: \(error)")
         }
+    }
+}
+
+struct WorkoutQuickActionsPopover: View {
+    @EnvironmentObject var authCoordinator: AuthCoordinator
+    var themeManager: ThemeManager
+    let workoutRow: CalendarWorkoutRepository.ScheduledWorkoutRow?
+    let exercises: [String]
+    let canEnterSession: Bool
+    let error: String?
+    let onEnterSession: () -> Void
+    let onDelete: () -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let row = workoutRow {
+                Text(row.workoutName)
+                    .font(.headline)
+                    .foregroundColor(themeManager.currentTheme.textDefault)
+                if let err = error {
+                    Text(err)
+                        .foregroundColor(themeManager.currentTheme.error)
+                        .font(.footnote)
+                } else if exercises.isEmpty {
+                    Text("No exercises found")
+                        .foregroundColor(themeManager.currentTheme.muted)
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(exercises.prefix(12), id: \.self) { name in
+                            HStack {
+                                Circle().fill(themeManager.currentTheme.primary.opacity(0.2)).frame(width: 6, height: 6)
+                                Text(name)
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
+                                    .font(.subheadline)
+                            }
+                        }
+                        if exercises.count > 12 {
+                            Text("+ \(exercises.count - 12) more")
+                                .font(.footnote)
+                                .foregroundColor(themeManager.currentTheme.muted)
+                        }
+                    }
+                }
+                if !canEnterSession {
+                    Text("This session will be available on the scheduled day.")
+                        .font(.footnote)
+                        .foregroundColor(themeManager.currentTheme.muted)
+                }
+                HStack {
+                    Button(role: .none) { onEnterSession() } label: {
+                        HStack { Image(systemName: "play.circle"); Text("Enter Session") }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(themeManager.currentTheme.primary)
+                    .disabled(!canEnterSession)
+                    .opacity(canEnterSession ? 1.0 : 0.5)
+                    Spacer()
+                    Button(role: .destructive) { onDelete() } label: {
+                        HStack { Image(systemName: "trash"); Text("Delete") }
+                    }
+                }
+            } else {
+                Text("No workout selected")
+                    .foregroundColor(themeManager.currentTheme.muted)
+            }
+        }
+        .padding()
+        .background(themeManager.currentTheme.surface)
     }
 }
 
