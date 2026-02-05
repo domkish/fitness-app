@@ -4,7 +4,6 @@
 //
 //  Created by Assistant on 1/30/26.
 //
-
 import SwiftUI
 import PhotosUI
 
@@ -152,10 +151,8 @@ struct DayCalendarView: View {
                                 self.selectedWorkoutRow = nil
                                 self.selectedWorkoutExercises = []
 
-                                let workoutId = w.workoutId
-
-                                // If we have cached exercises, present immediately; otherwise fetch before showing popover
-                                if let cached = exerciseCache[workoutId], !cached.isEmpty {
+                                // Use cachedExercises method and new loadExercisesForWorkout(row:) method
+                                if let cached = cachedExercises(for: w), !cached.isEmpty {
                                     Task { @MainActor in
                                         self.selectedWorkoutRow = w
                                         self.selectedWorkoutExercises = cached
@@ -163,16 +160,16 @@ struct DayCalendarView: View {
                                     }
                                     // Optionally refresh cache in background without affecting UI
                                     self.exerciseLoadTask = Task {
-                                        await loadExercisesForWorkout(workoutId: workoutId)
+                                        await loadExercisesForWorkout(row: w)
                                         await MainActor.run { self.exerciseLoadTask = nil }
                                     }
                                 } else {
                                     // No cache yet: fetch first, then present
                                     self.exerciseLoadTask = Task {
-                                        await loadExercisesForWorkout(workoutId: workoutId)
+                                        await loadExercisesForWorkout(row: w)
                                         await MainActor.run {
                                             self.selectedWorkoutRow = w
-                                            self.selectedWorkoutExercises = self.exerciseCache[workoutId] ?? []
+                                            self.selectedWorkoutExercises = cachedExercises(for: w) ?? []
                                             self.showingWorkoutPopover = true
                                             self.exerciseLoadTask = nil
                                         }
@@ -564,38 +561,6 @@ struct DayCalendarView: View {
         }
     }
     
-    private func loadExercisesForWorkout(workoutId: Int64) async {
-        await MainActor.run {
-            // Do not toggle a loading state; keep any existing exercises shown
-            self.exerciseLoadError = nil
-        }
-        print("[DayCalendarView] loadExercisesForWorkout start id=\(workoutId)")
-        do {
-            try Task.checkCancellation()
-            let grouped = try workoutRepo.fetchExercisesByBlock(forWorkoutId: workoutId)
-            try Task.checkCancellation()
-            let orderedBlockIds = grouped.keys.sorted()
-            var names: [String] = []
-            for bid in orderedBlockIds {
-                let rows = grouped[bid] ?? []
-                for r in rows { names.append(r.name) }
-            }
-            try Task.checkCancellation()
-            print("[DayCalendarView] loadExercisesForWorkout fetched names=\(names.count)")
-            await MainActor.run {
-                self.exerciseCache[workoutId] = names
-                self.selectedWorkoutExercises = names
-                self.lastLoadedWorkoutId = workoutId
-            }
-        } catch is CancellationError {
-            print("[DayCalendarView] loadExercisesForWorkout cancelled")
-        } catch {
-            print("[DayCalendarView] loadExercisesForWorkout error: \(error)")
-            await MainActor.run { self.exerciseLoadError = error.localizedDescription }
-        }
-        print("[DayCalendarView] loadExercisesForWorkout end id=\(workoutId) loading=false")
-    }
-    
     private func deleteCalendarWorkout(_ row: CalendarWorkoutRepository.ScheduledWorkoutRow) async {
         do {
             // Cancel any in-flight exercise load
@@ -609,6 +574,65 @@ struct DayCalendarView: View {
         } catch {
             print("[DayCalendarView] deleteCalendarWorkout error: \(error)")
         }
+    }
+
+
+    private func loadExercisesForWorkout(row: CalendarWorkoutRepository.ScheduledWorkoutRow) async {
+        await MainActor.run { self.exerciseLoadError = nil }
+        let day = Calendar.current.startOfDay(for: selectedDate)
+        do {
+            try Task.checkCancellation()
+            let sessionRepo = SessionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+            if let existingSession = try sessionRepo.find(calendarWorkoutId: row.id, startedAt: day) {
+                // Load exercises from session_exercises tree
+                let blockRepo = SessionBlockRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+                let exRepo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+                let blocks = try blockRepo.bySession(existingSession.id ?? -1)
+                var names: [String] = []
+                for b in blocks.sorted(by: { ($0.id ?? 0) < ($1.id ?? 0) }) {
+                    let ses = try exRepo.bySessionBlock(b.id ?? -1)
+                    for e in ses.sorted(by: { (lhs, rhs) in
+                        (lhs.order) ?? Int.max < (rhs.order) ?? Int.max
+                    }) {
+                        names.append(e.exerciseName)
+                    }
+                }
+                try Task.checkCancellation()
+                await MainActor.run {
+                    // cache by calendar workout id + date to distinguish session-based cache
+                    self.exerciseCache[row.id] = names
+                    self.selectedWorkoutExercises = names
+                    self.lastLoadedWorkoutId = row.workoutId
+                }
+            } else {
+                // Fall back to workout definition exercises
+                let grouped = try workoutRepo.fetchExercisesByBlock(forWorkoutId: row.workoutId)
+                try Task.checkCancellation()
+                let orderedBlockIds = grouped.keys.sorted()
+                var names: [String] = []
+                for bid in orderedBlockIds {
+                    let rows = grouped[bid] ?? []
+                    for r in rows { names.append(r.name) }
+                }
+                try Task.checkCancellation()
+                await MainActor.run {
+                    self.exerciseCache[row.workoutId] = names
+                    self.selectedWorkoutExercises = names
+                    self.lastLoadedWorkoutId = row.workoutId
+                }
+            }
+        } catch is CancellationError {
+            // ignore
+        } catch {
+            await MainActor.run { self.exerciseLoadError = error.localizedDescription }
+        }
+    }
+    
+    private func cachedExercises(for row: CalendarWorkoutRepository.ScheduledWorkoutRow) -> [String]? {
+        // Prefer session cache keyed by calendar workout id; fall back to workout definition cache
+        if let names = exerciseCache[row.id], !names.isEmpty { return names }
+        if let names = exerciseCache[row.workoutId], !names.isEmpty { return names }
+        return nil
     }
 
     private enum RelativeDay {
@@ -629,252 +653,6 @@ struct DayCalendarView: View {
         } else {
             return .other
         }
-    }
-}
-
-// MARK: - Daily Check-in Sheet
-struct DailyCheckinSheet: View {
-    @EnvironmentObject var themeManager: ThemeManager
-    @EnvironmentObject var authCoordinator: AuthCoordinator
-
-    let date: Date
-    let existing: CalendarEntryRecord?
-    let prior: CalendarEntryRecord?
-    let repository: CalendarEntryRepository
-    var onSaved: (Bool) -> Void
-
-    @State private var weightText: String = ""
-    @State private var bodyFatText: String = ""
-    @State private var pickedPhoto: PhotosPickerItem?
-    @State private var localPhotoPath: String?
-
-    private enum Field: Hashable { case weight, bodyFat }
-    @FocusState private var focusedField: Field?
-
-    private var weightUnit: String {
-        authCoordinator.currentUser?.isImperial == true ? "lbs" : "kg"
-    }
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                themeManager.currentTheme.background
-                    .ignoresSafeArea()
-                Form {
-                    metricsSection
-                    Section("Progress Photo") {
-                        PhotosPicker(selection: $pickedPhoto, matching: .images) {
-                            HStack {
-                                Image(systemName: "photo")
-                                Text(localPhotoPath == nil ? "Select Photo" : "Replace Photo")
-                                    .foregroundColor(themeManager.currentTheme.textDefault)
-                            }
-                        }
-                    }
-                    .scrollContentBackground(.hidden)
-                    .listRowBackground(themeManager.currentTheme.surface)
-                    .foregroundColor(themeManager.currentTheme.muted)
-                }
-                .scrollContentBackground(.hidden)
-                .onAppear(perform: prefill)
-                .onChange(of: existing?.id) { _, _ in
-                    prefill()
-                }
-                .onChange(of: prior?.id) { _, _ in
-                    // Only prefill remaining empty fields so we don't overwrite user edits.
-                    prefill()
-                }
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { onSaved(false) }
-                    }
-                    ToolbarItem(placement: .principal) {
-                        Text("Daily Check-in")
-                            .foregroundColor(themeManager.currentTheme.textDefault)
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") { Task { await save() } }
-                            .disabled(!canSave)
-                    }
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("CustomNumericKeyboardNext"))) { _ in
-                switch focusedField {
-                case .weight:
-                    focusedField = .bodyFat
-                default:
-                    focusedField = nil
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var metricsSection: some View {
-        Section("Metrics") {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Body Weight")
-                InputWithSuffixDecimal(
-                    title: "Body Weight",
-                    digits: $weightText,
-                    suffix: weightUnit,
-                    maxValue: 999.9,
-                    decimal: true
-                )
-                .focused($focusedField, equals: .weight)
-
-                Text("Body Fat %")
-                InputWithSuffixDecimal(
-                    title: "Body Fat %",
-                    digits: $bodyFatText,
-                    suffix: "%",
-                    maxValue: 99.9,
-                    decimal: true
-                )
-                .focused($focusedField, equals: .bodyFat)
-            }
-            .foregroundColor(themeManager.currentTheme.textDefault)
-            .listRowBackground(themeManager.currentTheme.surface)
-        }
-        .foregroundColor(themeManager.currentTheme.muted)
-    }
-
-    private var canSave: Bool {
-        // At least one field should be present
-        return !(weightText.isEmpty && bodyFatText.isEmpty && localPhotoPath == nil)
-    }
-
-    private func prefill() {
-        // Existing entry
-        if let e = existing {
-            if weightText.isEmpty, let w = e.weight { weightText = String(Int((w * 10.0).rounded())) }
-            if bodyFatText.isEmpty, let bf = e.bodyFat { bodyFatText = String(Int((bf * 10.0).rounded())) }
-            if localPhotoPath == nil { localPhotoPath = e.progressPhoto }
-            return
-        }
-        // Prefill from prior if empty
-        if let p = prior {
-            if weightText.isEmpty, let w = p.weight { weightText = String(Int((w * 10.0).rounded())) }
-            if bodyFatText.isEmpty, let bf = p.bodyFat { bodyFatText = String(Int((bf * 10.0).rounded())) }
-        }
-    }
-
-    private func savePickedPhoto(_ item: PhotosPickerItem?) async {
-        guard let item else { return }
-        do {
-            if let data = try await item.loadTransferable(type: Data.self) {
-                localPhotoPath = try saveProgressPhotoData(data)
-            }
-        } catch {
-            print("[DailyCheckinSheet] photo pick error: \(error)")
-        }
-    }
-
-    private func saveProgressPhotoData(_ data: Data) throws -> String {
-        let fm = FileManager.default
-        let docs = try fm.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-        let folder = docs.appendingPathComponent("progress_photos", isDirectory: true)
-        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
-        let filename = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-").replacingOccurrences(of: ".", with: "-") + ".jpg"
-        let url = folder.appendingPathComponent(filename)
-        try data.write(to: url, options: .atomic)
-        return "progress_photos/\(filename)"
-    }
-
-    private func save() async {
-        guard let user = authCoordinator.currentUser else { return }
-        let id64 = Int64(user.id)
-
-        // Parse numeric fields
-        let weight = Double(weightText).map { $0 / 10.0 }
-        let bodyFat = Double(bodyFatText).map { $0 / 10.0 }
-
-        // Build domain and persist
-        let domain = CalendarEntry(
-            id: existing?.id,
-            userId: id64,
-            date: CalendarEntry.date(from: CalendarEntry.dbString(from: date)) ?? date,
-            weight: weight,
-            bodyFat: bodyFat,
-            progressPhoto: localPhotoPath,
-            createdAt: existing?.createdAt ?? Date(),
-            updatedAt: Date(),
-            deletedAt: existing?.deletedAt
-        )
-
-        do {
-            try repository.upsert(domain)
-            onSaved(true)
-        } catch {
-            print("[DailyCheckinSheet] save error: \(error)")
-        }
-    }
-}
-
-struct WorkoutQuickActionsPopover: View {
-    @EnvironmentObject var authCoordinator: AuthCoordinator
-    var themeManager: ThemeManager
-    let workoutRow: CalendarWorkoutRepository.ScheduledWorkoutRow?
-    let exercises: [String]
-    let canEnterSession: Bool
-    let error: String?
-    let onEnterSession: () -> Void
-    let onDelete: () -> Void
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let row = workoutRow {
-                Text(row.workoutName)
-                    .font(.headline)
-                    .foregroundColor(themeManager.currentTheme.textDefault)
-                if let err = error {
-                    Text(err)
-                        .foregroundColor(themeManager.currentTheme.error)
-                        .font(.footnote)
-                } else if exercises.isEmpty {
-                    Text("No exercises found")
-                        .foregroundColor(themeManager.currentTheme.muted)
-                } else {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(exercises.prefix(12), id: \.self) { name in
-                            HStack {
-                                Circle().fill(themeManager.currentTheme.primary.opacity(0.2)).frame(width: 6, height: 6)
-                                Text(name)
-                                    .foregroundColor(themeManager.currentTheme.textDefault)
-                                    .font(.subheadline)
-                            }
-                        }
-                        if exercises.count > 12 {
-                            Text("+ \(exercises.count - 12) more")
-                                .font(.footnote)
-                                .foregroundColor(themeManager.currentTheme.muted)
-                        }
-                    }
-                }
-                if !canEnterSession {
-                    Text("This session will be available on the scheduled day.")
-                        .font(.footnote)
-                        .foregroundColor(themeManager.currentTheme.muted)
-                }
-                HStack {
-                    Button(role: .none) { onEnterSession() } label: {
-                        HStack { Image(systemName: "play.circle"); Text("Enter Session") }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(themeManager.currentTheme.primary)
-                    .disabled(!canEnterSession)
-                    .opacity(canEnterSession ? 1.0 : 0.5)
-                    Spacer()
-                    Button(role: .destructive) { onDelete() } label: {
-                        HStack { Image(systemName: "trash"); Text("Delete") }
-                    }
-                }
-            } else {
-                Text("No workout selected")
-                    .foregroundColor(themeManager.currentTheme.muted)
-            }
-        }
-        .padding()
-        .background(themeManager.currentTheme.surface)
     }
 }
 

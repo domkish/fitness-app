@@ -176,10 +176,7 @@ struct WeekCalendarView: View {
 
                                     self.selectedWorkoutDate = Calendar.current.startOfDay(for: date)
 
-                                    let workoutId = w.workoutId
-
-                                    // If we have cached exercises, present immediately; otherwise fetch before showing popover
-                                    if let cached = exerciseCache[workoutId], !cached.isEmpty {
+                                    if let cached = cachedExercises(for: w) {
                                         Task { @MainActor in
                                             self.selectedWorkoutRow = w
                                             self.selectedWorkoutExercises = cached
@@ -187,16 +184,16 @@ struct WeekCalendarView: View {
                                         }
                                         // Optionally refresh cache in background without affecting UI
                                         self.exerciseLoadTask = Task {
-                                            await loadExercisesForWorkout(workoutId: workoutId)
+                                            await loadExercisesForWorkout(row: w, on: date)
                                             await MainActor.run { self.exerciseLoadTask = nil }
                                         }
                                     } else {
                                         // No cache yet: fetch first, then present
                                         self.exerciseLoadTask = Task {
-                                            await loadExercisesForWorkout(workoutId: workoutId)
+                                            await loadExercisesForWorkout(row: w, on: date)
                                             await MainActor.run {
                                                 self.selectedWorkoutRow = w
-                                                self.selectedWorkoutExercises = self.exerciseCache[workoutId] ?? []
+                                                self.selectedWorkoutExercises = cachedExercises(for: w) ?? []
                                                 self.showingWorkoutPopover = true
                                                 self.exerciseLoadTask = nil
                                             }
@@ -419,35 +416,61 @@ struct WeekCalendarView: View {
         }
     }
 
-    private func loadExercisesForWorkout(workoutId: Int64) async {
-        await MainActor.run {
-            self.exerciseLoadError = nil
-        }
-        print("[WeekCalendarView] loadExercisesForWorkout start id=\(workoutId)")
+    private func loadExercisesForWorkout(row: CalendarWorkoutRepository.ScheduledWorkoutRow, on date: Date) async {
+        await MainActor.run { self.exerciseLoadError = nil }
+        let day = Calendar.current.startOfDay(for: date)
         do {
             try Task.checkCancellation()
-            let grouped = try workoutRepo.fetchExercisesByBlock(forWorkoutId: workoutId)
-            try Task.checkCancellation()
-            let orderedBlockIds = grouped.keys.sorted()
-            var names: [String] = []
-            for bid in orderedBlockIds {
-                let rows = grouped[bid] ?? []
-                for r in rows { names.append(r.name) }
-            }
-            try Task.checkCancellation()
-            print("[WeekCalendarView] loadExercisesForWorkout fetched names=\(names.count)")
-            await MainActor.run {
-                self.exerciseCache[workoutId] = names
-                self.selectedWorkoutExercises = names
-                self.lastLoadedWorkoutId = workoutId
+            let sessionRepo = SessionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+            if let existingSession = try sessionRepo.find(calendarWorkoutId: row.id, startedAt: day) {
+                // Load from session_exercises
+                let blockRepo = SessionBlockRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+                let exRepo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+                let blocks = try blockRepo.bySession(existingSession.id ?? -1)
+                var names: [String] = []
+                for b in blocks.sorted(by: { ($0.id ?? 0) < ($1.id ?? 0) }) {
+                    let ses = try exRepo.bySessionBlock(b.id ?? -1)
+                    for e in ses.sorted(by: { (lhs, rhs) in
+                        (lhs.order) ?? Int.max < (rhs.order) ?? Int.max
+                    }) {
+                        names.append(e.exerciseName)
+                    }
+                }
+                try Task.checkCancellation()
+                await MainActor.run {
+                    // cache by calendar workout id + date preference
+                    self.exerciseCache[row.id] = names
+                    self.selectedWorkoutExercises = names
+                    self.lastLoadedWorkoutId = row.workoutId
+                }
+            } else {
+                // Fall back to workout definition
+                let grouped = try workoutRepo.fetchExercisesByBlock(forWorkoutId: row.workoutId)
+                try Task.checkCancellation()
+                let orderedBlockIds = grouped.keys.sorted()
+                var names: [String] = []
+                for bid in orderedBlockIds {
+                    let rows = grouped[bid] ?? []
+                    for r in rows { names.append(r.name) }
+                }
+                try Task.checkCancellation()
+                await MainActor.run {
+                    self.exerciseCache[row.workoutId] = names
+                    self.selectedWorkoutExercises = names
+                    self.lastLoadedWorkoutId = row.workoutId
+                }
             }
         } catch is CancellationError {
-            print("[WeekCalendarView] loadExercisesForWorkout cancelled")
+            // ignore
         } catch {
-            print("[WeekCalendarView] loadExercisesForWorkout error: \(error)")
             await MainActor.run { self.exerciseLoadError = error.localizedDescription }
         }
-        print("[WeekCalendarView] loadExercisesForWorkout end id=\(workoutId)")
+    }
+
+    private func cachedExercises(for row: CalendarWorkoutRepository.ScheduledWorkoutRow) -> [String]? {
+        if let names = exerciseCache[row.id], !names.isEmpty { return names }
+        if let names = exerciseCache[row.workoutId], !names.isEmpty { return names }
+        return nil
     }
 
     @ViewBuilder
