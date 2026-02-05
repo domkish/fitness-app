@@ -1,125 +1,275 @@
 import Foundation
-import Combine
 import SwiftUI
+import Combine
 
 final class DashboardViewModel: ObservableObject {
+
     enum DateRangeSelection: Equatable {
         case lifetime
         case custom(Date, Date)
     }
 
-    @Published var dateSelection: DateRangeSelection = .lifetime
-    @Published var showingDatePicker: Bool = false
+    // MARK: - UI State
+
+    @Published var dateSelection: DateRangeSelection = .custom(Calendar.current.date(byAdding: .day, value: -12, to: Date())!.startOfDay, Calendar.current.date(byAdding: .day, value: 1, to: Date())!.endOfDay)
+    @Published var showingDatePicker = false
 
     @Published var totalWeightLbs: Double = 0
     @Published var totalDistanceMiles: Double = 0
     @Published var totalDurationSec: Double = 0
     @Published var averageWorkoutsPerWeek: Double = 0
 
+    @Published var completedExercises: [ExerciseOption] = []
+    @Published var selectedExerciseId: Int64? = nil
+    @Published var prPoints: [SetsChartView.SetChartPoint] = []
+    @Published var isLoadingExerciseLog = false
+    @Published var exerciseLogError: String? = nil
+
+    // MARK: - Dependencies
+
     private let sessionRepository: SessionRepository
     private(set) var userId: Int64
 
-    init(sessionRepository: SessionRepository, userId: Int64) {
+    // User creation date provider
+    private let userCreatedAtProvider: () -> Date?
+    private let isImperialProvider: () -> Bool
+
+    init(sessionRepository: SessionRepository, userId: Int64, userCreatedAtProvider: @escaping () -> Date? = { nil }, isImperialProvider: @escaping () -> Bool = { true }) {
         self.sessionRepository = sessionRepository
         self.userId = userId
+        self.userCreatedAtProvider = userCreatedAtProvider
+        self.isImperialProvider = isImperialProvider
+    }
+
+    struct ExerciseOption: Identifiable, Hashable {
+        let id: Int64
+        let name: String
+    }
+
+    // MARK: - Date Helpers
+
+    private func resolvedDateRange() throws -> (start: Date?, end: Date?) {
+        switch dateSelection {
+        case .lifetime:
+            // Default window: today - 12 days to today + 1 day
+            let now = Date()
+            let start = Calendar.current.date(byAdding: .day, value: -12, to: now)?.startOfDay
+            let end = Calendar.current.date(byAdding: .day, value: 1, to: now)?.endOfDay
+            return (start, end)
+        case let .custom(start, end):
+            return (start.startOfDay, end.endOfDay)
+        }
     }
 
     var dateRangeLabel: String {
         switch dateSelection {
         case .lifetime:
-            return "Lifetime"
+            let now = Date()
+            let start = Calendar.current.date(byAdding: .day, value: -12, to: now) ?? now
+            let end = Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now
+            let f = DateFormatter()
+            f.dateFormat = "MMM d, yyyy"
+            return "\(f.string(from: start)) – \(f.string(from: end))"
         case let .custom(start, end):
-            let formatter = DateFormatter()
-            formatter.dateFormat = "MMM d, yyyy"
-            return "\(formatter.string(from: start)) – \(formatter.string(from: end))"
+            let f = DateFormatter()
+            f.dateFormat = "MMM d, yyyy"
+            return "\(f.string(from: start)) – \(f.string(from: end))"
         }
     }
+
+    // MARK: - Dashboard Aggregates
 
     @MainActor
     func loadDashboardData() async {
         do {
-            let range: (Date?, Date?)
-            switch dateSelection {
-            case .lifetime:
-                let earliest = try sessionRepository.earliestCompletedSessionDate(userId: userId)
-                let start = earliest?.startOfDay
-                let end = Date().endOfDay
-                range = (start, end)
-            case let .custom(start, end):
-                range = (start.startOfDay, end.endOfDay)
-            }
-            let result = try sessionRepository.loadAggregates(userId: userId, start: range.0, end: range.1)
-            self.totalWeightLbs = result.weightLbs
-            self.totalDistanceMiles = result.distanceMiles
-            self.totalDurationSec = result.durationSec
+            let range = try resolvedDateRange()
 
-            // Compute average workouts per week based on selected date range
-            let startDate: Date = range.0 ?? Date()
-            let endDate: Date = range.1 ?? Date()
+            let agg = try sessionRepository.loadAggregates(
+                userId: userId,
+                start: range.start,
+                end: range.end
+            )
 
-            let days = max(1, Calendar.current.dateComponents([.day], from: startDate, to: endDate).day ?? 1)
-            let weeks = max(1.0, Double(days) / 7.0)
-            // If SessionRepository supports session counts in aggregates, replace 0 below with that value.
-            let completedWorkouts = try sessionRepository.countCompletedSessions(userId: userId, start: range.0, end: range.1)
-            self.averageWorkoutsPerWeek = weeks > 0 ? Double(completedWorkouts) / weeks : 0
+            totalWeightLbs = agg.weightLbs
+            totalDistanceMiles = agg.distanceMiles
+            totalDurationSec = agg.durationSec
+
+            let completed = try sessionRepository.countCompletedSessions(
+                userId: userId,
+                start: range.start,
+                end: range.end
+            )
+
+            let days = max(
+                1,
+                Calendar.current.dateComponents(
+                    [.day],
+                    from: range.start ?? Date(),
+                    to: range.end ?? Date()
+                ).day ?? 1
+            )
+
+            averageWorkoutsPerWeek = Double(completed) / max(1, Double(days) / 7)
 
         } catch {
-            print("[Dashboard] Failed to load aggregates:", error)
-            self.totalWeightLbs = 0
-            self.totalDistanceMiles = 0
-            self.totalDurationSec = 0
-            self.averageWorkoutsPerWeek = 0
+            totalWeightLbs = 0
+            totalDistanceMiles = 0
+            totalDurationSec = 0
+            averageWorkoutsPerWeek = 0
         }
     }
 
-    func formattedWeight(isImperial: Bool) -> (value: String, unit: String) {
-        if isImperial {
-            let val = totalWeightLbs
-            return (val >= 100 ? String(format: "%.0f", val) : String(format: "%.1f", val), "lbs")
-        } else {
-            let kg = totalWeightLbs / 2.2046226218
-            return (kg >= 100 ? String(format: "%.0f", kg) : String(format: "%.1f", kg), "kg")
+    // MARK: - Exercise Log
+
+    @MainActor
+    func loadExerciseLog() async {
+        isLoadingExerciseLog = true
+        exerciseLogError = nil
+
+        do {
+            let range = try resolvedDateRange()
+
+            let exercises = try sessionRepository.fetchCompletedExercises(
+                userId: userId,
+                start: range.start,
+                end: range.end
+            )
+
+            completedExercises = exercises.map {
+                ExerciseOption(id: $0.id, name: $0.name)
+            }
+
+            if selectedExerciseId == nil {
+                selectedExerciseId = completedExercises.first?.id
+            }
+
+            if let id = selectedExerciseId {
+                await loadPRPoints(for: id)
+            } else {
+                prPoints = []
+            }
+
+        } catch {
+            exerciseLogError = error.localizedDescription
+            completedExercises = []
+            prPoints = []
         }
+
+        isLoadingExerciseLog = false
+    }
+
+    @MainActor
+    func loadPRPoints(for exerciseId: Int64) async {
+        do {
+            let range = try resolvedDateRange()
+
+            let points = try sessionRepository.fetchPRPoints(
+                userId: userId,
+                exerciseId: exerciseId,
+                start: range.start,
+                end: range.end
+            )
+
+            let imperial = isImperialProvider()
+            let normalized = points.map { p -> (date: Date, value: Double, reps: Int, unit: String) in
+                let unitLower = p.unit.lowercased()
+                if ["lbs", "kg"].contains(unitLower) {
+                    if imperial {
+                        // to lbs
+                        let v = unitLower == "kg" ? (p.value * 2.2046226218) : p.value
+                        return (p.date, v, p.reps, "lbs")
+                    } else {
+                        // to kg
+                        let v = unitLower == "lbs" ? (p.value / 2.2046226218) : p.value
+                        return (p.date, v, p.reps, "kg")
+                    }
+                }
+                if ["mi", "yd", "km", "m"].contains(unitLower) {
+                    if imperial {
+                        // to miles
+                        let miles: Double
+                        switch unitLower {
+                        case "mi": miles = p.value
+                        case "yd": miles = p.value / 1760.0
+                        case "km": miles = p.value / 1.609344
+                        case "m":  miles = p.value / 1609.344
+                        default: miles = p.value
+                        }
+                        return (p.date, miles, p.reps, "mi")
+                    } else {
+                        // to kilometers
+                        let km: Double
+                        switch unitLower {
+                        case "mi": km = p.value * 1.609344
+                        case "yd": km = (p.value / 1760.0) * 1.609344
+                        case "km": km = p.value
+                        case "m":  km = p.value / 1000.0
+                        default: km = p.value
+                        }
+                        return (p.date, km, p.reps, "km")
+                    }
+                }
+                // default: return unchanged
+                return (p.date, p.value, p.reps, p.unit)
+            }
+
+            prPoints = normalized.enumerated().map { idx, p in
+                SetsChartView.SetChartPoint(
+                    date: p.date,
+                    setIndex: idx,
+                    value: p.value,
+                    reps: p.reps,
+                    unit: p.unit,
+                    isPrevious: false
+                )
+            }
+
+        } catch {
+            prPoints = []
+        }
+    }
+
+    func updateUser(id: Int64) {
+        userId = id
+    }
+
+    // MARK: - Formatting
+
+    func formattedWeight(isImperial: Bool) -> (value: String, unit: String) {
+        let val = isImperial ? totalWeightLbs : totalWeightLbs / 2.2046226218
+        return (String(format: "%.1f", val), isImperial ? "lbs" : "kg")
     }
 
     func formattedDistance(isImperial: Bool) -> (value: String, unit: String) {
-        if isImperial {
-            let val = totalDistanceMiles
-            return (val >= 100 ? String(format: "%.0f", val) : String(format: "%.1f", val), "mi")
-        } else {
-            let km = totalDistanceMiles * 1.609344
-            return (km >= 100 ? String(format: "%.0f", km) : String(format: "%.1f", km), "km")
-        }
+        let val = isImperial ? totalDistanceMiles : totalDistanceMiles * 1.609344
+        return (String(format: "%.1f", val), isImperial ? "mi" : "km")
     }
 
     func formattedDuration() -> String {
-        let totalSeconds = Int(totalDurationSec)
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-        var components: [String] = []
-        if hours > 0 { components.append("\(hours)h") }
-        if minutes > 0 { components.append("\(minutes)m") }
-        if seconds > 0 || components.isEmpty { components.append("\(seconds)s") }
-        return components.joined(separator: " ")
-    }
-    
-    func updateUser(id: Int64) {
-        self.userId = id
+        let s = Int(totalDurationSec)
+        return "\(s / 3600)h \((s % 3600) / 60)m"
     }
 
     func formattedWorkoutFrequency() -> (value: String, unit: String) {
-        let val = averageWorkoutsPerWeek
-        let valueStr = val >= 100 ? String(format: "%.0f", val) : String(format: "%.1f", val)
-        return (valueStr, "/wk")
+        (String(format: "%.1f", averageWorkoutsPerWeek), "/wk")
+    }
+    
+    var prDateDomain: ClosedRange<Date>? {
+        do {
+            let range = try resolvedDateRange()
+            if let start = range.start, let end = range.end { return start...end }
+        } catch { }
+        let dates = prPoints.compactMap { $0.date }
+        if let minD = dates.min(), let maxD = dates.max() { return minD.startOfDay...maxD.endOfDay }
+        return nil
     }
 }
 
-private extension Date {
+extension Date {
     var startOfDay: Date { Calendar.current.startOfDay(for: self) }
     var endOfDay: Date {
-        let start = startOfDay
-        return Calendar.current.date(byAdding: DateComponents(day: 1, second: -1), to: start) ?? self
+        Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)?
+            .addingTimeInterval(-1) ?? self
     }
 }
 

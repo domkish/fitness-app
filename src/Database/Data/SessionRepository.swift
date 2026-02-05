@@ -367,5 +367,153 @@ struct SessionRepository {
             return try Date.fetchOne(db, sql: sql, arguments: [userId])
         }
     }
+    
+    /// Returns the latest completed_at date for the given user, or nil if none.
+    func latestCompletedSessionDate(userId: Int64) throws -> Date? {
+        try dbQueue.read { db in
+            let sql = """
+                SELECT MAX(completed_at)
+                FROM sessions
+                WHERE deleted_at IS NULL
+                  AND user_id = ?
+                  AND completed_at IS NOT NULL
+            """
+            return try Date.fetchOne(db, sql: sql, arguments: [userId])
+        }
+    }
+}
+
+extension SessionRepository {
+
+    struct ExerciseLogOption {
+        let id: Int64
+        let name: String
+    }
+
+    struct PRSetPoint {
+        let date: Date
+        let value: Double
+        let reps: Int
+        let unit: String
+    }
+
+    func fetchCompletedExercises(
+        userId: Int64,
+        start: Date?,
+        end: Date?
+    ) throws -> [ExerciseLogOption] {
+
+        try dbQueue.read { db in
+            var sql = """
+                SELECT DISTINCT se.exercise_id AS id, se.exercise_name AS name
+                FROM session_exercises se
+                JOIN session_blocks sb ON sb.id = se.session_block_id AND sb.deleted_at IS NULL
+                JOIN sessions s ON s.id = sb.session_id AND s.deleted_at IS NULL
+                JOIN session_sets ss ON ss.session_exercise_id = se.id
+                    AND ss.deleted_at IS NULL
+                    AND ss.completed = 1
+                WHERE se.deleted_at IS NULL
+                  AND se.completed = 1
+                  AND s.user_id = ?
+            """
+
+            var args = StatementArguments([userId])
+
+            if let start {
+                sql += " AND COALESCE(s.completed_at, s.created_at) >= ?"
+                args += [start]
+            }
+            if let end {
+                sql += " AND COALESCE(s.completed_at, s.created_at) <= ?"
+                args += [end]
+            }
+
+            sql += " ORDER BY name COLLATE NOCASE ASC"
+
+            struct Row: FetchableRecord, Decodable {
+                let id: Int64
+                let name: String
+            }
+
+            return try Row.fetchAll(db, sql: sql, arguments: args)
+                .map { ExerciseLogOption(id: $0.id, name: $0.name) }
+        }
+    }
+
+    func fetchPRPoints(
+        userId: Int64,
+        exerciseId: Int64,
+        start: Date?,
+        end: Date?
+    ) throws -> [PRSetPoint] {
+
+        try dbQueue.read { db in
+            var sql = """
+                SELECT
+                    s.id AS sessionId,
+                    COALESCE(s.completed_at, s.created_at) AS sessionDate,
+                    ss.set_number AS setIndex,
+                    COALESCE(ss.value, 0) AS value,
+                    COALESCE(ss.completed_reps, 0) AS reps,
+                    COALESCE(ss.unit, se.unit) AS unit
+                FROM session_sets ss
+                JOIN session_exercises se ON se.id = ss.session_exercise_id
+                    AND se.deleted_at IS NULL
+                    AND se.completed = 1
+                JOIN session_blocks sb ON sb.id = se.session_block_id
+                    AND sb.deleted_at IS NULL
+                JOIN sessions s ON s.id = sb.session_id
+                    AND s.deleted_at IS NULL
+                WHERE ss.deleted_at IS NULL
+                  AND ss.completed = 1
+                  AND s.user_id = ?
+                  AND se.exercise_id = ?
+            """
+
+            var args = StatementArguments([userId, exerciseId])
+
+            if let start {
+                sql += " AND COALESCE(s.completed_at, s.created_at) >= ?"
+                args += [start]
+            }
+            if let end {
+                sql += " AND COALESCE(s.completed_at, s.created_at) <= ?"
+                args += [end]
+            }
+
+            struct Row: FetchableRecord, Decodable {
+                let sessionId: Int64
+                let sessionDate: Date
+                let setIndex: Int
+                let value: Double
+                let reps: Int
+                let unit: String?
+            }
+
+            let rows = try Row.fetchAll(db, sql: sql, arguments: args)
+
+            var best: [Int64: PRSetPoint] = [:]
+
+            for r in rows {
+                let candidate = PRSetPoint(
+                    date: r.sessionDate,
+                    value: r.value,
+                    reps: r.reps,
+                    unit: r.unit ?? ""
+                )
+
+                if let existing = best[r.sessionId] {
+                    if candidate.value > existing.value ||
+                        (candidate.value == existing.value && candidate.reps > existing.reps) {
+                        best[r.sessionId] = candidate
+                    }
+                } else {
+                    best[r.sessionId] = candidate
+                }
+            }
+
+            return best.values.sorted { $0.date < $1.date }
+        }
+    }
 }
 

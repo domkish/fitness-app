@@ -78,6 +78,7 @@ struct SummaryExerciseView: View {
             if let value = item.value {
                 points.append(
                     SetsChartView.SetChartPoint(
+                        date: nil,
                         setIndex: index + 1,
                         value: value,
                         reps: item.reps,
@@ -91,6 +92,7 @@ struct SummaryExerciseView: View {
             if let prev = item.previousSet, let prevValue = prev.value {
                 points.append(
                     SetsChartView.SetChartPoint(
+                        date: nil,
                         setIndex: index + 1,
                         value: prevValue,
                         reps: prev.completedReps ?? 0,

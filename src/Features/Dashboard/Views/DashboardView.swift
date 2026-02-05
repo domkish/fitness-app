@@ -4,10 +4,11 @@
 //
 //  Created by Dominic Kish on 1/25/26.
 //
+
 import SwiftUI
-import Combine
-import GRDB
 import Charts
+
+// MARK: - DashboardView
 
 struct DashboardView: View {
     @ObservedObject var coordinator: AppShellCoordinator
@@ -15,427 +16,280 @@ struct DashboardView: View {
     @EnvironmentObject var themeManager: ThemeManager
 
     @StateObject var viewModel: DashboardViewModel
-    
-    @State private var completedExercises: [ExerciseOption] = []
-    @State private var selectedExerciseId: Int64? = nil
-    @State private var prPoints: [SetsChartView.SetChartPoint] = []
-    @State private var isLoadingExerciseLog = false
-    @State private var exerciseLogError: String? = nil
 
-    init(coordinator: AppShellCoordinator, userId: Int64? = nil, viewModel: DashboardViewModel? = nil) {
+    init(
+        coordinator: AppShellCoordinator,
+        userId: Int64? = nil,
+        viewModel: DashboardViewModel? = nil
+    ) {
         self.coordinator = coordinator
+
         if let vm = viewModel {
             _viewModel = StateObject(wrappedValue: vm)
         } else {
             let uid = userId ?? 0
             let repo = SessionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
-            _viewModel = StateObject(wrappedValue: DashboardViewModel(sessionRepository: repo, userId: uid))
+            _viewModel = StateObject(
+                wrappedValue: DashboardViewModel(
+                    sessionRepository: repo,
+                    userId: uid,
+                    userCreatedAtProvider: { AuthCoordinatorProvider.currentUserCreatedAt }
+                )
+            )
         }
     }
-    
-    private struct ExerciseOption: Identifiable, Hashable {
-        let id: Int64
-        let name: String
+
+    private struct AuthCoordinatorProvider {
+        static var instance: AuthCoordinator?
+        static var currentUserCreatedAt: Date? { instance?.currentUser?.createdAt }
     }
 
-    private var currentUserName: String { authCoordinator.currentUser?.name ?? "" }
-    private var isImperial: Bool { authCoordinator.currentUser?.isImperial ?? true }
-
-    private var currentDateRange: (start: Date, end: Date)? {
-        switch viewModel.dateSelection {
-        case .lifetime:
-            return nil
-        case let .custom(start, end):
-            return (start, end)
-        }
+    private var currentUserName: String {
+        authCoordinator.currentUser?.name ?? ""
     }
-    
-    // MARK: - Loading Exercise Log
-    
-    private func loadExerciseLog() async {
-        await MainActor.run {
-            isLoadingExerciseLog = true
-            exerciseLogError = nil
-        }
 
-        guard let userId = authCoordinator.currentUser?.id else {
-            await MainActor.run {
-                isLoadingExerciseLog = false
-                completedExercises = []
-                selectedExerciseId = nil
-                prPoints = []
-            }
-            return
-        }
-
-        let id64 = Int64(userId)
-        let range = currentDateRange
-        let dbQueue = DatabaseQueueProvider.shared.dbQueue
-        let exRepo = SessionExerciseRepository(dbQueue: dbQueue)
-        let blockRepo = SessionBlockRepository(dbQueue: dbQueue)
-
-        // Build unique completed exercises within date window for this user
-         do {
-            let exercises: [ExerciseOption] = try await withCheckedThrowingContinuation { cont in
-                dbQueue.asyncRead { dbResult in
-                    do {
-                        let db = try dbResult.get()
-                        // SQL: distinct exercise id+name for completed exercises with at least one completed set, scoped to user and date window
-                        var sql = """
-                            SELECT DISTINCT se.exercise_id AS id, se.exercise_name AS name
-                            FROM session_exercises se
-                            JOIN session_blocks sb ON sb.id = se.session_block_id AND sb.deleted_at IS NULL
-                            JOIN sessions s ON s.id = sb.session_id AND s.deleted_at IS NULL
-                            JOIN session_sets ss ON ss.session_exercise_id = se.id AND ss.deleted_at IS NULL AND ss.completed = 1
-                            WHERE se.deleted_at IS NULL
-                              AND se.completed = 1
-                              AND s.user_id = ?
-                        """
-                        var args = StatementArguments()
-                        args += [id64]
-                        if let start = range?.start {
-                            sql += " AND (COALESCE(s.completed_at, s.created_at) >= ?)"
-                            args += [start]
-                        }
-                        if let end = range?.end {
-                            sql += " AND (COALESCE(s.completed_at, s.created_at) <= ?)"
-                            args += [end]
-                        }
-                        sql += " ORDER BY name COLLATE NOCASE ASC"
-                        struct RowMap: FetchableRecord, Decodable { let id: Int64; let name: String }
-                        let rows = try RowMap.fetchAll(db, sql: sql, arguments: args)
-                        let opts = rows.map { ExerciseOption(id: $0.id, name: $0.name) }
-                        cont.resume(returning: opts)
-                    } catch {
-                        cont.resume(throwing: error)
-                    }
-                }
-            }
-
-            await MainActor.run {
-                self.completedExercises = exercises
-                // Prefer user's stored log if it matches an available exercise; else fallback to first
-                if let storedLog = authCoordinator.currentUser?.log,
-                   let match = exercises.first(where: { Int($0.id) == storedLog }) {
-                    self.selectedExerciseId = match.id
-                } else {
-                    self.selectedExerciseId = exercises.first?.id
-                }
-            }
-
-            if let sel = await MainActor.run(body: { self.selectedExerciseId }) {
-                await buildPRPoints(for: sel)
-            } else {
-                await MainActor.run { prPoints = [] }
-            }
-
-            await MainActor.run { isLoadingExerciseLog = false }
-         } catch {
-            await MainActor.run {
-                exerciseLogError = "Failed to load exercise log.\n\(error.localizedDescription)"
-                isLoadingExerciseLog = false
-                completedExercises = []
-                selectedExerciseId = nil
-                prPoints = []
-            }
-         }
-    }
-    
-    private func buildPRPoints(for exerciseId: Int64) async {
-        let range = currentDateRange
-        let dbQueue = DatabaseQueueProvider.shared.dbQueue
-
-        // For now, compute a simple series of points per set ordered by created_at for the selected exercise across the date window.
-         do {
-            let points: [SetsChartView.SetChartPoint] = try await withCheckedThrowingContinuation { cont in
-                dbQueue.asyncRead { dbResult in
-                    do {
-                        let db = try dbResult.get()
-                        // Fetch completed sets for the given exerciseId across sessions in window
-                        var sql = """
-                            SELECT ss.set_number AS setIndex,
-                                   COALESCE(ss.value, 0) AS value,
-                                   COALESCE(ss.completed_reps, 0) AS reps,
-                                   COALESCE(ss.unit, se.unit) AS unit,
-                                   ss.created_at AS createdAt
-                            FROM session_sets ss
-                            JOIN session_exercises se ON se.id = ss.session_exercise_id AND se.deleted_at IS NULL AND se.completed = 1
-                            JOIN session_blocks sb ON sb.id = se.session_block_id AND sb.deleted_at IS NULL
-                            JOIN sessions s ON s.id = sb.session_id AND s.deleted_at IS NULL
-                            WHERE ss.deleted_at IS NULL
-                              AND ss.completed = 1
-                              AND se.exercise_id = ?
-                        """
-                        var args = StatementArguments()
-                        args += [exerciseId]
-                        if let start = range?.start {
-                            sql += " AND (COALESCE(s.completed_at, s.created_at) >= ?)"
-                            args += [start]
-                        }
-                        if let end = range?.end {
-                            sql += " AND (COALESCE(s.completed_at, s.created_at) <= ?)"
-                            args += [end]
-                        }
-                        sql += " ORDER BY createdAt ASC, setIndex ASC"
-                        struct RowMap: FetchableRecord, Decodable { let setIndex: Int; let value: Double?; let reps: Int?; let unit: String? }
-                        let rows = try RowMap.fetchAll(db, sql: sql, arguments: args)
-                        let pts = rows.enumerated().map { idx, r in
-                            SetsChartView.SetChartPoint(setIndex: idx, value: r.value ?? 0, reps: r.reps ?? 0, unit: r.unit ?? "", isPrevious: false)
-                        }
-                        cont.resume(returning: pts)
-                    } catch {
-                        cont.resume(throwing: error)
-                    }
-                }
-            }
-            await MainActor.run { self.prPoints = points }
-         } catch {
-            await MainActor.run { self.prPoints = [] }
-         }
+    private var isImperial: Bool {
+        authCoordinator.currentUser?.isImperial ?? true
     }
 
     var body: some View {
         ZStack {
             themeManager.currentTheme.background.ignoresSafeArea()
+
             ScrollView {
-                VStack(alignment: .trailing, spacing: 16) {
+                VStack(spacing: 16) {
+
                     Text("Welcome back, \(currentUserName)")
                         .bold()
                         .foregroundStyle(themeManager.currentTheme.textDefault)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.horizontal)
-                        .padding(.top, 4)
+
+                    dateRangeButton
+                    metricTiles
+                    exerciseLogSection
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                VStack(alignment: .center, spacing: 16) {
-                    Button {
-                        viewModel.showingDatePicker = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text(viewModel.dateRangeLabel)
-                                .fontWeight(.semibold)
-                            Image(systemName: "chevron.down")
-                                .font(.footnote.weight(.semibold))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .foregroundColor(themeManager.currentTheme.primary)
-                        .background(themeManager.currentTheme.primary.opacity(0.1))
-                        .cornerRadius(8)
-                    }
-                    .padding(.horizontal)
-                    .sheet(isPresented: $viewModel.showingDatePicker) {
-                        NavigationStack {
-                            DateRangePickerView(
-                                initialSelection: viewModel.dateSelection,
-                                onDone: { newSelection in
-                                    self.viewModel.dateSelection = newSelection
-                                    viewModel.showingDatePicker = false
-                                },
-                                onCancel: {
-                                    viewModel.showingDatePicker = false
-                                }
-                            )
-                        }
-                    }
-
-                    HStack(spacing: 16) {
-                        let weight = viewModel.formattedWeight(isImperial: isImperial)
-                        MetricTile(title: "Weight", icon: "scalemass", value: weight.value, unit: weight.unit)
-
-                        let distance = viewModel.formattedDistance(isImperial: isImperial)
-                        MetricTile(title: "Distance", icon: "figure.walk.motion", value: distance.value, unit: distance.unit)
-                    }
-                    .padding(.horizontal)
-                    
-                    HStack(spacing: 16) {
-                        let freq = viewModel.formattedWorkoutFrequency()
-                        MetricTile(title: "Avg Workouts", icon: "calendar", value: freq.value, unit: freq.unit)
-                        
-                        MetricTile(title: "Duration", icon: "clock", value: viewModel.formattedDuration(), unit: nil)
-                    }
-                    .padding(.horizontal)
-                    
-                    if !completedExercises.isEmpty {
-                        HStack(spacing: 16) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text("Exercise Log")
-                                        .font(.headline)
-                                        .foregroundStyle(themeManager.currentTheme.textDefault)
-                                    Spacer()
-                                    if isLoadingExerciseLog { ProgressView().tint(themeManager.currentTheme.primary) }
-                                }
-                                if let error = exerciseLogError {
-                                    Text(error)
-                                        .font(.caption)
-                                        .foregroundStyle(themeManager.currentTheme.error)
-                                }
-                                Picker("Exercise", selection: Binding<Int64?>(
-                                    get: { selectedExerciseId ?? completedExercises.first?.id },
-                                    set: { newValue in
-                                        selectedExerciseId = newValue
-                                        if let id = newValue {
-                                            // Persist selection to user->log
-                                            Task {
-                                                await buildPRPoints(for: id)
-                                                await MainActor.run {
-                                                    if var user = authCoordinator.currentUser {
-                                                        // Create a new User value with updated log
-                                                        let updated = User(
-                                                            id: user.id,
-                                                            name: user.name,
-                                                            email: user.email,
-                                                            isPremium: user.isPremium,
-                                                            isImperial: user.isImperial,
-                                                            weight: user.weight,
-                                                            fat: user.fat,
-                                                            log: Int(id),
-                                                            theme: user.theme,
-                                                            emailVerifiedAt: user.emailVerifiedAt,
-                                                            createdAt: user.createdAt,
-                                                            updatedAt: Date()
-                                                        )
-                                                        authCoordinator.currentUser = updated
-                                                        do { try authCoordinator.userRepository.createOrUpdate(updated) } catch { print("[DashboardView] Failed to persist user log:", error) }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                )) {
-                                    ForEach(completedExercises) { opt in
-                                        Text(opt.name).tag(Optional(opt.id))
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .tint(themeManager.currentTheme.primary)
-
-                                SetsChartView(points: prPoints)
-                                    .environmentObject(themeManager)
-                            }
-                            .frame(maxWidth: .infinity)
-                        }
-                        .padding(.horizontal)
-                    }
-                }
-                .padding(.vertical)
+                .padding()
             }
             .task {
+                AuthCoordinatorProvider.instance = authCoordinator
                 await viewModel.loadDashboardData()
-                await loadExerciseLog()
+                await viewModel.loadExerciseLog()
             }
             .onChange(of: viewModel.dateSelection) { _ in
                 Task {
                     await viewModel.loadDashboardData()
-                    await loadExerciseLog()
+                    await viewModel.loadExerciseLog()
                 }
             }
             .onReceive(authCoordinator.$currentUser) { user in
                 if let id = user?.id {
-                    Task { @MainActor in
-                        self.viewModel.updateUser(id: Int64(id))
-                        await self.viewModel.loadDashboardData()
-                        await self.loadExerciseLog()
+                    viewModel.updateUser(id: Int64(id))
+                    Task {
+                        await viewModel.loadDashboardData()
+                        await viewModel.loadExerciseLog()
                     }
                 }
             }
-                
         }
     }
 
-    struct MetricTile: View {
-        @EnvironmentObject var themeManager: ThemeManager
-        
-        let title: String
-        let icon: String
-        let value: String
-        let unit: String?
+    // MARK: - Subviews
 
-        var body: some View {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text(title)
-                        .font(.callout)
-                        .bold()
-                        .foregroundStyle(themeManager.currentTheme.textDefault)
-                        .lineLimit(1)
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Image(systemName: icon)
-                        .font(.callout)
-                        .foregroundStyle(themeManager.currentTheme.textDefault)
-                        .lineLimit(1)
-                    Text(value)
-                        .font(.callout)
-                        .foregroundStyle(themeManager.currentTheme.textDefault)
-                        .lineLimit(1)
-                    if let unit = unit {
-                        Text(unit)
-                            .font(.callout)
-                            .foregroundStyle(themeManager.currentTheme.textDefault)
-                            .lineLimit(1)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
+    private var dateRangeButton: some View {
+        Button {
+            viewModel.showingDatePicker = true
+        } label: {
+            HStack {
+                Text(viewModel.dateRangeLabel).fontWeight(.semibold)
+                Image(systemName: "chevron.down")
             }
+            .frame(maxWidth: .infinity)
             .padding()
-            .background(themeManager.currentTheme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .foregroundColor(themeManager.currentTheme.primary)
+            .background(themeManager.currentTheme.primary.opacity(0.1))
+            .cornerRadius(8)
+        }
+        .sheet(isPresented: $viewModel.showingDatePicker) {
+            NavigationStack {
+                DateRangePickerView(
+                    initialSelection: viewModel.dateSelection,
+                    onDone: {
+                        viewModel.dateSelection = $0
+                        viewModel.showingDatePicker = false
+                    },
+                    onCancel: { viewModel.showingDatePicker = false }
+                )
+            }
         }
     }
 
-    struct DateRangePickerView: View {
-        @Environment(\.dismiss) private var dismiss
+    private var metricTiles: some View {
+        VStack(spacing: 16) {
+            HStack {
+                let weight = viewModel.formattedWeight(isImperial: isImperial)
+                MetricTile(title: "Lifted", icon: "scalemass", value: weight.value, unit: weight.unit)
 
-        @State private var customStart: Date
-        @State private var customEnd: Date
+                let distance = viewModel.formattedDistance(isImperial: isImperial)
+                MetricTile(title: "Traveled", icon: "figure.walk.motion", value: distance.value, unit: distance.unit)
+            }
 
-        var initialSelection: DashboardViewModel.DateRangeSelection
-        var onDone: (DashboardViewModel.DateRangeSelection) -> Void
-        var onCancel: () -> Void
+            HStack {
+                MetricTile(title: "Duration", icon: "clock", value: viewModel.formattedDuration(), unit: nil)
 
-        init(initialSelection: DashboardViewModel.DateRangeSelection,
-             onDone: @escaping (DashboardViewModel.DateRangeSelection) -> Void,
-             onCancel: @escaping () -> Void)
-        {
-            self.initialSelection = initialSelection
-            self.onDone = onDone
-            self.onCancel = onCancel
-
-            switch initialSelection {
-            case .lifetime:
-                let now = Date()
-                _customEnd = State(initialValue: now)
-                _customStart = State(initialValue: Calendar.current.date(byAdding: .day, value: -30, to: now) ?? now)
-            case let .custom(start, end):
-                _customStart = State(initialValue: start)
-                _customEnd = State(initialValue: end)
+                let freq = viewModel.formattedWorkoutFrequency()
+                MetricTile(title: "Avg Workouts", icon: "calendar", value: freq.value, unit: freq.unit)
             }
         }
+    }
 
-        var body: some View {
-            Form {
-                Section {
-                    Button("Select Lifetime") {
-                        onDone(.lifetime)
-                        dismiss()
+    private var exerciseLogSection: some View {
+        Group {
+            if !viewModel.completedExercises.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+
+                    HStack {
+                        Text("Exercise Log")
+                            .font(.headline)
+                            .foregroundStyle(themeManager.currentTheme.textDefault)
+                        Spacer()
+                        if viewModel.isLoadingExerciseLog {
+                            ProgressView()
+                        }
                     }
-                }
 
-                Section("Custom Range") {
-                    DatePicker("Start Date", selection: $customStart, displayedComponents: [.date])
-                        .datePickerStyle(.graphical)
-                    DatePicker("End Date", selection: $customEnd, in: customStart..., displayedComponents: [.date])
-                        .datePickerStyle(.graphical)
+                    if let error = viewModel.exerciseLogError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(themeManager.currentTheme.error)
+                    }
+
+                    Picker("Exercise", selection: $viewModel.selectedExerciseId) {
+                        ForEach(viewModel.completedExercises) { opt in
+                            Text(opt.name).tag(Optional(opt.id))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: viewModel.selectedExerciseId) { id in
+                        guard let id else { return }
+                        Task { await viewModel.loadPRPoints(for: id) }
+                    }
+
+                    SetsChartView(points: viewModel.prPoints, xDomain: viewModel.prDateDomain)
+                        .environmentObject(themeManager)
                 }
+                .padding()
+                .background(themeManager.currentTheme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
             }
-            .navigationTitle("Select Date Range")
+        }
+    }
+}
+
+// MARK: - MetricTile
+
+struct MetricTile: View {
+    @EnvironmentObject var themeManager: ThemeManager
+
+    let title: String
+    let icon: String
+    let value: String
+    let unit: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.callout)
+                .bold()
+                .foregroundStyle(themeManager.currentTheme.textDefault)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Image(systemName: icon)
+                Text(value)
+                if let unit { Text(unit) }
+            }
+            .font(.callout)
+            .foregroundStyle(themeManager.currentTheme.textDefault)
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .padding(.vertical)
+        .background(themeManager.currentTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+// MARK: - DateRangePickerView
+
+struct DateRangePickerView: View {
+    @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var customStart: Date
+    @State private var customEnd: Date
+
+    @State private var customStartOptional: Date?
+    @State private var customEndOptional: Date?
+
+    let initialSelection: DashboardViewModel.DateRangeSelection
+    let onDone: (DashboardViewModel.DateRangeSelection) -> Void
+    let onCancel: () -> Void
+
+    init(
+        initialSelection: DashboardViewModel.DateRangeSelection,
+        onDone: @escaping (DashboardViewModel.DateRangeSelection) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.initialSelection = initialSelection
+        self.onDone = onDone
+        self.onCancel = onCancel
+
+        let now = Date()
+        let defaultStart = Calendar.current.date(byAdding: .day, value: -12, to: now) ?? now
+        let defaultEnd = Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now
+        switch initialSelection {
+        case .lifetime:
+            _customStart = State(initialValue: defaultStart)
+            _customEnd = State(initialValue: defaultEnd)
+        case let .custom(start, end):
+            _customStart = State(initialValue: start)
+            _customEnd = State(initialValue: end)
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            themeManager.currentTheme.background.ignoresSafeArea()
+            VStack(spacing: 16) {
+                HStack(){
+                    Text("Select Date Range")
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+                        .font(.largeTitle)
+                        .bold()
+                        .padding(.top, 16)
+                }
+                
+                Section("Custom Range") {
+                    DateRangeCalendarView(
+                        startDate: $customStartOptional,
+                        endDate: $customEndOptional,
+                        initialStart: customStart,
+                        initialEnd: customEnd
+                    )
+                }
+                .bold()
+                .background(themeManager.currentTheme.surface)
+                .foregroundColor(themeManager.currentTheme.textDefault)
+                .padding(.horizontal)
+                
+                Spacer()
+            }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
-                        onDone(.custom(customStart.startOfDay, customEnd.endOfDay))
+                        if let start = customStartOptional, let end = customEndOptional {
+                            onDone(.custom(start.startOfDay, end.endOfDay))
+                        }
                         dismiss()
                     }
                 }
@@ -446,26 +300,191 @@ struct DashboardView: View {
                     }
                 }
             }
+            .onAppear {
+                customStartOptional = customStart
+                customEndOptional = customEnd
+            }
         }
     }
 }
-private extension Date {
-    var startOfDay: Date {
-        Calendar.current.startOfDay(for: self)
+
+// MARK: - Custom Calendar View
+
+struct DateRangeCalendarView: View {
+    
+    @EnvironmentObject var themeManager: ThemeManager
+    @Binding var startDate: Date?
+    @Binding var endDate: Date?
+
+    var initialStart: Date
+    var initialEnd: Date
+
+    @State private var displayedMonth: Date
+    private let calendar = Calendar.current
+    private let haptic = UIImpactFeedbackGenerator(style: .light)
+
+    init(startDate: Binding<Date?>, endDate: Binding<Date?>, initialStart: Date, initialEnd: Date) {
+        self._startDate = startDate
+        self._endDate = endDate
+        self.initialStart = initialStart
+        self.initialEnd = initialEnd
+        _displayedMonth = State(initialValue: initialStart.startOfDay)
     }
-    var endOfDay: Date {
-        let start = startOfDay
-        return Calendar.current.date(byAdding: DateComponents(day: 1, second: -1), to: start) ?? self
+
+    var body: some View {
+        VStack(spacing: 12) {
+            header
+            
+            let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
+            
+            LazyVGrid(columns: columns, spacing: 8) {
+                ForEach(weekdays, id: \.self) {
+                    Text($0)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                ForEach(daysInMonth, id: \.self) { date in
+                    dayCell(for: date)
+                }.padding(0)
+            }
+        }
+        .padding(.vertical)
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        HStack {
+            Button {
+                displayedMonth = calendar.date(byAdding: .month, value: -1, to: displayedMonth)!
+            } label: {
+                Image(systemName: "chevron.left")
+            }
+
+            Spacer()
+
+            Text(displayedMonth, format: .dateTime.month().year())
+                .font(.headline)
+
+            Spacer()
+
+            Button {
+                displayedMonth = calendar.date(byAdding: .month, value: 1, to: displayedMonth)!
+            } label: {
+                Image(systemName: "chevron.right")
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    // MARK: - Day Cell
+
+    private func dayCell(for date: Date) -> some View {
+        let isStart = startDate.map { calendar.isDate(date, inSameDayAs: $0) } ?? false
+        let isEnd = endDate.map { calendar.isDate(date, inSameDayAs: $0) } ?? false
+        let inRange = isBetween(date)
+
+        return Text("\(calendar.component(.day, from: date))")
+            .frame(maxWidth: .infinity)
+            .frame(height: 36)
+            .background(
+                ZStack {
+                    if inRange {
+                        Rectangle().fill(themeManager.currentTheme.primary.opacity(0.25))
+                    }
+                    if isStart && isEnd {
+                        Capsule().fill(themeManager.currentTheme.primary)
+                    } else if isStart {
+                        Rectangle()
+                            .fill(themeManager.currentTheme.primary)
+                            .clipShape(RoundedCornersShape(corners: [.topLeft, .bottomLeft], radius: 18))
+                    } else if isEnd {
+                        Rectangle()
+                            .fill(themeManager.currentTheme.primary)
+                            .clipShape(RoundedCornersShape(corners: [.topRight, .bottomRight], radius: 18))
+                    }
+                }
+            )
+            .foregroundStyle(isStart || isEnd ? .white : .white)
+            .onTapGesture { handleTap(date) }
+    }
+
+
+    // MARK: - Selection Logic
+
+    private func handleTap(_ date: Date) {
+        haptic.impactOccurred()
+        if startDate == nil || (startDate != nil && endDate != nil) {
+            startDate = date
+            endDate = nil
+            displayedMonth = date.startOfDay
+        } else if let start = startDate, date < start {
+            startDate = date
+        } else {
+            endDate = date
+        }
+    }
+
+    private func isBetween(_ date: Date) -> Bool {
+        guard let start = startDate, let end = endDate else { return false }
+        return date > start && date < end
+    }
+
+    // MARK: - Date Math
+
+    private var daysInMonth: [Date] {
+        guard let monthInterval = calendar.dateInterval(of: .month, for: displayedMonth),
+              let firstWeek = calendar.dateInterval(of: .weekOfMonth, for: monthInterval.start)
+        else { return [] }
+
+        return calendar.generateDates(
+            inside: DateInterval(start: firstWeek.start, end: monthInterval.end),
+            matching: DateComponents(hour: 0)
+        )
+    }
+
+    private var weekdays: [String] {
+        calendar.shortWeekdaySymbols
     }
 }
 
-#Preview {
-    let coordinator = AppShellCoordinator()
-    let themeManager = ThemeManager()
-    let userRepo = UserRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
-    let authCoordinator = AuthCoordinator(authService: AuthService(userRepository: userRepo), userRepository: userRepo)
-    return DashboardView(coordinator: coordinator)
-        .environmentObject(authCoordinator)
-        .environmentObject(themeManager)
+// MARK: - Calendar Helper
+
+extension Calendar {
+    func generateDates(
+        inside interval: DateInterval,
+        matching components: DateComponents
+    ) -> [Date] {
+        var dates: [Date] = []
+        dates.append(interval.start)
+
+        enumerateDates(
+            startingAfter: interval.start,
+            matching: components,
+            matchingPolicy: .nextTime
+        ) { date, _, stop in
+            guard let date, date < interval.end else {
+                stop = true
+                return
+            }
+            dates.append(date)
+        }
+        return dates
+    }
+}
+
+struct RoundedCornersShape: Shape {
+    var corners: UIRectCorner
+    var radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: corners,
+            cornerRadii: CGSize(width: radius, height: radius)
+        )
+        return Path(path.cgPath)
+    }
 }
 

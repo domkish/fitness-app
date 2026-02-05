@@ -10,6 +10,12 @@ import Charts
 struct SetsChartView: View {
     @EnvironmentObject var themeManager: ThemeManager
     let points: [SetChartPoint]
+    let xDomain: ClosedRange<Date>?
+
+    init(points: [SetChartPoint], xDomain: ClosedRange<Date>? = nil) {
+        self.points = points
+        self.xDomain = xDomain
+    }
 
     @State private var selectedPointID: UUID?
     @State private var tooltipPosition: CGPoint = .zero
@@ -18,9 +24,6 @@ struct SetsChartView: View {
         ZStack {
             chartBody
             tooltipOverlay
-            sessionPROverlay
-                .padding(.trailing, 24)
-                .padding(.bottom, 20)
         }
         .frame(height: 220)
         .padding(.vertical, 8)
@@ -28,67 +31,116 @@ struct SetsChartView: View {
     }
 
     // MARK: - Chart content
+    @ViewBuilder
     private var chartBody: some View {
-        Chart(points) { point in
-            LineMark(
-                x: .value("Set", point.setIndex),
-                y: .value("Value", point.value)
-            )
-            .foregroundStyle(point.isPrevious ? themeManager.currentTheme.secondary : themeManager.currentTheme.primary)
-            .symbol(point.isPrevious ? .diamond : .circle)
-            .symbolSize(80)
-        }
-        // X-axis: 0 → total sets + 1
-        .chartXScale(domain: 0...(totalSets + 1))
-        .chartYScale(domain: yAxisRange)
-        .chartXAxis {
-            AxisMarks(values: Array(0...totalSets + 1)) { value in
-                AxisGridLine()
-                    .foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
-                AxisTick()
-                    .foregroundStyle(themeManager.currentTheme.textDefault)
-                AxisValueLabel()
-                    .foregroundStyle(themeManager.currentTheme.textDefault)
+        if let xDomain = xDomain {
+            Chart(points) { point in
+                LineMark(
+                    x: .value("Date", point.date ?? Date(timeIntervalSince1970: 0)),
+                    y: .value("Value", point.value)
+                )
+                .foregroundStyle(point.isPrevious ? themeManager.currentTheme.secondary : themeManager.currentTheme.primary)
+                .symbol(point.isPrevious ? .diamond : .circle)
+                .symbolSize(80)
             }
-        }
-        .chartYAxis {
-            AxisMarks(values: yAxisTicks) { value in
-                AxisGridLine()
-                    .foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
-                AxisTick()
-                    .foregroundStyle(themeManager.currentTheme.textDefault)
-                AxisValueLabel()
-                    .foregroundStyle(themeManager.currentTheme.textDefault)
+            .chartXScale(domain: xDomain)
+            .chartYScale(domain: yAxisRange)
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                    AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
+                    AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
+                    AxisValueLabel(format: .dateTime.month().day())
+                        .foregroundStyle(themeManager.currentTheme.textDefault)
+                }
             }
-        }
-        // MARK: - Tap overlay
-        .chartOverlay { proxy in
-            GeometryReader { geo in
-                Rectangle()
-                    .fill(Color.clear)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onEnded { value in
-                                let tapLocation = value.location
-                                
-                                if let xValue: Double = proxy.value(atX: tapLocation.x),
-                                   let yValue: Double = proxy.value(atY: tapLocation.y) {
-                                    
-                                    if let nearest = points.min(by: {
-                                        abs(Double($0.setIndex) - xValue) + abs($0.value - yValue) <
-                                        abs(Double($1.setIndex) - xValue) + abs($1.value - yValue)
-                                    }) {
-                                        selectedPointID = nearest.id
-                                        
-                                        if let nodeX = proxy.position(forX: nearest.setIndex),
-                                           let nodeY = proxy.position(forY: nearest.value) {
-                                            tooltipPosition = CGPoint(x: nodeX, y: nodeY)
+            .chartYAxis {
+                AxisMarks(values: yAxisTicks) { value in
+                    AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
+                    AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
+                    AxisValueLabel().foregroundStyle(themeManager.currentTheme.textDefault)
+                }
+            }
+            .chartOverlay { proxy in
+                GeometryReader { _ in
+                    Rectangle()
+                        .fill(Color.clear)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onEnded { value in
+                                    let tapLocation = value.location
+                                    if let xDate: Date = proxy.value(atX: tapLocation.x),
+                                       let yValue: Double = proxy.value(atY: tapLocation.y) {
+                                        if let nearest = points.min(by: {
+                                            let dx0 = ($0.date ?? .distantPast).timeIntervalSince1970
+                                            let dx1 = ($1.date ?? .distantPast).timeIntervalSince1970
+                                            let dt = abs(dx0 - xDate.timeIntervalSince1970)
+                                            let dv0 = abs($0.value - yValue)
+                                            let dv1 = abs($1.value - yValue)
+                                            return (dt + dv0) < (dt + dv1)
+                                        }) {
+                                            selectedPointID = nearest.id
+                                            if let nodeX = (nearest.date != nil ? proxy.position(forX: nearest.date!) : nil),
+                                               let nodeY = proxy.position(forY: nearest.value) {
+                                                tooltipPosition = CGPoint(x: nodeX, y: nodeY)
+                                            }
                                         }
                                     }
                                 }
-                            }
-                    )
+                        )
+                }
+            }
+        } else {
+            Chart(points) { point in
+                LineMark(
+                    x: .value("Set", point.setIndex),
+                    y: .value("Value", point.value)
+                )
+                .foregroundStyle(point.isPrevious ? themeManager.currentTheme.secondary : themeManager.currentTheme.primary)
+                .symbol(point.isPrevious ? .diamond : .circle)
+                .symbolSize(80)
+            }
+            .chartXScale(domain: 0...(totalSets + 1))
+            .chartYScale(domain: yAxisRange)
+            .chartXAxis {
+                AxisMarks(values: limitedIndexTicks) { value in
+                    AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
+                    AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
+                    AxisValueLabel().foregroundStyle(themeManager.currentTheme.textDefault)
+                }
+            }
+            .chartYAxis {
+                AxisMarks(values: yAxisTicks) { value in
+                    AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
+                    AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
+                    AxisValueLabel().foregroundStyle(themeManager.currentTheme.textDefault)
+                }
+            }
+            .chartOverlay { proxy in
+                GeometryReader { _ in
+                    Rectangle()
+                        .fill(Color.clear)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onEnded { value in
+                                    let tapLocation = value.location
+                                    if let xValue: Double = proxy.value(atX: tapLocation.x),
+                                       let yValue: Double = proxy.value(atY: tapLocation.y) {
+                                        if let nearest = points.min(by: {
+                                            abs(Double($0.setIndex) - xValue) + abs($0.value - yValue) <
+                                            abs(Double($1.setIndex) - xValue) + abs($1.value - yValue)
+                                        }) {
+                                            selectedPointID = nearest.id
+                                            if let nodeX = proxy.position(forX: nearest.setIndex),
+                                               let nodeY = proxy.position(forY: nearest.value) {
+                                                tooltipPosition = CGPoint(x: nodeX, y: nodeY)
+                                            }
+                                        }
+                                    }
+                                }
+                        )
+                }
             }
         }
     }
@@ -97,66 +149,27 @@ struct SetsChartView: View {
     @ViewBuilder
     private var tooltipOverlay: some View {
         if let selected = points.first(where: { $0.id == selectedPointID }) {
-            VStack(spacing: 4) {
-                Text("\(Int(selected.value)) \(selected.unit) x \(selected.reps) reps")
-                    .font(.caption)
-                    .padding(8)
-                    .background(themeManager.currentTheme.surface)
-                    .foregroundColor(themeManager.currentTheme.primary)
-                    .cornerRadius(8)
-                    .shadow(radius: 4)
-
-                Text(selected.isPrevious ? "Previous set" : "Current set")
-                    .font(.caption2)
-                    .foregroundColor(themeManager.currentTheme.secondary)
-            }
-            .position(x: tooltipPosition.x,
-                      y: tooltipPosition.y + 30)
-            .transition(.scale.combined(with: .opacity))
-            .onTapGesture {
-                selectedPointID = nil
-            }
+            let mainLine: String = (selected.reps == 1 ? "\(Int(selected.value)) \(selected.unit)" : "\(Int(selected.value)) \(selected.unit) x \(selected.reps) reps")
+            Text(mainLine)
+                .font(.caption)
+                .padding(8)
+                .background(themeManager.currentTheme.surface)
+                .foregroundColor(themeManager.currentTheme.primary)
+                .cornerRadius(8)
+                .shadow(radius: 4)
+                .position(x: tooltipPosition.x,
+                          y: tooltipPosition.y + 30)
+                .transition(.scale.combined(with: .opacity))
+                .onTapGesture {
+                    selectedPointID = nil
+                }
         }
     }
 
-    @ViewBuilder
-    private var sessionPROverlay: some View {
-        if let pr = sessionPR {
-            VStack(alignment: .center, spacing: 4) {
-                Text("Session PR")
-                    .font(.caption.bold())
-                    .foregroundColor(themeManager.currentTheme.primary)
-                    .padding(.horizontal)
-                Text("\(Int(pr.value)) \(pr.unit) x \(pr.reps) reps")
-                    .font(.caption2)
-                    .foregroundColor(themeManager.currentTheme.textDefault)
-                    .padding(.horizontal)
-            }
-            .padding(.vertical, 4)
-            .background(themeManager.currentTheme.surface)
-            .border(themeManager.currentTheme.borderDefault)
-            .cornerRadius(8)
-            .padding([.trailing, .bottom], 8)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-            .allowsHitTesting(false)
-            .transition(.opacity)
-        }
-    }
 
     // MARK: - Computed properties
     private var totalSets: Int {
         points.map { $0.setIndex }.max() ?? 0
-    }
-
-    private var sessionPR: SetChartPoint? {
-        guard !points.isEmpty else { return nil }
-        return points.sorted {
-            if $0.value != $1.value {
-                return $0.value > $1.value
-            } else {
-                return $0.reps > $1.reps
-            }
-        }.first
     }
 
     private var yAxisRange: ClosedRange<Double> {
@@ -218,9 +231,31 @@ struct SetsChartView: View {
         return ticks
     }
 
+    private var limitedIndexTicks: [Int] {
+        let maxTicks = 5
+        let lower = 0
+        let upper = totalSets + 1
+        let span = max(upper - lower, 0)
+        guard span > 0 else { return [lower] }
+        if span + 1 <= maxTicks { // already within limit when using every integer
+            return Array(lower...upper)
+        }
+        // Compute step to yield at most maxTicks marks, always at least 1
+        let step = max(1, Int(ceil(Double(span) / Double(maxTicks - 1))))
+        var ticks: [Int] = []
+        var v = lower
+        while v < upper {
+            ticks.append(v)
+            v += step
+        }
+        if ticks.last != upper { ticks.append(upper) }
+        return ticks
+    }
+
     // MARK: - Nested chart model
     struct SetChartPoint: Identifiable, Equatable {
         let id = UUID()
+        let date: Date?
         let setIndex: Int
         let value: Double
         let reps: Int
@@ -228,3 +263,4 @@ struct SetsChartView: View {
         let isPrevious: Bool
     }
 }
+
