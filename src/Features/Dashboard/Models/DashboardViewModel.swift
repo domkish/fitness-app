@@ -24,10 +24,14 @@ final class DashboardViewModel: ObservableObject {
     @Published var prPoints: [SetsChartView.SetChartPoint] = []
     @Published var isLoadingExerciseLog = false
     @Published var exerciseLogError: String? = nil
+    
+    @Published var weightSeries: [Date: Double] = [:]
+    @Published var bodyFatSeries: [Date: Double] = [:]
 
     // MARK: - Dependencies
 
     private let sessionRepository: SessionRepository
+    private let calendarEntryRepository = CalendarEntryRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
     private(set) var userId: Int64
 
     // User creation date provider
@@ -110,6 +114,23 @@ final class DashboardViewModel: ObservableObject {
             )
 
             averageWorkoutsPerWeek = Double(completed) / max(1, Double(days) / 7)
+            
+            if let start = range.start, let end = range.end {
+                let id = userId
+                let entries = try calendarEntryRepository.entries(in: start...end, userId: id)
+                var w: [Date: Double] = [:]
+                var bf: [Date: Double] = [:]
+                for e in entries {
+                    let day = CalendarEntry.date(from: e.date) ?? Date()
+                    if let val = e.weight { w[day] = val }
+                    if let val = e.bodyFat { bf[day] = val }
+                }
+                weightSeries = w
+                bodyFatSeries = bf
+            } else {
+                weightSeries = [:]
+                bodyFatSeries = [:]
+            }
 
         } catch {
             totalWeightLbs = 0
@@ -128,6 +149,22 @@ final class DashboardViewModel: ObservableObject {
 
         do {
             let range = try resolvedDateRange()
+            
+            if let start = range.start, let end = range.end {
+                let entries = try calendarEntryRepository.entries(in: start...end, userId: userId)
+                var w: [Date: Double] = [:]
+                var bf: [Date: Double] = [:]
+                for e in entries {
+                    let day = CalendarEntry.date(from: e.date) ?? Date()
+                    if let val = e.weight { w[day] = val }
+                    if let val = e.bodyFat { bf[day] = val }
+                }
+                weightSeries = w
+                bodyFatSeries = bf
+            } else {
+                weightSeries = [:]
+                bodyFatSeries = [:]
+            }
 
             let exercises = try sessionRepository.fetchCompletedExercises(
                 userId: userId,

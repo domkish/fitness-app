@@ -23,7 +23,7 @@ struct SessionRepository {
     }
 
     // Create a new session snapshot
-    func createSession(userId: Int64, workoutId: Int64, calendarWorkoutId: Int64, workoutName: String, startedAt: Date) throws -> Int64 {
+    func createSession(userId: Int64, workoutId: Int64, calendarWorkoutId: Int64, workoutName: String, startedAt: Date, createdAt: Date = Date()) throws -> Int64 {
         let rec = SessionRecord(
             id: nil,
             userId: userId,
@@ -34,7 +34,7 @@ struct SessionRepository {
             startedAt: startedAt,
             completedAt: nil,
             deletedAt: nil,
-            createdAt: Date(),
+            createdAt: createdAt,
             updatedAt: Date()
         )
         return try dbQueue.write { db in
@@ -59,13 +59,14 @@ struct SessionRepository {
         calendarWorkoutId: Int64,
         workoutName: String,
         startedAt: Date,
+        createdAt: Date = Date(),
         workoutRepo: WorkoutRepository
     ) throws -> SessionRecord {
         if let existing = try find(calendarWorkoutId: calendarWorkoutId, startedAt: startedAt) {
             return existing
         }
         // Create session first
-        let sessionId = try createSession(userId: userId, workoutId: workoutId, calendarWorkoutId: calendarWorkoutId, workoutName: workoutName, startedAt: startedAt)
+        let sessionId = try createSession(userId: userId, workoutId: workoutId, calendarWorkoutId: calendarWorkoutId, workoutName: workoutName, startedAt: startedAt, createdAt: createdAt)
         // Load workout blocks and exercises
         let blocks = try workoutRepo.fetchBlocks(forWorkoutId: workoutId).filter { $0.deletedAt == nil }
         let blockRepo = SessionBlockRepository(dbQueue: dbQueue)
@@ -252,11 +253,11 @@ struct SessionRepository {
             var dateWhere = ""
             var dateArgs = StatementArguments()
             if let start = start {
-                dateWhere += " AND (COALESCE(sessions.completed_at, sessions.created_at) >= ?)"
+                dateWhere += " AND (COALESCE(sessions.started_at, sessions.started_at) >= ?)"
                 dateArgs += [start]
             }
             if let end = end {
-                dateWhere += " AND (COALESCE(sessions.completed_at, sessions.created_at) <= ?)"
+                dateWhere += " AND (COALESCE(sessions.started_at, sessions.started_at) <= ?)"
                 dateArgs += [end]
             }
 
@@ -333,11 +334,11 @@ struct SessionRepository {
             var dateWhere = ""
             var dateArgs = StatementArguments()
             if let start = start {
-                dateWhere += " AND (COALESCE(sessions.completed_at, sessions.created_at) >= ?)"
+                dateWhere += " AND (COALESCE(sessions.started_at, sessions.started_at) >= ?)"
                 dateArgs += [start]
             }
             if let end = end {
-                dateWhere += " AND (COALESCE(sessions.completed_at, sessions.created_at) <= ?)"
+                dateWhere += " AND (COALESCE(sessions.started_at, sessions.started_at) <= ?)"
                 dateArgs += [end]
             }
             let sql = """
@@ -420,11 +421,11 @@ extension SessionRepository {
             var args = StatementArguments([userId])
 
             if let start {
-                sql += " AND COALESCE(s.completed_at, s.created_at) >= ?"
+                sql += " AND COALESCE(s.started_at, s.started_at) >= ?"
                 args += [start]
             }
             if let end {
-                sql += " AND COALESCE(s.completed_at, s.created_at) <= ?"
+                sql += " AND COALESCE(s.started_at, s.started_at) <= ?"
                 args += [end]
             }
 
@@ -451,7 +452,7 @@ extension SessionRepository {
             var sql = """
                 SELECT
                     s.id AS sessionId,
-                    COALESCE(s.completed_at, s.created_at) AS sessionDate,
+                    COALESCE(s.started_at, s.started_at) AS sessionDate,
                     ss.set_number AS setIndex,
                     COALESCE(ss.value, 0) AS value,
                     COALESCE(ss.completed_reps, 0) AS reps,
@@ -473,11 +474,11 @@ extension SessionRepository {
             var args = StatementArguments([userId, exerciseId])
 
             if let start {
-                sql += " AND COALESCE(s.completed_at, s.created_at) >= ?"
+                sql += " AND COALESCE(s.started_at, s.started_at) >= ?"
                 args += [start]
             }
             if let end {
-                sql += " AND COALESCE(s.completed_at, s.created_at) <= ?"
+                sql += " AND COALESCE(s.started_at, s.started_at) <= ?"
                 args += [end]
             }
 

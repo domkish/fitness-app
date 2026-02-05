@@ -521,6 +521,7 @@ struct WeekCalendarView: View {
                 calendarWorkoutId: w.id,
                 workoutName: w.workoutName,
                 startedAt: day,
+                createdAt: day,
                 workoutRepo: workoutRepo
             )
             let isCompleted = sessionIsCompleted(session)

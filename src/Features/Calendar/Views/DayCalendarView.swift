@@ -599,6 +599,7 @@ struct DayCalendarView: View {
                 calendarWorkoutId: w.id,
                 workoutName: w.workoutName,
                 startedAt: day,
+                createdAt: day,
                 workoutRepo: workoutRepo
             )
 
