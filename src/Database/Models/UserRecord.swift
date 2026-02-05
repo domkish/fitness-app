@@ -18,7 +18,7 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
     var isImperial: Bool
     var weight: Bool
     var fat: Bool
-    var log: String?
+    var log: Int?
     var theme: String
     var emailVerifiedAt: Date?
     var createdAt: Date

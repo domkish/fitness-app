@@ -176,7 +176,7 @@ struct User: Decodable {
     let isImperial: Bool
     let weight: Bool
     let fat: Bool
-    let log: String?
+    let log: Int?
     let theme: String
     let emailVerifiedAt: Date?
     let createdAt: Date
@@ -190,7 +190,7 @@ struct User: Decodable {
         isImperial: Bool = true,
         weight: Bool = true,
         fat: Bool = true,
-        log: String? = nil,
+        log: Int? = nil,
         theme: String = "classic",
         emailVerifiedAt: Date?,
         createdAt: Date,
@@ -235,7 +235,7 @@ struct User: Decodable {
         isImperial = (try container.decodeIfPresent(Bool.self, forKey: .isImperial)) ?? true
         weight = (try container.decodeIfPresent(Bool.self, forKey: .weight)) ?? true
         fat = (try container.decodeIfPresent(Bool.self, forKey: .fat)) ?? true
-        log = try container.decodeIfPresent(String.self, forKey: .log)
+        log = try container.decodeIfPresent(Int.self, forKey: .log)
         // Theme defaults to "classic" if missing
         theme = (try container.decodeIfPresent(String.self, forKey: .theme)) ?? "classic"
         emailVerifiedAt = try container.decodeIfPresent(Date.self, forKey: .emailVerifiedAt)

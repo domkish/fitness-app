@@ -20,7 +20,7 @@ extension DatabaseMigrator {
                 t.column("is_imperial", .boolean).notNull().defaults(to: true)
                 t.column("weight", .boolean).notNull().defaults(to: true)
                 t.column("fat", .boolean).notNull().defaults(to: true)
-                t.column("log", .text)
+                t.column("log", .integer)
                 t.column("theme", .text).notNull().defaults(to: "classic")
                 t.column("email_verified_at", .datetime)
                 t.column("token", .text)
