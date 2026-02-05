@@ -16,6 +16,9 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
     var email: String
     var isPremium: Bool
     var isImperial: Bool
+    var weight: Bool
+    var fat: Bool
+    var log: String?
     var theme: String
     var emailVerifiedAt: Date?
     var createdAt: Date
@@ -28,6 +31,9 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
         static let email = Column("email")
         static let isPremium = Column("is_premium")
         static let isImperial = Column("is_imperial")
+        static let weight = Column("weight")
+        static let fat = Column("fat")
+        static let log = Column("log")
         static let theme = Column("theme")
         static let emailVerifiedAt = Column("email_verified_at")
         static let createdAt = Column("created_at")
@@ -41,6 +47,9 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
         container[Columns.email] = email
         container[Columns.isPremium] = isPremium
         container[Columns.isImperial] = isImperial
+        container[Columns.weight] = weight
+        container[Columns.fat] = fat
+        container[Columns.log] = log
         container[Columns.theme] = theme
         container[Columns.emailVerifiedAt] = emailVerifiedAt
         container[Columns.createdAt] = createdAt
@@ -53,6 +62,9 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
         email = row[Columns.email]
         isPremium = row[Columns.isPremium]
         isImperial = row[Columns.isImperial] ?? true
+        weight = row[Columns.weight] ?? true
+        fat = row[Columns.fat] ?? true
+        log = row[Columns.log]
         theme = row[Columns.theme] ?? "classic"
         emailVerifiedAt = row[Columns.emailVerifiedAt]
         createdAt = row[Columns.createdAt]
@@ -65,6 +77,9 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
         email = user.email
         isPremium = user.isPremium
         isImperial = user.isImperial
+        weight = user.weight
+        fat = user.fat
+        log = user.log
         theme = user.theme
         emailVerifiedAt = user.emailVerifiedAt
         createdAt = user.createdAt

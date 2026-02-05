@@ -173,7 +173,10 @@ struct User: Decodable {
     let name: String
     let email: String
     let isPremium: Bool
-    var isImperial: Bool = true
+    let isImperial: Bool
+    let weight: Bool
+    let fat: Bool
+    let log: String?
     let theme: String
     let emailVerifiedAt: Date?
     let createdAt: Date
@@ -185,6 +188,9 @@ struct User: Decodable {
         email: String,
         isPremium: Bool,
         isImperial: Bool = true,
+        weight: Bool = true,
+        fat: Bool = true,
+        log: String? = nil,
         theme: String = "classic",
         emailVerifiedAt: Date?,
         createdAt: Date,
@@ -195,6 +201,9 @@ struct User: Decodable {
         self.email = email
         self.isPremium = isPremium
         self.isImperial = isImperial
+        self.weight = weight
+        self.fat = fat
+        self.log = log
         self.theme = theme
         self.emailVerifiedAt = emailVerifiedAt
         self.createdAt = createdAt
@@ -207,6 +216,9 @@ struct User: Decodable {
         case email
         case isPremium = "is_premium"
         case isImperial
+        case weight
+        case fat
+        case log
         case theme
         case emailVerifiedAt = "email_verified_at"
         case createdAt = "created_at"
@@ -221,6 +233,9 @@ struct User: Decodable {
         isPremium = try container.decode(Bool.self, forKey: .isPremium)
         // Optional imperial flag defaults to true if missing
         isImperial = (try container.decodeIfPresent(Bool.self, forKey: .isImperial)) ?? true
+        weight = (try container.decodeIfPresent(Bool.self, forKey: .weight)) ?? true
+        fat = (try container.decodeIfPresent(Bool.self, forKey: .fat)) ?? true
+        log = try container.decodeIfPresent(String.self, forKey: .log)
         // Theme defaults to "classic" if missing
         theme = (try container.decodeIfPresent(String.self, forKey: .theme)) ?? "classic"
         emailVerifiedAt = try container.decodeIfPresent(Date.self, forKey: .emailVerifiedAt)

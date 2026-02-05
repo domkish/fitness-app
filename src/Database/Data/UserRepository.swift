@@ -27,13 +27,16 @@ public struct UserRepository {
         }()
         guard let id = userId, id != 0 else { return nil }
 
-        return try await dbQueue.read { db in
+        return try await dbQueue.read { db -> User? in
             guard let record = try UserRecord.fetchOne(db, key: id) else { return nil }
             return User(
                 id: record.id,
                 name: record.name,
                 email: record.email,
                 isPremium: record.isPremium,
+                weight: record.weight,
+                fat: record.fat,
+                log: record.log,
                 theme: record.theme,
                 emailVerifiedAt: record.emailVerifiedAt,
                 createdAt: record.createdAt,
