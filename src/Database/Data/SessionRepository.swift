@@ -154,5 +154,94 @@ struct SessionRepository {
                 .fetchOne(db)
         }
     }
+    
+    /// Soft-delete a single session (and its blocks/exercises/sets) for a calendar workout on a specific day
+    func deleteSessionTree(calendarWorkoutId: Int64, on date: Date) throws {
+        let day = Calendar.current.startOfDay(for: date)
+        try dbQueue.write { db in
+            // Find the session for that day
+            if var session = try SessionRecord
+                .filter(SessionRecord.Columns.calendarWorkoutId == calendarWorkoutId)
+                .filter(SessionRecord.Columns.startedAt == day)
+                .filter(SessionRecord.Columns.deletedAt == nil)
+                .fetchOne(db) {
+
+                let blockRepo = SessionBlockRepository(dbQueue: dbQueue)
+                let exRepo = SessionExerciseRepository(dbQueue: dbQueue)
+                let setRepo = SessionSetRepository(dbQueue: dbQueue)
+                // Delete sets, exercises, and blocks
+                let blocks = try blockRepo.bySession(session.id ?? -1)
+                for b in blocks {
+                    let exercises = try exRepo.bySessionBlock(b.id ?? -1)
+                    for e in exercises {
+                        // Soft delete sets
+                        var sets = try setRepo.bySessionExercise(e.id ?? -1)
+                        for i in 0..<sets.count {
+                            sets[i].deletedAt = Date()
+                            sets[i].updatedAt = Date()
+                            try sets[i].update(db)
+                        }
+                        // Soft delete exercise
+                        var ex = e
+                        ex.deletedAt = Date()
+                        ex.updatedAt = Date()
+                        try ex.update(db)
+                    }
+                    // Soft delete block
+                    var blk = b
+                    blk.deletedAt = Date()
+                    blk.updatedAt = Date()
+                    try blk.update(db)
+                }
+
+                // Soft delete session
+                session.deletedAt = Date()
+                session.updatedAt = Date()
+                try session.update(db)
+            }
+        }
+    }
+
+    /// Soft-delete all sessions (and their trees) for a calendar workout on or after a given day
+    func deleteSessionsOnOrAfter(calendarWorkoutId: Int64, from date: Date) throws {
+        let startDay = Calendar.current.startOfDay(for: date)
+        try dbQueue.write { db in
+            let sessions = try SessionRecord
+                .filter(SessionRecord.Columns.calendarWorkoutId == calendarWorkoutId)
+                .filter(SessionRecord.Columns.startedAt >= startDay)
+                .filter(SessionRecord.Columns.deletedAt == nil)
+                .fetchAll(db)
+
+            let blockRepo = SessionBlockRepository(dbQueue: dbQueue)
+            let exRepo = SessionExerciseRepository(dbQueue: dbQueue)
+            let setRepo = SessionSetRepository(dbQueue: dbQueue)
+
+            for var session in sessions {
+                let blocks = try blockRepo.bySession(session.id ?? -1)
+                for b in blocks {
+                    let exercises = try exRepo.bySessionBlock(b.id ?? -1)
+                    for e in exercises {
+                        var sets = try setRepo.bySessionExercise(e.id ?? -1)
+                        for i in 0..<sets.count {
+                            sets[i].deletedAt = Date()
+                            sets[i].updatedAt = Date()
+                            try sets[i].update(db)
+                        }
+                        var ex = e
+                        ex.deletedAt = Date()
+                        ex.updatedAt = Date()
+                        try ex.update(db)
+                    }
+                    var blk = b
+                    blk.deletedAt = Date()
+                    blk.updatedAt = Date()
+                    try blk.update(db)
+                }
+                session.deletedAt = Date()
+                session.updatedAt = Date()
+                try session.update(db)
+            }
+        }
+    }
 }
 

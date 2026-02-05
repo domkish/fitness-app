@@ -6,6 +6,7 @@
 //
 import SwiftUI
 import PhotosUI
+import GRDB
 
 struct DayCalendarView: View {
     @ObservedObject var coordinator: AppShellCoordinator
@@ -332,8 +333,23 @@ struct DayCalendarView: View {
                             showingWorkoutPopover = false
                             Task { await ensureSessionForWorkoutRow(row) }
                         },
-                        onDelete: {
-                            Task { await deleteCalendarWorkout(row) }
+                        onDeleteSingle: {
+                            Task {
+                                await MainActor.run {
+                                    self.showingWorkoutPopover = false
+                                    self.selectedWorkoutRow = nil
+                                }
+                                await deleteSingleOccurrence(row)
+                            }
+                        },
+                        onDeleteThisAndFuture: {
+                            Task {
+                                await MainActor.run {
+                                    self.showingWorkoutPopover = false
+                                    self.selectedWorkoutRow = nil
+                                }
+                                await deleteThisAndFuture(row)
+                            }
                         }
                     )
                     .environmentObject(authCoordinator)
@@ -429,7 +445,10 @@ struct DayCalendarView: View {
             let fetchedEntry = try repository.entry(for: id64, on: selectedDate)
             let fetchedPrior = try repository.mostRecentPriorEntry(before: selectedDate, userId: id64)
             let rows = try workoutRepository.workoutsWithDetails(on: selectedDate, userId: id64)
-            let filteredWorkouts = rows.filter { CalendarWorkoutRepository.matches($0, on: selectedDate) }
+            let exceptionRepo = CalendarWorkoutExceptionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+            let filteredWorkouts = rows.filter { row in
+                CalendarWorkoutRepository.matches(row, on: selectedDate) && (try? !exceptionRepo.exists(calendarWorkoutId: row.id, on: selectedDate)) ?? true
+            }
             let fetchedDailyTasks = try taskRepository.tasks(on: selectedDate, userId: id64)
             let fetchedScheduledTasks = try workoutRepo.activeTasks(on: selectedDate, userId: id64)
 
@@ -576,6 +595,123 @@ struct DayCalendarView: View {
         }
     }
 
+    private func deleteSingleOccurrence(_ row: CalendarWorkoutRepository.ScheduledWorkoutRow) async {
+        do {
+            let dbQueue = DatabaseQueueProvider.shared.dbQueue
+            let day = Calendar.current.startOfDay(for: selectedDate)
+            try await dbQueue.write { db in
+                // 1) Insert exception
+                var exception = CalendarWorkoutExceptionRecord(
+                    id: nil,
+                    calendarWorkoutId: row.id,
+                    date: CalendarWorkout.dbString(from: day),
+                    deletedAt: nil,
+                    createdAt: Date(),
+                    updatedAt: Date()
+                )
+                try exception.insert(db)
+
+                // 2) Soft-delete session tree for that day
+                if var session = try SessionRecord
+                    .filter(SessionRecord.Columns.calendarWorkoutId == row.id)
+                    .filter(SessionRecord.Columns.startedAt == day)
+                    .filter(SessionRecord.Columns.deletedAt == nil)
+                    .fetchOne(db) {
+                    // Delete sets
+                    let blocks = try SessionBlockRecord
+                        .filter(SessionBlockRecord.Columns.sessionId == session.id)
+                        .filter(SessionBlockRecord.Columns.deletedAt == nil)
+                        .fetchAll(db)
+                    for var b in blocks {
+                        let exercises = try SessionExerciseRecord
+                            .filter(SessionExerciseRecord.Columns.sessionBlockId == b.id)
+                            .filter(SessionExerciseRecord.Columns.deletedAt == nil)
+                            .fetchAll(db)
+                        for var e in exercises {
+                            var sets = try SessionSetRecord
+                                .filter(SessionSetRecord.Columns.sessionExerciseId == e.id)
+                                .filter(SessionSetRecord.Columns.deletedAt == nil)
+                                .fetchAll(db)
+                            for i in 0..<sets.count {
+                                sets[i].deletedAt = Date()
+                                sets[i].updatedAt = Date()
+                                try sets[i].update(db)
+                            }
+                            e.deletedAt = Date()
+                            e.updatedAt = Date()
+                            try e.update(db)
+                        }
+                        b.deletedAt = Date()
+                        b.updatedAt = Date()
+                        try b.update(db)
+                    }
+                    session.deletedAt = Date()
+                    session.updatedAt = Date()
+                    try session.update(db)
+                }
+            }
+            await loadData()
+        } catch {
+            print("[DayCalendarView] deleteSingleOccurrence error: \(error)")
+        }
+    }
+
+    private func deleteThisAndFuture(_ row: CalendarWorkoutRepository.ScheduledWorkoutRow) async {
+        do {
+            let dbQueue = DatabaseQueueProvider.shared.dbQueue
+            let day = Calendar.current.startOfDay(for: selectedDate)
+            let previousDay = Calendar.current.date(byAdding: .day, value: -1, to: day) ?? day
+            try await dbQueue.write { db in
+                // 1) Truncate recurrence
+                if var rec = try CalendarWorkoutRecord.fetchOne(db, key: row.id) {
+                    rec.endsOn = CalendarWorkout.dbString(from: previousDay)
+                    rec.updatedAt = Date()
+                    try rec.update(db)
+                }
+                // 2) Soft-delete sessions on or after selected day
+                let sessions = try SessionRecord
+                    .filter(SessionRecord.Columns.calendarWorkoutId == row.id)
+                    .filter(SessionRecord.Columns.startedAt >= day)
+                    .filter(SessionRecord.Columns.deletedAt == nil)
+                    .fetchAll(db)
+                for var session in sessions {
+                    let blocks = try SessionBlockRecord
+                        .filter(SessionBlockRecord.Columns.sessionId == session.id)
+                        .filter(SessionBlockRecord.Columns.deletedAt == nil)
+                        .fetchAll(db)
+                    for var b in blocks {
+                        let exercises = try SessionExerciseRecord
+                            .filter(SessionExerciseRecord.Columns.sessionBlockId == b.id)
+                            .filter(SessionExerciseRecord.Columns.deletedAt == nil)
+                            .fetchAll(db)
+                        for var e in exercises {
+                            var sets = try SessionSetRecord
+                                .filter(SessionSetRecord.Columns.sessionExerciseId == e.id)
+                                .filter(SessionSetRecord.Columns.deletedAt == nil)
+                                .fetchAll(db)
+                            for i in 0..<sets.count {
+                                sets[i].deletedAt = Date()
+                                sets[i].updatedAt = Date()
+                                try sets[i].update(db)
+                            }
+                            e.deletedAt = Date()
+                            e.updatedAt = Date()
+                            try e.update(db)
+                        }
+                        b.deletedAt = Date()
+                        b.updatedAt = Date()
+                        try b.update(db)
+                    }
+                    session.deletedAt = Date()
+                    session.updatedAt = Date()
+                    try session.update(db)
+                }
+            }
+            await loadData()
+        } catch {
+            print("[DayCalendarView] deleteThisAndFuture error: \(error)")
+        }
+    }
 
     private func loadExercisesForWorkout(row: CalendarWorkoutRepository.ScheduledWorkoutRow) async {
         await MainActor.run { self.exerciseLoadError = nil }

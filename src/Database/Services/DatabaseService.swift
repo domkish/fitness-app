@@ -43,6 +43,7 @@ final class DatabaseService {
         migrator.registerTaskMigrations()
         migrator.registerCalendarEntryMigrations()
         migrator.registerCalendarWorkoutMigrations()
+        migrator.registerCalendarWorkoutExceptionMigrations()
         
         migrator.registerSessionMigrations()
         migrator.registerSessionBlockMigrations()

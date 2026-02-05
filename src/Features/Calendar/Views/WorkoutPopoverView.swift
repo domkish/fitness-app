@@ -16,7 +16,8 @@ struct WorkoutQuickActionsPopover: View {
     let canEnterSession: Bool
     let error: String?
     let onEnterSession: () -> Void
-    let onDelete: () -> Void
+    let onDeleteSingle: () -> Void
+    let onDeleteThisAndFuture: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -147,7 +148,7 @@ struct WorkoutQuickActionsPopover: View {
                                         .padding(.vertical, 8)
                                     
                                     Button(role: .destructive) {
-                                        // onDeleteSingleInstance()
+                                        onDeleteSingle()
                                     } label: {
                                         HStack {
                                             Label("Remove This Session", systemImage: "trash.fill")
@@ -172,7 +173,7 @@ struct WorkoutQuickActionsPopover: View {
                                         .padding(.vertical, 8)
                                     
                                     Button(role: .destructive) {
-                                        // onDeleteAllFutureInstances()
+                                        onDeleteThisAndFuture()
                                     } label: {
                                         HStack {
                                             Label("Remove This & Future", systemImage: "trash.fill")

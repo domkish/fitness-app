@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Foundation
+import GRDB
 
 struct MonthCalendarView: View {
     var onSelectDate: ((Date) -> Void)? = nil
@@ -188,6 +189,7 @@ struct MonthCalendarView: View {
         var workoutsAllCompleteDays: Set<Int> = []
         var entriesDays: Set<Int> = []
         let sessionRepo = SessionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+        let exceptionRepo = CalendarWorkoutExceptionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
         for day in range {
             var comps = cal.dateComponents([.year, .month], from: referenceDate)
             comps.day = day
@@ -195,7 +197,9 @@ struct MonthCalendarView: View {
             let dayDate = cal.startOfDay(for: date)
             do {
                 let rows = try workoutRepository.workoutsWithDetails(on: dayDate, userId: id64)
-                let wrks = rows.filter { CalendarWorkoutRepository.matches($0, on: dayDate) }
+                let wrks = rows.filter { row in
+                    CalendarWorkoutRepository.matches(row, on: dayDate) && (try? !exceptionRepo.exists(calendarWorkoutId: row.id, on: dayDate)) ?? true
+                }
                 if !wrks.isEmpty {
                     workoutsDays.insert(day)
                     // Determine completion by checking for a completed session per scheduled workout row
