@@ -153,34 +153,41 @@ struct RoutinePickerSheet: View {
 struct FrequencyPickerSheet: View {
     @EnvironmentObject var themeManager: ThemeManager
 
+    var disableRepeatingOptions: Bool = false
+
     let onPicked: (Int?) -> Void
 
-    private struct Option: Identifiable { let id: Int?; let title: String }
+    private struct Option: Identifiable { let id: Int?; let title: String; let isDisabled: Bool }
     private var options: [Option] {
         [
-            Option(id: nil, title: "Just selected date"),
-            Option(id: 1, title: "Weekly"),
-            Option(id: 2, title: "Every 2 Weeks")
+            Option(id: nil, title: "Just selected date", isDisabled: false),
+            Option(id: 1, title: "Weekly", isDisabled: disableRepeatingOptions),
+            Option(id: 2, title: "Every 2 Weeks", isDisabled: disableRepeatingOptions)
         ]
     }
 
     var body: some View {
         NavigationStack {
             List(options) { opt in
-                Button(action: { onPicked(opt.id) }) {
+                Button(action: { if !opt.isDisabled { onPicked(opt.id) } }) {
                     HStack {
                         Text(opt.title)
-                            .foregroundColor(themeManager.currentTheme.textDefault)
+                            .foregroundColor(opt.isDisabled ? themeManager.currentTheme.muted : themeManager.currentTheme.textDefault)
                         Spacer()
+                        if opt.isDisabled {
+                            Image(systemName: "lock.fill")
+                                .foregroundColor(themeManager.currentTheme.muted)
+                        }
                     }
                 }
+                .disabled(opt.isDisabled)
                 .listRowBackground(themeManager.currentTheme.surface)
             }
             .scrollContentBackground(.hidden)
             .background(themeManager.currentTheme.background)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("Select Routine")
+                    Text("Select Frequency")
                         .foregroundColor(themeManager.currentTheme.textDefault)
                         .font(.headline)
                 }

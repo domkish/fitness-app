@@ -48,6 +48,9 @@ struct DayCalendarView: View {
     
     @State private var exerciseCache: [Int64: [String]] = [:]
 
+    @State private var showNonPremiumAlert = false
+    @State private var nonPremiumAlertMessage: String = ""
+
     private var isTodayOrPast: Bool {
         let today = Calendar.current.startOfDay(for: Date())
         return selectedDate <= today
@@ -125,7 +128,18 @@ struct DayCalendarView: View {
                     // Trailing: + Workout button (always shown)
                     HStack {
                         Spacer()
-                        Button(action: { showingRoutinePicker = true }) {
+                        Button(action: {
+                            let isPremium = authCoordinator.currentUser?.isPremium ?? false
+                            if !isPremium {
+                                // Enforce only 1 workout per day for non-premium
+                                if workouts.count >= 1 {
+                                    nonPremiumAlertMessage = "Free members can add one workout per day. Upgrade to Premium to schedule more."
+                                    showNonPremiumAlert = true
+                                    return
+                                }
+                            }
+                            showingRoutinePicker = true
+                        }) {
                             HStack(spacing: 6) {
                                 Image(systemName: "plus")
                                 Text("Workout")
@@ -272,6 +286,11 @@ struct DayCalendarView: View {
                 .hidden()
             }
             .padding()
+            .alert("Premium Feature", isPresented: $showNonPremiumAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(nonPremiumAlertMessage)
+            }
             .task(id: selectedDate) {
                 await loadData()
             }
@@ -299,7 +318,16 @@ struct DayCalendarView: View {
                 .environmentObject(authCoordinator)
             }
             .sheet(isPresented: $showingFrequencyPicker) {
-                FrequencyPickerSheet { freq in
+                FrequencyPickerSheet(disableRepeatingOptions: !(authCoordinator.currentUser?.isPremium ?? false)) { freq in
+                    let isPremium = authCoordinator.currentUser?.isPremium ?? false
+                    if !isPremium {
+                        // Non-premium: only allow one-time (Just selected date)
+                        showingFrequencyPicker = false
+                        pendingFrequency = nil
+                        Task { await createOneTimeCalendarWorkout() }
+                        return
+                    }
+
                     if let f = freq, f == -1 { showingFrequencyPicker = false; return }
                     pendingFrequency = (freq == -1 ? nil : freq)
                     showingFrequencyPicker = false
@@ -310,6 +338,21 @@ struct DayCalendarView: View {
                     }
                 }
                 .environmentObject(themeManager)
+                .overlay(
+                    Group {
+                        let isPremium = authCoordinator.currentUser?.isPremium ?? false
+                        if !isPremium {
+                            VStack {
+                                Spacer()
+                                Text("Setting workout frequency is available for Premium members only.")
+                                    .font(.footnote)
+                                    .foregroundColor(themeManager.currentTheme.muted)
+                                    .padding(.horizontal)
+                                    .padding(.bottom, 12)
+                            }
+                        }
+                    }
+                )
             }
             .sheet(isPresented: $showingWeekdayPicker) {
                 let weekday = Calendar.current.component(.weekday, from: selectedDate)
