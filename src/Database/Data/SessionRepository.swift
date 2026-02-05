@@ -243,5 +243,129 @@ struct SessionRepository {
             }
         }
     }
+
+    // MARK: - Dashboard Aggregates
+    /// Computes aggregates for weight (lbs), distance (miles), and duration (seconds) over an optional date range, scoped to a user.
+    func loadAggregates(userId: Int64, start: Date?, end: Date?) throws -> (weightLbs: Double, distanceMiles: Double, durationSec: Double) {
+        try dbQueue.read { db in
+            // Build dynamic date window predicates and arguments
+            var dateWhere = ""
+            var dateArgs = StatementArguments()
+            if let start = start {
+                dateWhere += " AND (COALESCE(sessions.completed_at, sessions.created_at) >= ?)"
+                dateArgs += [start]
+            }
+            if let end = end {
+                dateWhere += " AND (COALESCE(sessions.completed_at, sessions.created_at) <= ?)"
+                dateArgs += [end]
+            }
+
+            // Weight (lbs)
+            let weightSQL = """
+                SELECT COALESCE(SUM(
+                    CASE LOWER(session_exercises.unit)
+                        WHEN 'lbs' THEN session_sets.completed_reps * session_sets.value
+                        WHEN 'kg' THEN session_sets.completed_reps * session_sets.value * 2.2046226218
+                        ELSE 0
+                    END
+                ), 0)
+                FROM session_sets
+                JOIN session_exercises ON session_exercises.id = session_sets.session_exercise_id AND session_exercises.deleted_at IS NULL
+                JOIN session_blocks ON session_blocks.id = session_exercises.session_block_id AND session_blocks.deleted_at IS NULL
+                JOIN sessions ON sessions.id = session_blocks.session_id AND sessions.deleted_at IS NULL
+                WHERE sessions.user_id = ?
+                  AND session_sets.deleted_at IS NULL
+                  AND session_sets.completed = 1
+                  AND session_exercises.completed = 1
+                  AND (sessions.completed_at IS NOT NULL OR session_sets.created_at IS NOT NULL)
+            """ + dateWhere
+            var weightArgs = StatementArguments()
+            weightArgs += [userId]
+            weightArgs += dateArgs
+            let weight = try Double.fetchOne(db, sql: weightSQL, arguments: weightArgs) ?? 0
+
+            // Distance (miles)
+            let distanceSQL = """
+                SELECT COALESCE(SUM(
+                    CASE LOWER(session_exercises.unit)
+                        WHEN 'mi' THEN session_sets.completed_reps * session_sets.value
+                        WHEN 'yd' THEN (session_sets.completed_reps * session_sets.value) / 1760.0
+                        WHEN 'm' THEN (session_sets.completed_reps * session_sets.value) / 1609.344
+                        WHEN 'km' THEN (session_sets.completed_reps * session_sets.value) / 1.609344
+                        ELSE 0
+                    END
+                ), 0)
+                FROM session_sets
+                JOIN session_exercises ON session_exercises.id = session_sets.session_exercise_id AND session_exercises.deleted_at IS NULL
+                JOIN session_blocks ON session_blocks.id = session_exercises.session_block_id AND session_blocks.deleted_at IS NULL
+                JOIN sessions ON sessions.id = session_blocks.session_id AND sessions.deleted_at IS NULL
+                WHERE sessions.user_id = ?
+                  AND session_sets.deleted_at IS NULL
+                  AND session_sets.completed = 1
+                  AND session_exercises.completed = 1
+                  AND (sessions.completed_at IS NOT NULL OR session_sets.created_at IS NOT NULL)
+            """ + dateWhere
+            var distanceArgs = StatementArguments()
+            distanceArgs += [userId]
+            distanceArgs += dateArgs
+            let distance = try Double.fetchOne(db, sql: distanceSQL, arguments: distanceArgs) ?? 0
+
+            // Duration (seconds)
+            let durationSQL = """
+                SELECT COALESCE(SUM(COALESCE(sessions.total_duration, 0)), 0)
+                FROM sessions
+                WHERE sessions.deleted_at IS NULL
+                  AND sessions.user_id = ?
+                  AND (sessions.completed_at IS NOT NULL OR sessions.created_at IS NOT NULL)
+            """ + dateWhere
+            var durationArgs = StatementArguments()
+            durationArgs += [userId]
+            durationArgs += dateArgs
+            let duration = try Double.fetchOne(db, sql: durationSQL, arguments: durationArgs) ?? 0
+
+            return (weight, distance, duration)
+        }
+    }
+    
+    /// Counts completed sessions for a user within an optional date range.
+    func countCompletedSessions(userId: Int64, start: Date?, end: Date?) throws -> Int {
+        try dbQueue.read { db in
+            var dateWhere = ""
+            var dateArgs = StatementArguments()
+            if let start = start {
+                dateWhere += " AND (COALESCE(sessions.completed_at, sessions.created_at) >= ?)"
+                dateArgs += [start]
+            }
+            if let end = end {
+                dateWhere += " AND (COALESCE(sessions.completed_at, sessions.created_at) <= ?)"
+                dateArgs += [end]
+            }
+            let sql = """
+                SELECT COUNT(*)
+                FROM sessions
+                WHERE sessions.deleted_at IS NULL
+                  AND sessions.user_id = ?
+                  AND sessions.completed_at IS NOT NULL
+            """ + dateWhere
+            var args = StatementArguments()
+            args += [userId]
+            args += dateArgs
+            return try Int.fetchOne(db, sql: sql, arguments: args) ?? 0
+        }
+    }
+
+    /// Returns the earliest completed_at date for the given user, or nil if none.
+    func earliestCompletedSessionDate(userId: Int64) throws -> Date? {
+        try dbQueue.read { db in
+            let sql = """
+                SELECT MIN(completed_at)
+                FROM sessions
+                WHERE deleted_at IS NULL
+                  AND user_id = ?
+                  AND completed_at IS NOT NULL
+            """
+            return try Date.fetchOne(db, sql: sql, arguments: [userId])
+        }
+    }
 }
 
