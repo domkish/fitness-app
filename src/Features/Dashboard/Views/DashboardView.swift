@@ -247,8 +247,8 @@ struct DashboardView: View {
                                 Rectangle()
                                     .fill(Color.clear)
                                     .contentShape(Rectangle())
-                                    .gesture(
-                                        DragGesture(minimumDistance: 0)
+                                    .simultaneousGesture(
+                                        SpatialTapGesture()
                                             .onEnded { value in
                                                 let location = value.location
                                                 if let xDate: Date = proxy.value(atX: location.x) {
@@ -338,8 +338,8 @@ struct DashboardView: View {
                                 Rectangle()
                                     .fill(Color.clear)
                                     .contentShape(Rectangle())
-                                    .gesture(
-                                        DragGesture(minimumDistance: 0)
+                                    .simultaneousGesture(
+                                        SpatialTapGesture()
                                             .onEnded { value in
                                                 let location = value.location
                                                 if let xDate: Date = proxy.value(atX: location.x) {

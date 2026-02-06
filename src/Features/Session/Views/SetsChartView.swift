@@ -65,8 +65,8 @@ struct SetsChartView: View {
                     Rectangle()
                         .fill(Color.clear)
                         .contentShape(Rectangle())
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
+                        .simultaneousGesture(
+                            SpatialTapGesture()
                                 .onEnded { value in
                                     let tapLocation = value.location
                                     if let xDate: Date = proxy.value(atX: tapLocation.x),
@@ -121,8 +121,8 @@ struct SetsChartView: View {
                     Rectangle()
                         .fill(Color.clear)
                         .contentShape(Rectangle())
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
+                        .simultaneousGesture(
+                            SpatialTapGesture()
                                 .onEnded { value in
                                     let tapLocation = value.location
                                     if let xValue: Double = proxy.value(atX: tapLocation.x),
@@ -151,18 +151,18 @@ struct SetsChartView: View {
         if let selected = points.first(where: { $0.id == selectedPointID }) {
             let mainLine: String = (selected.reps == 1 ? "\(Int(selected.value)) \(selected.unit)" : "\(Int(selected.value)) \(selected.unit) x \(selected.reps) reps")
             Text(mainLine)
-                .font(.caption)
-                .padding(8)
-                .background(themeManager.currentTheme.surface)
-                .foregroundColor(themeManager.currentTheme.primary)
-                .cornerRadius(8)
-                .shadow(radius: 4)
-                .position(x: tooltipPosition.x,
-                          y: tooltipPosition.y + 30)
-                .transition(.scale.combined(with: .opacity))
-                .onTapGesture {
-                    selectedPointID = nil
-                }
+            .font(.caption)
+            .padding(8)
+            .background(themeManager.currentTheme.surface)
+            .foregroundColor(themeManager.currentTheme.primary)
+            .cornerRadius(8)
+            .shadow(radius: 4)
+            .position(x: tooltipPosition.x,
+                      y: tooltipPosition.y + 30)
+            .transition(.scale.combined(with: .opacity))
+            .onTapGesture {
+                selectedPointID = nil
+            }
         }
     }
 
