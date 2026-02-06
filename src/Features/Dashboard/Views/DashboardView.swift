@@ -58,42 +58,49 @@ struct DashboardView: View {
     }
 
     var body: some View {
-        ZStack {
-            themeManager.currentTheme.background.ignoresSafeArea()
-
-            ScrollView {
-                VStack(spacing: 16) {
-
-                    Text("Welcome back, \(currentUserName)")
-                        .bold()
-                        .foregroundStyle(themeManager.currentTheme.textDefault)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(.horizontal)
-
-                    dateRangeButton
-                    metricTiles
-                    exerciseLogSection
-                }
-                .padding()
-            }
-            .task {
-                AuthCoordinatorProvider.instance = authCoordinator
-                await viewModel.loadDashboardData()
-                await viewModel.loadExerciseLog()
-            }
-            .onChange(of: viewModel.dateSelection) { _ in
-                Task {
-                    await viewModel.loadDashboardData()
-                    await viewModel.loadExerciseLog()
-                }
-            }
-            .onReceive(authCoordinator.$currentUser) { user in
-                if let id = user?.id {
-                    viewModel.updateUser(id: Int64(id))
-                    Task {
-                        await viewModel.loadDashboardData()
-                        await viewModel.loadExerciseLog()
+        NavigationStack {
+            ZStack {
+                themeManager.currentTheme.background
+                    .ignoresSafeArea()
+                VStack(spacing: 30) {
+                    VStack(spacing: 0) {
+                        ScrollView {
+                            VStack(spacing: 16) {
+                                
+                                Text("Welcome back, \(currentUserName)")
+                                    .bold()
+                                    .foregroundStyle(themeManager.currentTheme.textDefault)
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
+                                    .padding(.horizontal)
+                                
+                                dateRangeButton
+                                metricTiles
+                                exerciseLogSection
+                            }
+                            .padding()
+                        }
+                        .task {
+                            AuthCoordinatorProvider.instance = authCoordinator
+                            await viewModel.loadDashboardData()
+                            await viewModel.loadExerciseLog()
+                        }
+                        .onChange(of: viewModel.dateSelection) { _ in
+                            Task {
+                                await viewModel.loadDashboardData()
+                                await viewModel.loadExerciseLog()
+                            }
+                        }
+                        .onReceive(authCoordinator.$currentUser) { user in
+                            if let id = user?.id {
+                                viewModel.updateUser(id: Int64(id))
+                                Task {
+                                    await viewModel.loadDashboardData()
+                                    await viewModel.loadExerciseLog()
+                                }
+                            }
+                        }
                     }
+                    Spacer()
                 }
             }
         }
