@@ -121,8 +121,8 @@ struct ExerciseCardView: View {
                     HStack(spacing: 8) {
                         Text("Set").frame(maxWidth: 40, alignment: .center)
                         Text("Previous").frame(maxWidth: .infinity, alignment: .leading)
+                        Text(exItem.exercise.unit ?? "Value").frame(maxWidth: 180, alignment: .leading)
                         Text("Reps").frame(maxWidth: 60, alignment: .leading)
-                        Text(exItem.exercise.unit ?? "Value").frame(maxWidth: 200, alignment: .leading)
                         Text("").frame(maxWidth: 24, alignment: .leading)
                     }
                     .font(.caption)
