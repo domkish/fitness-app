@@ -6,6 +6,7 @@
 //
 import SwiftUI
 import Foundation
+import GRDB
 
 struct SetRowView: View {
     @ObservedObject var setItem: SessionSetItem
@@ -93,11 +94,105 @@ struct SetRowView: View {
     }
 
     private func previousSetDisplay() -> String {
-        guard let prev = setItem.previousSet,
-              let reps = prev.completedReps,
-              let value = prev.value,
-              let unit = prev.unit else { return "-" }
-        return "\(value)x\(reps) \(unit)"
+        // 1) Use any pre-wired previousSet if complete
+        if let prev = setItem.previousSet,
+           let reps = prev.completedReps,
+           let value = prev.value,
+           let unit = prev.unit {
+            let valueText = String(format: "%.1f", value)
+            return "\(valueText) \(unit) x \(reps) reps"
+        }
+
+        // 2) Query storage for the last session's matching set for this exercise context
+        // Fallback to dash on any failure
+        guard let currentSetId = setItem.setId else { return "-" }
+
+        // We'll walk relationships with lightweight inline queries to avoid broader refactors.
+        // Expected schema records exist in the project: SessionSetRecord, SessionExerciseRecord, SessionBlockRecord, SessionRecord
+        do {
+            let dbQueue = DatabaseQueueProvider.shared.dbQueue
+            return try dbQueue.read { db in
+                // Fetch the current set, exercise, block, and session to derive context
+                guard
+                    let currentSet = try SessionSetRecord.fetchOne(db, key: currentSetId),
+                    let exercise = try SessionExerciseRecord.fetchOne(db, key: currentSet.sessionExerciseId),
+                    let block = try SessionBlockRecord.fetchOne(db, key: exercise.sessionBlockId),
+                    let session = try SessionRecord.fetchOne(db, key: block.sessionId)
+                else {
+                    return "-"
+                }
+
+                let targetExerciseId = exercise.exerciseId
+
+                // Find the most recent prior session by started_at
+                let startedAtCol = SessionRecord.Columns.startedAt
+
+                guard let currentStartedAt = session.startedAt else { return "-" }
+
+                // Start with a SQL filter for the date comparison to avoid Column<Date?> vs Date mismatches
+                var priorSessionQuery = SessionRecord
+                    .filter(sql: "started_at < ?", arguments: [currentStartedAt])
+
+                // Constrain to same workout id (updated from calendarWorkoutId to workoutId)
+                priorSessionQuery = priorSessionQuery.filter(sql: "workout_id = ?", arguments: [session.workoutId])
+
+                let priorSession = try priorSessionQuery
+                    .order(startedAtCol.desc)
+                    .limit(1)
+                    .fetchOne(db)
+
+                guard let priorSessionUnwrapped = priorSession, let priorSessionId = priorSessionUnwrapped.id else {
+                    return "-"
+                }
+
+                // Find the prior session's exercise row that matches the same exercise_id
+                // 1) Fetch all blocks for the prior session
+                let priorBlocks = try SessionBlockRecord
+                    .filter(sql: "session_id = ?", arguments: [priorSessionId])
+                    .filter(sql: "deleted_at = ?", arguments: [nil])
+                    .fetchAll(db)
+
+                // 2) Find a session_exercise in those blocks with the same exercise_id
+                let blockIds = priorBlocks.compactMap { $0.id }
+                guard !blockIds.isEmpty else { return "-" }
+
+                let placeholders = blockIds.map { _ in "?" }.joined(separator: ",")
+                var args = StatementArguments(blockIds)
+                args += [targetExerciseId]
+
+                let priorExercise = try SessionExerciseRecord
+                    .filter(sql: "session_block_id IN (\(placeholders)) AND exercise_id = ? AND deleted_at IS NULL", arguments: args)
+                    .order(SessionExerciseRecord.Columns.id.desc)
+                    .fetchOne(db)
+
+                guard let pExercise = priorExercise, let pExerciseId = pExercise.id else { return "-" }
+
+                // In that prior exercise, fetch the set with the same setNumber as current
+                // let setNumberCol = SessionSetRecord.Columns.setNumber
+                // let sesExIdCol = SessionSetRecord.Columns.sessionExerciseId
+
+                let matchingPriorSet = try SessionSetRecord
+                    .filter(SessionSetRecord.Columns.sessionExerciseId == pExerciseId)
+                    .filter(SessionSetRecord.Columns.setNumber == currentSet.setNumber)
+                    .filter(SessionSetRecord.Columns.deletedAt == nil)
+                    .order(SessionSetRecord.Columns.setNumber.asc)
+                    .fetchOne(db)
+
+                guard let prev = matchingPriorSet,
+                      let reps = prev.completedReps,
+                      let value = prev.value else {
+                    return "-"
+                }
+                let unit = prev.unit ?? (exercise.unit ?? "")
+                let valueText = String(format: "%.1f", value)
+                let unitText = unit.trimmingCharacters(in: .whitespaces)
+                let unitPart = unitText.isEmpty ? "" : " \(unitText)"
+                return "\(valueText)\(unitPart) x \(reps) reps"
+            }
+        } catch {
+            print("[SetRowView] previousSetDisplay error: \(error)")
+            return "-"
+        }
     }
 
     private func scheduleDebouncedSave() {
