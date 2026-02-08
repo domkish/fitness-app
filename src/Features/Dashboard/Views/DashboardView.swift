@@ -402,7 +402,7 @@ struct DashboardView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.horizontal)
-                .padding(.top, 24)
+                .padding(.vertical, 24)
             } else {
                 // Z: No routines yet — existing onboarding card
                 VStack(spacing: 8) {
@@ -434,6 +434,7 @@ struct DashboardView: View {
                 }
                 .padding(16)
                 .padding(.top, 6)
+                .padding(.bottom, 24)
             }
         }
     }
