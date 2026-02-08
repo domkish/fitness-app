@@ -50,6 +50,7 @@ struct LoginView: View {
                                     .foregroundColor(themeManager.currentTheme.textDefault)
 
                                 TextField("", text: $repo.email)
+                                    .themedPlaceholder("Your email address", when: repo.email.isEmpty, color: themeManager.currentTheme.muted)
                                     .textInputAutocapitalization(.never)
                                     .keyboardType(.emailAddress)
                                     .autocorrectionDisabled(true)
@@ -72,6 +73,7 @@ struct LoginView: View {
                                     .foregroundColor(themeManager.currentTheme.textDefault)
 
                                 SecureField("••••••••", text: $repo.password)
+                                    .themedPlaceholder("••••••••", when: repo.password.isEmpty, color: themeManager.currentTheme.muted)
                                     .foregroundColor(themeManager.currentTheme.textDefault)
                                     .padding()
                                     .background(themeManager.currentTheme.formDefault)

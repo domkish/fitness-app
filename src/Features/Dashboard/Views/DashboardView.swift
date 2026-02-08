@@ -412,7 +412,7 @@ struct DashboardView: View {
                     Text("Welcome to fitness-app")
                         .font(.title3).bold()
                         .foregroundColor(themeManager.currentTheme.textDefault)
-                    Text("Looking to get started? Lets create a workout routine!")
+                    Text("Looking to get started? Let's create a workout routine!")
                         .foregroundColor(themeManager.currentTheme.muted)
                         .multilineTextAlignment(.center)
                 }

@@ -217,8 +217,8 @@ struct DayCalendarView: View {
                     VStack(alignment: .center, spacing: 8) {
                         Image(systemName: "calendar.badge.exclamationmark")
                             .font(.system(size: 40))
-                            .foregroundColor(themeManager.currentTheme.muted)
-                        Text("No workouts assigned for this day")
+                            .foregroundColor(themeManager.currentTheme.textDefault)
+                        Text("No workout routines assigned for this day")
                             .font(.headline)
                             .foregroundColor(themeManager.currentTheme.textDefault)
                         Text("To add a session, use the + Workout button above.")
