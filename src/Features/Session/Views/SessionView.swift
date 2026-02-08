@@ -209,10 +209,22 @@ struct SessionView: View {
                 total += sumForBlock
                 try updateBlockDuration(blockId: b.id ?? -1, to: sumForBlock)
             }
-
+            
+            try updateSessionCompletion(totalDuration: total)
             await MainActor.run { onCompleted?(session) }
         } catch {
             print("[SessionView] completeWorkout error: \(error)")
+        }
+    }
+    
+    private func updateSessionCompletion(totalDuration: Int) throws {
+        try sessionRepo.dbQueue.write { db in
+            if var rec = try SessionRecord.fetchOne(db, key: session.id) {
+                rec.totalDuration = totalDuration
+                rec.completedAt = Date()
+                rec.updatedAt = Date()
+                try rec.update(db)
+            }
         }
     }
 

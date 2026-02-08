@@ -149,32 +149,63 @@ struct SetsChartView: View {
     @ViewBuilder
     private var tooltipOverlay: some View {
         if let selected = points.first(where: { $0.id == selectedPointID }) {
-            Text(formattedTooltip(for: selected))
-                .font(.caption)
-                .padding(8)
-                .background(themeManager.currentTheme.surface)
-                .foregroundColor(themeManager.currentTheme.primary)
-                .cornerRadius(8)
-                .shadow(radius: 4)
-                .position(x: tooltipPosition.x,
-                          y: tooltipPosition.y + 30)
-                .transition(.scale.combined(with: .opacity))
-                .onTapGesture { selectedPointID = nil }
+            VStack(spacing: 2) {
+                if let d = selected.date {
+                    Text(formatMDY(d))
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+                }
+                Text(formattedTooltipValueOnly(for: selected))
+                    .foregroundColor(themeManager.currentTheme.primary)
+            }
+            .font(.caption)
+            .padding(8)
+            .background(themeManager.currentTheme.surface)
+            .cornerRadius(8)
+            .shadow(radius: 4)
+            .position(x: tooltipPosition.x,
+                      y: tooltipPosition.y + 30)
+            .transition(.scale.combined(with: .opacity))
+            .onTapGesture { selectedPointID = nil }
         } else {
             EmptyView()
         }
     }
 
     private func formattedTooltip(for point: SetChartPoint) -> String {
+        let dateText: String? = {
+            if let d = point.date { return formatMDY(d) }
+            return nil
+        }()
+
         if point.unit.lowercased() == "min" {
-            // point.value represents minutes; convert to total seconds
             let totalSeconds = Int((point.value * 60.0).rounded())
             let valueText = formattedDurationLong(totalSeconds)
+            if let dateText { return "\(valueText) • \(dateText)" }
             return valueText
         } else {
-            let valueText = String(Int(point.value)) + " " + point.unit
-            return point.reps > 1 ? valueText + " x \(point.reps) reps" : valueText
+            let baseValue = String(Int(point.value)) + " " + point.unit
+            let repsText = point.reps > 1 ? baseValue + " x \(point.reps) reps" : baseValue
+            if let dateText { return "\(repsText) • \(dateText)" }
+            return repsText
         }
+    }
+
+    private func formattedTooltipValueOnly(for point: SetChartPoint) -> String {
+        if point.unit.lowercased() == "min" {
+            let totalSeconds = Int((point.value * 60.0).rounded())
+            return formattedDurationLong(totalSeconds)
+        } else {
+            let baseValue = String(Int(point.value)) + " " + point.unit
+            return point.reps > 1 ? baseValue + " x \(point.reps) reps" : baseValue
+        }
+    }
+
+    private func formatMDY(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "MM/dd/yyyy"
+        return formatter.string(from: date)
     }
 
     // MARK: - Computed properties
