@@ -466,7 +466,40 @@ struct WeekCalendarView: View {
                     let filtered = rows.filter { row in
                         CalendarWorkoutRepository.matches(row, on: day) && (try? !exceptionRepo.exists(calendarWorkoutId: row.id, on: day)) ?? true
                     }
-                    map[offset] = filtered
+                    let dbQueue = DatabaseQueueProvider.shared.dbQueue
+                    let daySessions: [SessionRecord] = try await dbQueue.read { db in
+                        try SessionRecord
+                            .filter(SessionRecord.Columns.deletedAt == nil)
+                            .filter(SessionRecord.Columns.userId == id64)
+                            .filter(SessionRecord.Columns.startedAt == day)
+                            .fetchAll(db)
+                    }
+                    var merged = filtered
+                    let existingIds = Set(filtered.map { $0.id })
+                    for sess in daySessions {
+                        if !existingIds.contains(sess.calendarWorkoutId) {
+                            let weekday = Calendar.current.component(.weekday, from: day)
+                            let startsStr = CalendarWorkout.dbString(from: day)
+                            let synthetic = CalendarWorkoutRepository.ScheduledWorkoutRow(
+                                id: sess.calendarWorkoutId,
+                                workoutId: sess.workoutId,
+                                workoutName: sess.workoutName,
+                                workoutColor: nil,
+                                startsOn: startsStr,
+                                endsOn: startsStr,
+                                frequency: nil,
+                                mon: weekday == 2,
+                                tues: weekday == 3,
+                                wed: weekday == 4,
+                                thurs: weekday == 5,
+                                fri: weekday == 6,
+                                sat: weekday == 7,
+                                sun: weekday == 1
+                            )
+                            merged.append(synthetic)
+                        }
+                    }
+                    map[offset] = merged
                     let has = (try? entryRepository.entry(for: id64, on: day)) != nil
                     entriesMap[offset] = has
                 } catch {

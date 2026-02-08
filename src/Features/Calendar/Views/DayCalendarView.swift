@@ -501,20 +501,58 @@ struct DayCalendarView: View {
         guard let userId = authCoordinator.currentUser?.id else { return }
         do {
             let id64 = Int64(userId)
-            let fetchedEntry = try repository.entry(for: id64, on: selectedDate)
-            let fetchedPrior = try repository.mostRecentPriorEntry(before: selectedDate, userId: id64)
             let rows = try workoutRepository.workoutsWithDetails(on: selectedDate, userId: id64)
+            
+            let sessionRepo = SessionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+            let day = Calendar.current.startOfDay(for: selectedDate)
+            let dbQueue = DatabaseQueueProvider.shared.dbQueue
+            let daySessions: [SessionRecord] = try await dbQueue.read { db in
+                try SessionRecord
+                    .filter(SessionRecord.Columns.deletedAt == nil)
+                    .filter(SessionRecord.Columns.userId == id64)
+                    .filter(SessionRecord.Columns.startedAt == day)
+                    .fetchAll(db)
+            }
+            
             let exceptionRepo = CalendarWorkoutExceptionRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
             let filteredWorkouts = rows.filter { row in
                 CalendarWorkoutRepository.matches(row, on: selectedDate) && (try? !exceptionRepo.exists(calendarWorkoutId: row.id, on: selectedDate)) ?? true
             }
+            
+            var mergedWorkouts = filteredWorkouts
+            let existingIds = Set(filteredWorkouts.map { $0.id })
+            for sess in daySessions {
+                if !existingIds.contains(sess.calendarWorkoutId) {
+                    // Create a minimal synthetic row so the session appears even if the workout was deleted
+                    let weekday = Calendar.current.component(.weekday, from: day)
+                    let startsStr = CalendarWorkout.dbString(from: day)
+                    let synthetic = CalendarWorkoutRepository.ScheduledWorkoutRow(
+                        id: sess.calendarWorkoutId,
+                        workoutId: sess.workoutId,
+                        workoutName: sess.workoutName,
+                        workoutColor: nil,
+                        startsOn: startsStr,
+                        endsOn: startsStr,
+                        frequency: nil,
+                        mon: weekday == 2,
+                        tues: weekday == 3,
+                        wed: weekday == 4,
+                        thurs: weekday == 5,
+                        fri: weekday == 6,
+                        sat: weekday == 7,
+                        sun: weekday == 1
+                    )
+                    mergedWorkouts.append(synthetic)
+                }
+            }
+            
             let fetchedDailyTasks = try taskRepository.tasks(on: selectedDate, userId: id64)
             let fetchedScheduledTasks = try workoutRepo.activeTasks(on: selectedDate, userId: id64)
 
             await MainActor.run {
-                self.entry = fetchedEntry
-                self.priorEntry = fetchedPrior
-                self.workouts = filteredWorkouts
+                self.entry = try? repository.entry(for: id64, on: selectedDate)
+                self.priorEntry = try? repository.mostRecentPriorEntry(before: selectedDate, userId: id64)
+                self.workouts = mergedWorkouts
                 self.dailyTasks = fetchedDailyTasks
                 self.scheduledTasks = fetchedScheduledTasks
             }

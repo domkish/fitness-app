@@ -200,27 +200,43 @@ struct MonthCalendarView: View {
                 let wrks = rows.filter { row in
                     CalendarWorkoutRepository.matches(row, on: dayDate) && (try? !exceptionRepo.exists(calendarWorkoutId: row.id, on: dayDate)) ?? true
                 }
-                if !wrks.isEmpty {
-                    workoutsDays.insert(day)
-                    // Determine completion by checking for a completed session per scheduled workout row
-                    let allComplete: Bool = {
-                        for w in wrks {
-                            do {
-                                if let session = try sessionRepo.find(calendarWorkoutId: w.id, startedAt: dayDate) {
-                                    if !sessionIsCompleted(session) { return false }
-                                } else {
-                                    // No session found for a scheduled workout means unfinished
-                                    return false
-                                }
-                            } catch {
-                                // On lookup error, treat as unfinished
-                                return false
-                            }
-                        }
-                        return true
-                    }()
-                    if allComplete { workoutsAllCompleteDays.insert(day) }
+
+                let dbQueue = DatabaseQueueProvider.shared.dbQueue
+                let sessions: [SessionRecord] = try await dbQueue.read { db in
+                    try SessionRecord
+                        .filter(SessionRecord.Columns.deletedAt == nil)
+                        .filter(SessionRecord.Columns.userId == id64)
+                        .filter(SessionRecord.Columns.startedAt == dayDate)
+                        .fetchAll(db)
                 }
+
+                let hasScheduled = !wrks.isEmpty
+                let hasSessions = !sessions.isEmpty
+                if hasScheduled || hasSessions {
+                    workoutsDays.insert(day)
+                }
+
+                if hasScheduled {
+                    // For scheduled rows, require a completed session per row
+                    var scheduledAllComplete = true
+                    for w in wrks {
+                        do {
+                            if let session = try sessionRepo.find(calendarWorkoutId: w.id, startedAt: dayDate) {
+                                if !sessionIsCompleted(session) { scheduledAllComplete = false; break }
+                            } else {
+                                scheduledAllComplete = false; break
+                            }
+                        } catch { scheduledAllComplete = false; break }
+                    }
+                    if scheduledAllComplete { workoutsAllCompleteDays.insert(day) }
+                } else if hasSessions {
+                    // No scheduled workouts but sessions exist: consider the day complete if all sessions on that day are completed
+                    let allSessComplete = sessions.allSatisfy { sess in
+                        sessionIsCompleted(sess)
+                    }
+                    if allSessComplete { workoutsAllCompleteDays.insert(day) }
+                }
+
                 let has = (try? entryRepository.entry(for: id64, on: dayDate)) != nil
                 if has { entriesDays.insert(day) }
             } catch {
