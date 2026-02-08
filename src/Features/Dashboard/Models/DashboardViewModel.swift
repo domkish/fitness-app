@@ -301,8 +301,21 @@ final class DashboardViewModel: ObservableObject {
     }
 
     func formattedDuration() -> String {
-        let s = Int(totalDurationSec)
-        return "\(s / 3600)h \((s % 3600) / 60)m"
+        let total = Int(totalDurationSec)
+        if total <= 0 { return "--" }
+
+        let days = total / 86_400
+        let hours = (total % 86_400) / 3_600
+        let minutes = (total % 3_600) / 60
+        let seconds = total % 60
+
+        var parts: [String] = []
+        if days > 0 { parts.append("\(days)d") }
+        if hours > 0 { parts.append("\(hours)h") }
+        if minutes > 0 { parts.append("\(minutes)m") }
+        if seconds > 0 { parts.append("\(seconds)s") }
+
+        return parts.isEmpty ? "-" : parts.joined(separator: " ")
     }
 
     func formattedWorkoutFrequency() -> (value: String, unit: String) {
