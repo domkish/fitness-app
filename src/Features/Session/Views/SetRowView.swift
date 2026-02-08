@@ -87,6 +87,9 @@ struct SetRowView: View {
             switch focusedField {
             case .value:
                 focusedField = .reps
+            case .reps:
+                setItem.completed = true
+                focusedField = nil
             default:
                 focusedField = nil
             }

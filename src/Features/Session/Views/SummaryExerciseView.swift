@@ -26,12 +26,14 @@ struct SummaryExerciseView: View {
             // Chart or single set summary
             if hasSingleSet, let summary = singleSetSummary {
                 VStack(alignment: .center, spacing: 4) {
-                    Text(summary.valueUnit)
-                        .font(.headline)
-                        .foregroundColor(themeManager.currentTheme.primary)
+                    if let valueUnit = summary.valueUnit {
+                        Text(valueUnit)
+                            .font(.headline)
+                            .foregroundColor(themeManager.currentTheme.primary)
+                    }
                     Text(summary.duration)
-                        .font(.subheadline)
-                        .foregroundColor(themeManager.currentTheme.secondary)
+                        .font(summary.valueUnit == nil ? .headline : .subheadline)
+                        .foregroundColor(summary.valueUnit == nil ? themeManager.currentTheme.primary : themeManager.currentTheme.secondary)
                 }
                 .padding(.vertical)
                 .frame(maxWidth: .infinity)
@@ -118,13 +120,21 @@ struct SummaryExerciseView: View {
         exercise.sets.count == 1
     }
 
-    private var singleSetSummary: (valueUnit: String, duration: String)? {
+    private var singleSetSummary: (valueUnit: String?, duration: String)? {
         guard let first = exercise.sets.first else { return nil }
-        let unit = first.unit ?? exercise.exercise.unit ?? ""
+        let rawUnit = first.unit ?? exercise.exercise.unit ?? ""
+        let unit = rawUnit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        let durationText = formattedDurationLong(exercise.exercise.duration)
+
+        // If the unit is explicitly 'none', only show the duration
+        if unit == "none" || unit.isEmpty {
+            return (nil, durationText)
+        }
+
         let valueText = first.valueText.trimmingCharacters(in: .whitespaces)
         let safeValue = valueText.isEmpty ? "0" : valueText
-        let durationText = formattedDurationLong(exercise.exercise.duration)
-        let valueUnit = (safeValue + " " + unit).trimmingCharacters(in: .whitespaces)
+        let valueUnit = (safeValue + " " + rawUnit).trimmingCharacters(in: .whitespaces)
         return (valueUnit, durationText)
     }
 }
