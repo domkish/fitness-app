@@ -60,7 +60,6 @@ extension SessionSetRepository {
             if var rec = try SessionSetRecord.fetchOne(db, key: id) {
                 rec.completedReps = completedReps
                 rec.value = value
-                rec.unit = unit
                 rec.completed = completed ? 1 : 0
                 try rec.update(db)
             }

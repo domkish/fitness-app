@@ -26,7 +26,7 @@ struct fitness_appApp: App {
             )
             let dbURL = supportURL.appendingPathComponent("fitness.sqlite")
             let dbService = try DatabaseService(path: dbURL.path)
-            try dbService.setupDatabase(resetFirst: true) // resetFirst: false
+            try dbService.setupDatabase(resetFirst: false) // resetFirst: false
             dbQueue = dbService.dbQueue
             DatabaseQueueProvider.shared.dbQueue = dbQueue
             

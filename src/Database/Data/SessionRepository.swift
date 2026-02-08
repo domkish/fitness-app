@@ -267,8 +267,8 @@ struct SessionRepository {
             let weightSQL = """
                 SELECT COALESCE(SUM(
                     CASE LOWER(session_exercises.unit)
-                        WHEN 'lbs' THEN session_sets.completed_reps * session_sets.value
-                        WHEN 'kg' THEN session_sets.completed_reps * session_sets.value * 2.2046226218
+                        WHEN 'lbs' THEN (CASE WHEN session_sets.completed_reps IS NULL OR session_sets.completed_reps < 2 THEN 1 ELSE session_sets.completed_reps END) * session_sets.value
+                        WHEN 'kg' THEN (CASE WHEN session_sets.completed_reps IS NULL OR session_sets.completed_reps < 2 THEN 1 ELSE session_sets.completed_reps END) * session_sets.value * 2.2046226218
                         ELSE 0
                     END
                 ), 0)
@@ -291,10 +291,10 @@ struct SessionRepository {
             let distanceSQL = """
                 SELECT COALESCE(SUM(
                     CASE LOWER(session_exercises.unit)
-                        WHEN 'mi' THEN session_sets.completed_reps * session_sets.value
-                        WHEN 'yd' THEN (session_sets.completed_reps * session_sets.value) / 1760.0
-                        WHEN 'm' THEN (session_sets.completed_reps * session_sets.value) / 1609.344
-                        WHEN 'km' THEN (session_sets.completed_reps * session_sets.value) / 1.609344
+                        WHEN 'mi' THEN (CASE WHEN session_sets.completed_reps IS NULL OR session_sets.completed_reps < 2 THEN 1 ELSE session_sets.completed_reps END) * session_sets.value
+                        WHEN 'yd' THEN ((CASE WHEN session_sets.completed_reps IS NULL OR session_sets.completed_reps < 2 THEN 1 ELSE session_sets.completed_reps END) * session_sets.value) / 1760.0
+                        WHEN 'm' THEN ((CASE WHEN session_sets.completed_reps IS NULL OR session_sets.completed_reps < 2 THEN 1 ELSE session_sets.completed_reps END) * session_sets.value) / 1609.344
+                        WHEN 'km' THEN ((CASE WHEN session_sets.completed_reps IS NULL OR session_sets.completed_reps < 2 THEN 1 ELSE session_sets.completed_reps END) * session_sets.value) / 1.609344
                         ELSE 0
                     END
                 ), 0)

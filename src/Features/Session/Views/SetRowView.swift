@@ -204,8 +204,11 @@ struct SetRowView: View {
     private func saveNow() async {
         guard let setId = setItem.setId else { print("[SetRowView] saveNow() missing setId"); return }
         let repo = SessionSetRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
-        let repsRaw = Int(repsDigits.trimmingCharacters(in: .whitespaces)) ?? 0
-        let reps = max(1, repsRaw)
+        
+        let trimmedReps = repsDigits.trimmingCharacters(in: .whitespaces)
+        let repsValue: Int? = trimmedReps.isEmpty ? nil : Int(trimmedReps)
+        
+        // Do not coerce to minimum 1; allow 0 or nil here. We'll normalize on session completion.
         let value: Double? = {
             let trimmed = valueDigits.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else { return nil }
@@ -218,14 +221,19 @@ struct SetRowView: View {
         do {
             try repo.updatePerformance(
                 id: setId,
-                completedReps: reps,
+                completedReps: repsValue,
                 value: value,
                 unit: unitToUse,
                 completed: setItem.completed
             )
             // Sync back display texts from digits
-            setItem.repsText = String(reps)
-            repsDigits = String(reps)
+            if let r = repsValue {
+                setItem.repsText = String(r)
+                repsDigits = String(r)
+            } else {
+                setItem.repsText = ""
+                // Do not modify repsDigits so the field stays as the user left it (likely empty)
+            }
             if valueDigits.isEmpty {
                 setItem.valueText = ""
             } else {

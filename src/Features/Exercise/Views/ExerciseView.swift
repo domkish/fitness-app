@@ -145,7 +145,8 @@ struct ExerciseView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundColor(themeManager.currentTheme.secondary)
 
-            TextField("Search exercises", text: $searchText)
+            TextField("", text: $searchText)
+                .themedPlaceholder("Search exercises", when: searchText.isEmpty, color: themeManager.currentTheme.muted)
                 .foregroundColor(themeManager.currentTheme.textDefault)
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)

@@ -173,7 +173,7 @@ struct SetsChartView: View {
             return valueText
         } else {
             let valueText = String(Int(point.value)) + " " + point.unit
-            return point.reps == 1 ? valueText : valueText + " x \(point.reps) reps"
+            return point.reps > 1 ? valueText + " x \(point.reps) reps" : valueText
         }
     }
 
