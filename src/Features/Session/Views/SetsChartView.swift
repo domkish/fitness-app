@@ -149,23 +149,33 @@ struct SetsChartView: View {
     @ViewBuilder
     private var tooltipOverlay: some View {
         if let selected = points.first(where: { $0.id == selectedPointID }) {
-            let mainLine: String = (selected.reps == 1 ? "\(Int(selected.value)) \(selected.unit)" : "\(Int(selected.value)) \(selected.unit) x \(selected.reps) reps")
-            Text(mainLine)
-            .font(.caption)
-            .padding(8)
-            .background(themeManager.currentTheme.surface)
-            .foregroundColor(themeManager.currentTheme.primary)
-            .cornerRadius(8)
-            .shadow(radius: 4)
-            .position(x: tooltipPosition.x,
-                      y: tooltipPosition.y + 30)
-            .transition(.scale.combined(with: .opacity))
-            .onTapGesture {
-                selectedPointID = nil
-            }
+            Text(formattedTooltip(for: selected))
+                .font(.caption)
+                .padding(8)
+                .background(themeManager.currentTheme.surface)
+                .foregroundColor(themeManager.currentTheme.primary)
+                .cornerRadius(8)
+                .shadow(radius: 4)
+                .position(x: tooltipPosition.x,
+                          y: tooltipPosition.y + 30)
+                .transition(.scale.combined(with: .opacity))
+                .onTapGesture { selectedPointID = nil }
+        } else {
+            EmptyView()
         }
     }
 
+    private func formattedTooltip(for point: SetChartPoint) -> String {
+        if point.unit.lowercased() == "min" {
+            // point.value represents minutes; convert to total seconds
+            let totalSeconds = Int((point.value * 60.0).rounded())
+            let valueText = formattedDurationLong(totalSeconds)
+            return valueText
+        } else {
+            let valueText = String(Int(point.value)) + " " + point.unit
+            return point.reps == 1 ? valueText : valueText + " x \(point.reps) reps"
+        }
+    }
 
     // MARK: - Computed properties
     private var totalSets: Int {
@@ -178,17 +188,14 @@ struct SetsChartView: View {
             // Default domain if no data
             return 0...100
         }
-
-        // Start from a small padding and snap to multiples of 5
-        let baseStep: Double = 5
+        let usesMinutes = points.contains { $0.unit.lowercased() == "min" }
+        let baseStep: Double = usesMinutes ? 1 : 5
         let paddedMin = minValue - baseStep / 2
         let paddedMax = maxValue + baseStep / 2
-        let lower = floor(paddedMin / baseStep) * baseStep
+        let lower = max(0, floor(paddedMin / baseStep) * baseStep)
         let upper = ceil(paddedMax / baseStep) * baseStep
-
-        // Ensure non-degenerate domain
         if lower == upper {
-            return (lower - baseStep)...(upper + baseStep)
+            return (max(0, lower - baseStep))...(upper + baseStep)
         }
         return lower...upper
     }
@@ -197,18 +204,13 @@ struct SetsChartView: View {
         let lower = yAxisRange.lowerBound
         let upper = yAxisRange.upperBound
         let span = max(upper - lower, 0)
-
-        // Choose a step (multiple of 5) such that tick count <= 10
-        let baseStep: Double = 5
+        let usesMinutes = points.contains { $0.unit.lowercased() == "min" }
+        let baseStep: Double = usesMinutes ? 1 : 5
         let maxTicks = 10.0
-
-        // Start with base step and increase until we get <= 10 ticks
         var step = baseStep
         if span > 0 {
             let initialCount = span / step
             if initialCount > maxTicks {
-                // Increase step by factors of 2 until the tick count is within limit
-                // (keeping it a multiple of 5)
                 var factor: Double = 1
                 while (span / (baseStep * factor)) > maxTicks {
                     factor *= 2
@@ -216,12 +218,8 @@ struct SetsChartView: View {
                 step = baseStep * factor
             }
         }
-
-        // Snap lower/upper to the chosen step to align ticks nicely
         let snappedLower = (lower / step).rounded(.down) * step
         let snappedUpper = (upper / step).rounded(.up) * step
-
-        // Generate the ticks
         var ticks: [Double] = []
         var v = snappedLower
         while v <= snappedUpper + 1e-9 { // small epsilon to include upper bound

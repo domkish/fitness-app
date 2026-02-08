@@ -405,6 +405,7 @@ extension SessionRepository {
         let value: Double
         let reps: Int
         let unit: String
+        let durationSec: Int
     }
 
     func fetchCompletedExercises(
@@ -465,7 +466,8 @@ extension SessionRepository {
                     ss.set_number AS setIndex,
                     COALESCE(ss.value, 0) AS value,
                     COALESCE(ss.completed_reps, 0) AS reps,
-                    COALESCE(ss.unit, se.unit) AS unit
+                    COALESCE(ss.unit, se.unit) AS unit,
+                    COALESCE(se.duration, 0) AS durationSec
                 FROM session_sets ss
                 JOIN session_exercises se ON se.id = ss.session_exercise_id
                     AND se.deleted_at IS NULL
@@ -498,6 +500,7 @@ extension SessionRepository {
                 let value: Double
                 let reps: Int
                 let unit: String?
+                let durationSec: Int
             }
 
             let rows = try Row.fetchAll(db, sql: sql, arguments: args)
@@ -509,7 +512,8 @@ extension SessionRepository {
                     date: r.sessionDate,
                     value: r.value,
                     reps: r.reps,
-                    unit: r.unit ?? ""
+                    unit: r.unit ?? "",
+                    durationSec: r.durationSec
                 )
 
                 if let existing = best[r.sessionId] {

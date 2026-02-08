@@ -225,22 +225,19 @@ final class DashboardViewModel: ObservableObject {
             )
 
             let imperial = isImperialProvider()
-            let normalized = points.map { p -> (date: Date, value: Double, reps: Int, unit: String) in
+            let normalized = points.map { p -> (date: Date, value: Double, reps: Int, unit: String, isDuration: Bool) in
                 let unitLower = p.unit.lowercased()
                 if ["lbs", "kg"].contains(unitLower) {
                     if imperial {
-                        // to lbs
                         let v = unitLower == "kg" ? (p.value * 2.2046226218) : p.value
-                        return (p.date, v, p.reps, "lbs")
+                        return (p.date, v, p.reps, "lbs", false)
                     } else {
-                        // to kg
                         let v = unitLower == "lbs" ? (p.value / 2.2046226218) : p.value
-                        return (p.date, v, p.reps, "kg")
+                        return (p.date, v, p.reps, "kg", false)
                     }
                 }
                 if ["mi", "yd", "km", "m"].contains(unitLower) {
                     if imperial {
-                        // to miles
                         let miles: Double
                         switch unitLower {
                         case "mi": miles = p.value
@@ -249,9 +246,8 @@ final class DashboardViewModel: ObservableObject {
                         case "m":  miles = p.value / 1609.344
                         default: miles = p.value
                         }
-                        return (p.date, miles, p.reps, "mi")
+                        return (p.date, miles, p.reps, "mi", false)
                     } else {
-                        // to kilometers
                         let km: Double
                         switch unitLower {
                         case "mi": km = p.value * 1.609344
@@ -260,11 +256,16 @@ final class DashboardViewModel: ObservableObject {
                         case "m":  km = p.value / 1000.0
                         default: km = p.value
                         }
-                        return (p.date, km, p.reps, "km")
+                        return (p.date, km, p.reps, "km", false)
                     }
                 }
+                if unitLower == "none" {
+                    // Use duration (minutes) on Y axis when unit is none
+                    let minutes = Double(max(0, p.durationSec)) / 60.0
+                    return (p.date, minutes, p.reps, "min", true)
+                }
                 // default: return unchanged
-                return (p.date, p.value, p.reps, p.unit)
+                return (p.date, p.value, p.reps, p.unit, false)
             }
 
             prPoints = normalized.enumerated().map { idx, p in

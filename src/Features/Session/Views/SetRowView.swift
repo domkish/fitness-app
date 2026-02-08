@@ -204,7 +204,8 @@ struct SetRowView: View {
     private func saveNow() async {
         guard let setId = setItem.setId else { print("[SetRowView] saveNow() missing setId"); return }
         let repo = SessionSetRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
-        let reps = Int(repsDigits.trimmingCharacters(in: .whitespaces))
+        let repsRaw = Int(repsDigits.trimmingCharacters(in: .whitespaces)) ?? 0
+        let reps = max(1, repsRaw)
         let value: Double? = {
             let trimmed = valueDigits.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else { return nil }
@@ -223,7 +224,8 @@ struct SetRowView: View {
                 completed: setItem.completed
             )
             // Sync back display texts from digits
-            setItem.repsText = repsDigits
+            setItem.repsText = String(reps)
+            repsDigits = String(reps)
             if valueDigits.isEmpty {
                 setItem.valueText = ""
             } else {
