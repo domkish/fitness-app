@@ -2,6 +2,19 @@ import SwiftUI
 import Foundation
 import UIKit
 
+public extension View {
+    @ViewBuilder
+    func themedPlaceholder(_ text: String, when shouldShow: Bool, color: Color) -> some View {
+        ZStack(alignment: .leading) {
+            if shouldShow {
+                Text(text)
+                    .foregroundColor(color)
+            }
+            self
+        }
+    }
+}
+
 public struct LiveDecimalTextField: UIViewRepresentable {
     @EnvironmentObject var themeManager: ThemeManager
     @Binding var displayText: String

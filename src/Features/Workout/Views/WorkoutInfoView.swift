@@ -87,7 +87,8 @@ struct WorkoutInfoView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Routine Name").bold()
                             .foregroundColor(themeManager.currentTheme.textDefault)
-                        TextField("Required", text: $name)
+                        TextField("", text: $name)
+                            .themedPlaceholder("Required", when: name.isEmpty, color: themeManager.currentTheme.muted)
                             .foregroundColor(themeManager.currentTheme.textDefault)
                             .padding(.vertical, 10)
                             .padding(.horizontal, 12)
@@ -101,7 +102,8 @@ struct WorkoutInfoView: View {
                         
                         Text("Notes").bold()
                             .foregroundColor(themeManager.currentTheme.textDefault)
-                        TextField("Routine notes...", text: $description, axis: .vertical)
+                        TextField("", text: $description, axis: .vertical)
+                            .themedPlaceholder("Routine notes...", when: description.isEmpty, color: themeManager.currentTheme.muted)
                             .foregroundColor(themeManager.currentTheme.textDefault)
                             .padding(.vertical, 10)
                             .padding(.horizontal, 12)
@@ -203,7 +205,7 @@ struct WorkoutInfoView: View {
                                     Spacer()
                                 }
                                 if let bid = block.id {
-                                    TextField("Block notes...", text: Binding(
+                                    TextField("", text: Binding(
                                         get: { blockDescriptions[bid] ?? (block.description ?? "") },
                                         set: { newVal in
                                             blockDescriptions[bid] = newVal
@@ -216,6 +218,7 @@ struct WorkoutInfoView: View {
                                             }
                                         }
                                     ))
+                                    .themedPlaceholder("Block notes...", when: (blockDescriptions[bid] ?? (block.description ?? "")).isEmpty, color: themeManager.currentTheme.muted)
                                     .foregroundColor(themeManager.currentTheme.textDefault)
                                     .padding(.vertical, 10)
                                     .padding(.horizontal, 12)
@@ -223,7 +226,8 @@ struct WorkoutInfoView: View {
                                     .cornerRadius(10)
                                     .autocorrectionDisabled(true)
                                 } else {
-                                    TextField("Block notes...", text: .constant(block.description ?? ""))
+                                    TextField("", text: .constant(block.description ?? ""))
+                                        .themedPlaceholder("Block notes...", when: (block.description ?? "").isEmpty, color: themeManager.currentTheme.muted)
                                         .foregroundColor(themeManager.currentTheme.textDefault)
                                         .padding(.vertical, 10)
                                         .padding(.horizontal, 12)
