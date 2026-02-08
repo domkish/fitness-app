@@ -330,7 +330,8 @@ struct ExerciseCardView: View {
                 .foregroundColor(themeManager.currentTheme.textDefault)
 
             HStack(spacing: 6) {
-                TextField("hh", text: $editHours)
+                TextField("", text: $editHours)
+                    .themedPlaceholder("hh", when: editHours.isEmpty, color: themeManager.currentTheme.muted)
                     .keyboardType(.numberPad)
                     .foregroundColor(themeManager.currentTheme.textDefault)
                     .padding(.vertical, 8)
@@ -344,7 +345,8 @@ struct ExerciseCardView: View {
 
                 Text(":").foregroundColor(themeManager.currentTheme.textDefault)
 
-                TextField("mm", text: $editMinutes)
+                TextField("", text: $editMinutes)
+                    .themedPlaceholder("mm", when: editMinutes.isEmpty, color: themeManager.currentTheme.muted)
                     .keyboardType(.numberPad)
                     .foregroundColor(themeManager.currentTheme.textDefault)
                     .padding(.vertical, 8)
@@ -358,7 +360,8 @@ struct ExerciseCardView: View {
 
                 Text(":").foregroundColor(themeManager.currentTheme.textDefault)
 
-                TextField("ss", text: $editSeconds)
+                TextField("", text: $editSeconds)
+                    .themedPlaceholder("ss", when: editSeconds.isEmpty, color: themeManager.currentTheme.muted)
                     .keyboardType(.numberPad)
                     .foregroundColor(themeManager.currentTheme.textDefault)
                     .padding(.vertical, 8)

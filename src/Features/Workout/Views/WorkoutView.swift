@@ -323,7 +323,8 @@ struct WorkoutView: View {
                             .bold()
                             .foregroundColor(themeManager.currentTheme.textDefault)
 
-                        TextField("Routine name", text: $newWorkoutName)
+                        TextField("", text: $newWorkoutName)
+                            .themedPlaceholder("Routine name", when: newWorkoutName.isEmpty, color: themeManager.currentTheme.muted)
                             .padding(12)
                             .background(themeManager.currentTheme.surface)
                             .foregroundColor(themeManager.currentTheme.textDefault)

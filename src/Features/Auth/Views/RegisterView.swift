@@ -10,6 +10,7 @@ import SwiftUI
 struct RegisterView: View {
     @ObservedObject var coordinator: AuthCoordinator
     @StateObject private var viewModel: RegisterViewModel
+    @EnvironmentObject var themeManager: ThemeManager
 
     init(coordinator: AuthCoordinator) {
         self.coordinator = coordinator
@@ -24,7 +25,8 @@ struct RegisterView: View {
         VStack(spacing: 16) {
             Text("Register").font(.largeTitle).bold()
 
-            TextField("Email", text: $viewModel.email)
+            TextField("", text: $viewModel.email)
+                .themedPlaceholder("Email", when: viewModel.email.isEmpty, color: themeManager.currentTheme.muted)
                 .autocorrectionDisabled(true)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
 
@@ -55,3 +57,4 @@ struct RegisterView: View {
         .padding()
     }
 }
+

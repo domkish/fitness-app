@@ -61,7 +61,8 @@ struct ExerciseAddView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Exercise Name").bold()
                             .foregroundColor(themeManager.currentTheme.textDefault)
-                        TextField("Required", text: $name)
+                        TextField("", text: $name)
+                            .themedPlaceholder("Required", when: name.isEmpty, color: themeManager.currentTheme.muted)
                             .foregroundColor(themeManager.currentTheme.textDefault)
                             .padding(.vertical, 10)
                             .padding(.horizontal, 12)

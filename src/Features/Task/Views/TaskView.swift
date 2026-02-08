@@ -338,7 +338,8 @@ struct TaskView: View {
                             .bold()
                             .foregroundColor(themeManager.currentTheme.textDefault)
                         
-                        TextField("Task name", text: $newTaskName)
+                        TextField("", text: $newTaskName)
+                            .themedPlaceholder("Task name", when: newTaskName.isEmpty, color: themeManager.currentTheme.muted)
                             .padding(12)
                             .background(themeManager.currentTheme.surface)
                             .foregroundColor(themeManager.currentTheme.textDefault)

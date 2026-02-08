@@ -112,7 +112,8 @@ struct SecureFieldCard: View {
                         .background(themeManager.currentTheme.background)
                         .cornerRadius(12)
                 } else {
-                    TextField(title, text: $text)
+                    TextField("", text: $text)
+                        .themedPlaceholder(title, when: text.isEmpty, color: themeManager.currentTheme.muted)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled(true)
                         .disableAutocorrection(true)
@@ -135,3 +136,4 @@ struct SecureFieldCard: View {
         }
     }
 }
+
