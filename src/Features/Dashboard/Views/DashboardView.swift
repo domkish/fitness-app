@@ -193,6 +193,36 @@ struct DashboardView: View {
                 .padding()
                 .background(themeManager.currentTheme.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: "dumbbell.fill")
+                        .font(.system(size: 44))
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+                    Text("Welcome to fitness-app")
+                        .font(.title3).bold()
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+                    Text("Looking to get started? Lets create a workout routine!")
+                        .foregroundColor(themeManager.currentTheme.muted)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 16)
+                
+                Button {
+                    coordinator.currentStep = .workout
+                } label: {
+                    HStack {
+                        Image(systemName: "plus")
+                        Text("Create a routine")
+                            .foregroundColor(themeManager.currentTheme.textDefault)
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(themeManager.currentTheme.surface)
+                    .cornerRadius(8)
+                }
+                .padding(16)
+                .padding(.top, 6)
             }
             
             // Weight chart (conditional)

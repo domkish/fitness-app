@@ -194,6 +194,50 @@ struct WorkoutView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
+                                
+                                // Dashed separator
+                                Capsule()
+                                    .stroke(style: StrokeStyle(lineWidth: 4, dash: [6, 4]))
+                                    .foregroundColor(themeManager.currentTheme.borderDefault)
+                                    .frame(height: 1)
+                                    .padding(.horizontal)
+                                    .padding(.top, 28)
+
+                                // Info section
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                        Text("About Workout Routines")
+                                            .font(.title3)
+                                            .bold()
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
+                                    }
+                            
+                                    Text("Workout routines are fully customizable so you can build the perfect plan for your goals. Once you create a routine, it’ll be available to add to your workout calendar whenever you’re ready.")
+                                        .font(.callout)
+                                        .foregroundColor(themeManager.currentTheme.muted)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    
+                                    (
+                                        Text("Whether you’re setting up a standard workout with ") +
+                                        Text("sets and reps ").fontWeight(.heavy) +
+                                        Text("or dialing in fast-paced ") +
+                                        Text("circuit training").fontWeight(.heavy) +
+                                        Text(", we’ve got you covered. Mix and match exercises from our database or create your own to tailor every routine to you.")
+                                    )
+                                    .font(.callout)
+                                    .foregroundColor(themeManager.currentTheme.muted)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            
+                                    HStack(alignment: .center, spacing: 10) {
+                                        Image(systemName: "plus.circle.fill")
+                                            .foregroundColor(themeManager.currentTheme.primary)
+                                        Text("Tap the \"+\" above to create a routine — name it anything you like!")
+                                            .font(.callout)
+                                            .foregroundColor(themeManager.currentTheme.muted)
+                                    }
+                                }
+                                .padding(16)
+                                .padding(.top, 6)
                             } else {
                                 VStack(spacing: 10) {
                                     ForEach(workouts, id: \._id) { workout in
@@ -228,51 +272,37 @@ struct WorkoutView: View {
                                 }
                                 .padding(.horizontal)
                                 .padding(.vertical, 8)
-                            }
-
-                            // Dashed separator
-                            Capsule()
-                                .stroke(style: StrokeStyle(lineWidth: 4, dash: [6, 4]))
-                                .foregroundColor(themeManager.currentTheme.borderDefault)
-                                .frame(height: 1)
-                                .padding(.horizontal)
-                                .padding(.top, 28)
-
-                            // Info section
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                    Text("About Workout Routines")
-                                        .font(.title3)
-                                        .bold()
-                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                
+                                
+                                
+                                // Dashed separator
+                                Capsule()
+                                    .stroke(style: StrokeStyle(lineWidth: 4, dash: [6, 4]))
+                                    .foregroundColor(themeManager.currentTheme.borderDefault)
+                                    .frame(height: 1)
+                                    .padding(.horizontal)
+                                    .padding(.top, 28)
+                                Button {
+                                    coordinator.currentStep = .calendar
+                                } label: {
+                                    HStack {
+                                        Text("Go to Calendar")
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
+                                    }
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 12)
+                                    .background(themeManager.currentTheme.surface)
+                                    .cornerRadius(8)
                                 }
-                        
-                                Text("Workout routines are fully customizable so you can build the perfect plan for your goals. Once you create a routine, it’ll be available to add to your workout calendar whenever you’re ready.")
+                                .padding(16)
+                                .padding(.top, 6)
+                                Text("You can add your workout routines to your calendar to track your progress and stay motivated!")
                                     .font(.callout)
                                     .foregroundColor(themeManager.currentTheme.muted)
                                     .fixedSize(horizontal: false, vertical: true)
-                                
-                                (
-                                    Text("Whether you’re setting up a standard workout with ") +
-                                    Text("sets and reps ").fontWeight(.heavy) +
-                                    Text("or dialing in fast-paced ") +
-                                    Text("circuit training").fontWeight(.heavy) +
-                                    Text(", we’ve got you covered. Mix and match exercises from our database or create your own to tailor every routine to you.")
-                                )
-                                .font(.callout)
-                                .foregroundColor(themeManager.currentTheme.muted)
-                                .fixedSize(horizontal: false, vertical: true)
-                        
-                                HStack(alignment: .center, spacing: 10) {
-                                    Image(systemName: "plus.circle.fill")
-                                        .foregroundColor(themeManager.currentTheme.primary)
-                                    Text("Tap the \"+\" above to create a routine — name it anything you like!")
-                                        .font(.callout)
-                                        .foregroundColor(themeManager.currentTheme.muted)
-                                }
                             }
-                            .padding(16)
-                            .padding(.top, 6)
+
+                            
                         }
                         .padding(.horizontal)
                         .padding(.vertical, 8)
