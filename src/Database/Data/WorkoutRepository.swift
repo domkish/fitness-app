@@ -68,6 +68,12 @@ final class WorkoutRepository {
         }
     }
 
+    /// Returns true if the user has any non-deleted workouts (including system workouts for userId 0 as per fetchAll logic), false otherwise.
+    func hasAnyWorkouts(for userId: Int64) throws -> Bool {
+        let workouts = try fetchAll(for: userId)
+        return !workouts.isEmpty
+    }
+
     func createOrUpdate(_ workout: WorkoutDomain) throws {
         try dbQueue.write { db in
             let record = WorkoutRecord(from: workout) // Domain → Record

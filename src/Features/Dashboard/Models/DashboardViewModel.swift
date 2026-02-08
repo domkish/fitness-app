@@ -27,6 +27,8 @@ final class DashboardViewModel: ObservableObject {
     
     @Published var weightSeries: [Date: Double] = [:]
     @Published var bodyFatSeries: [Date: Double] = [:]
+    @Published var hasWorkoutRoutines: Bool = false
+    @Published var hasAnySessions: Bool = false
 
     // MARK: - Dependencies
 
@@ -130,6 +132,21 @@ final class DashboardViewModel: ObservableObject {
             } else {
                 weightSeries = [:]
                 bodyFatSeries = [:]
+            }
+
+            // Determine if user has any workout routines and any sessions (regardless of date picker)
+            do {
+                let wr = WorkoutRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+                self.hasWorkoutRoutines = try wr.hasAnyWorkouts(for: userId)
+            } catch {
+                self.hasWorkoutRoutines = false
+            }
+
+            do {
+                let count = try sessionRepository.countAnySessions(userId: userId)
+                self.hasAnySessions = (count > 0)
+            } catch {
+                self.hasAnySessions = false
             }
 
         } catch {

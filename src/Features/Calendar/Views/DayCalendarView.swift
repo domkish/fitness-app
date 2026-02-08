@@ -213,6 +213,22 @@ struct DayCalendarView: View {
                         }
                     }
                     .padding(.bottom, 16)
+                } else {
+                    VStack(alignment: .center, spacing: 8) {
+                        Image(systemName: "calendar.badge.exclamationmark")
+                            .font(.system(size: 40))
+                            .foregroundColor(themeManager.currentTheme.muted)
+                        Text("No workouts assigned for this day")
+                            .font(.headline)
+                            .foregroundColor(themeManager.currentTheme.textDefault)
+                        Text("To add a session, use the + Workout button above.")
+                            .font(.callout)
+                            .foregroundColor(themeManager.currentTheme.muted)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
                 }
 
                 // MARK: - Tasks Section

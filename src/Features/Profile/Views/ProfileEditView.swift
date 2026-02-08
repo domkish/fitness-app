@@ -86,13 +86,79 @@ struct ProfileEditView: View {
                                     Text("Preferred Units")
                                         .foregroundColor(themeManager.currentTheme.textDefault)
 
-                                    Picker("Units", selection: $viewModel.isImperial) {
-                                        Text("Metric").tag(false)
-                                        Text("Imperial").tag(true)
-                                    }
-                                    .pickerStyle(.segmented)
-                                }
+                                    HStack(spacing: 0) {
+                                        Button("Imperial") {
+                                            viewModel.isImperial = true
+                                        }
+                                        .padding(.vertical, 6)
+                                        .padding(.horizontal)
+                                        .frame(maxWidth: .infinity)
+                                        .background(viewModel.isImperial ? themeManager.currentTheme.primary : themeManager.currentTheme.primary.opacity(0.1))
+                                        .foregroundColor(viewModel.isImperial ? .white : themeManager.currentTheme.textDefault)
 
+                                        Button("Metric") {
+                                            viewModel.isImperial = false
+                                        }
+                                        .padding(.vertical, 6)
+                                        .padding(.horizontal)
+                                        .frame(maxWidth: .infinity)
+                                        .background(!viewModel.isImperial ? themeManager.currentTheme.primary : themeManager.currentTheme.primary.opacity(0.1))
+                                        .foregroundColor(!viewModel.isImperial ? .white : themeManager.currentTheme.textDefault)
+                                    }
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Display Weight Graph")
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                    
+                                    HStack(spacing: 0) {
+                                        Button("Show") {
+                                            viewModel.weight = true
+                                        }
+                                        .padding(.vertical, 6)
+                                        .padding(.horizontal)
+                                        .frame(maxWidth: .infinity)
+                                        .background(viewModel.weight ? themeManager.currentTheme.primary : themeManager.currentTheme.primary.opacity(0.1))
+                                        .foregroundColor(viewModel.weight ? .white : themeManager.currentTheme.textDefault)
+
+                                        Button("Hide") {
+                                            viewModel.weight = false
+                                        }
+                                        .padding(.vertical, 6)
+                                        .padding(.horizontal)
+                                        .frame(maxWidth: .infinity)
+                                        .background(!viewModel.weight ? themeManager.currentTheme.primary : themeManager.currentTheme.primary.opacity(0.1))
+                                        .foregroundColor(!viewModel.weight ? .white : themeManager.currentTheme.textDefault)
+                                    }
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Display Body Fat % Graph")
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                    
+                                    HStack(spacing: 0) {
+                                        Button("Show") {
+                                            viewModel.fat = true
+                                        }
+                                        .padding(.vertical, 6)
+                                        .padding(.horizontal)
+                                        .frame(maxWidth: .infinity)
+                                        .background(viewModel.fat ? themeManager.currentTheme.primary : themeManager.currentTheme.primary.opacity(0.1))
+                                        .foregroundColor(viewModel.fat ? .white : themeManager.currentTheme.textDefault)
+                                        
+                                        Button("Hide") {
+                                            viewModel.fat = false
+                                        }
+                                        .padding(.vertical, 6)
+                                        .padding(.horizontal)
+                                        .frame(maxWidth: .infinity)
+                                        .background(!viewModel.fat ? themeManager.currentTheme.primary : themeManager.currentTheme.primary.opacity(0.1))
+                                        .foregroundColor(!viewModel.fat ? .white : themeManager.currentTheme.textDefault)
+                                    }
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
                                 // Save Button
                                 Button {
                                     viewModel.saveChanges()

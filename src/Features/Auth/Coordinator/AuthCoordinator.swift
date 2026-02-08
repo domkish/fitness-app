@@ -107,7 +107,7 @@ final class AuthCoordinator: ObservableObject {
     // MARK: - Profile Updates
 
     /// Update local user only (SQLite), keeps isImperial
-    func updateCurrentUser(name: String, isImperial: Bool) {
+    func updateCurrentUser(name: String, isImperial: Bool, weight: Bool, fat: Bool) {
         guard let user = currentUser else { return }
 
         let updatedUser = User(
@@ -116,6 +116,8 @@ final class AuthCoordinator: ObservableObject {
             email: user.email,
             isPremium: user.isPremium,
             isImperial: isImperial, // local-only
+            weight: weight,
+            fat: fat,
             theme: user.theme,
             emailVerifiedAt: user.emailVerifiedAt,
             createdAt: user.createdAt,
@@ -147,6 +149,8 @@ final class AuthCoordinator: ObservableObject {
             email: updatedUser.email,
             isPremium: updatedUser.isPremium,
             isImperial: currentUser.isImperial, // local-only
+            weight: currentUser.weight,
+            fat: currentUser.fat,
             theme: currentUser.theme,
             emailVerifiedAt: updatedUser.emailVerifiedAt,
             createdAt: updatedUser.createdAt,

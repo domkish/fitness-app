@@ -11,6 +11,8 @@ import Combine
 final class ProfileEditViewModel: ObservableObject {
     @Published var name: String
     @Published var isImperial: Bool
+    @Published var weight: Bool
+    @Published var fat: Bool
     @Published var isSaving: Bool = false
     @Published var errorMessage: String?
 
@@ -19,12 +21,14 @@ final class ProfileEditViewModel: ObservableObject {
     init(user: User, authCoordinator: AuthCoordinator) {
         self.name = user.name
         self.isImperial = user.isImperial
+        self.weight = user.weight
+        self.fat = user.fat
         self.authCoordinator = authCoordinator
     }
 
     /// Update local user (isImperial + name)
     func saveChanges() {
-        authCoordinator.updateCurrentUser(name: name, isImperial: isImperial)
+        authCoordinator.updateCurrentUser(name: name, isImperial: isImperial, weight: weight, fat: fat)
     }
 
     /// Update backend (name only)
@@ -45,6 +49,8 @@ final class ProfileEditViewModel: ObservableObject {
     func replaceUser(_ user: User, authCoordinator: AuthCoordinator) {
         self.name = user.name
         self.isImperial = user.isImperial
+        self.weight = user.weight
+        self.fat = user.fat
         self.authCoordinator = authCoordinator
     }
 }

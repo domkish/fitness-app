@@ -382,6 +382,13 @@ struct SessionRepository {
             return try Date.fetchOne(db, sql: sql, arguments: [userId])
         }
     }
+    
+    /// Counts all non-deleted sessions for a user (regardless of date range).
+    func countAnySessions(userId: Int64) throws -> Int {
+        try dbQueue.read { db in
+            try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM sessions WHERE deleted_at IS NULL AND user_id = ?", arguments: [userId]) ?? 0
+        }
+    }
 }
 
 extension SessionRepository {

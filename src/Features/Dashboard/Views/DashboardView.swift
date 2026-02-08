@@ -76,6 +76,186 @@ struct DashboardView: View {
                                 dateRangeButton
                                 metricTiles
                                 exerciseLogSection
+
+                                // Weight chart (conditional)
+                                if (authCoordinator.currentUser?.weight == true) && !viewModel.weightSeries.isEmpty {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        HStack {
+                                            Text("Body Weight")
+                                                .font(.headline)
+                                                .foregroundStyle(themeManager.currentTheme.textDefault)
+                                            Spacer()
+                                        }
+                                        ZStack {
+                                            Chart {
+                                                ForEach(viewModel.weightSeries.sorted(by: { $0.key < $1.key }), id: \.key) { (date, value) in
+                                                    LineMark(
+                                                        x: .value("Date", date),
+                                                        y: .value("Weight", value)
+                                                    )
+                                                    .foregroundStyle(themeManager.currentTheme.primary)
+                                                    .symbol(.circle)
+                                                    .symbolSize(60)
+                                                }
+                                            }
+                                            .chartXScale(domain: viewModel.prDateDomain ?? {
+                                                let now = Date(); return (Calendar.current.date(byAdding: .day, value: -12, to: now) ?? now)...(Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now)
+                                            }())
+                                            .chartYScale(domain: {
+                                                let values = viewModel.weightSeries.values
+                                                if let minV = values.min(), let maxV = values.max() {
+                                                    let lower = minV - 5.0
+                                                    let upper = maxV + 5.0
+                                                    return lower...upper
+                                                } else { return 0...100 }
+                                            }())
+                                            .chartXAxis {
+                                                AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                                                    AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
+                                                    AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
+                                                    AxisValueLabel(format: .dateTime.month().day())
+                                                        .foregroundStyle(themeManager.currentTheme.textDefault)
+                                                }
+                                            }
+                                            .chartYAxis {
+                                                AxisMarks() { value in
+                                                    AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
+                                                    AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
+                                                    AxisValueLabel().foregroundStyle(themeManager.currentTheme.textDefault)
+                                                }
+                                            }
+                                            .chartOverlay { proxy in
+                                                GeometryReader { geo in
+                                                    Rectangle()
+                                                        .fill(Color.clear)
+                                                        .contentShape(Rectangle())
+                                                        .simultaneousGesture(
+                                                            SpatialTapGesture()
+                                                                .onEnded { value in
+                                                                    let location = value.location
+                                                                    if let xDate: Date = proxy.value(atX: location.x) {
+                                                                        // Find nearest by date
+                                                                        let sorted = viewModel.weightSeries.sorted { $0.key < $1.key }
+                                                                        if let nearest = sorted.min(by: { abs($0.key.timeIntervalSince1970 - xDate.timeIntervalSince1970) < abs($1.key.timeIntervalSince1970 - xDate.timeIntervalSince1970) }) {
+                                                                            selectedWeightDate = nearest.key
+                                                                            if let px = proxy.position(forX: nearest.key), let py = proxy.position(forY: nearest.value) {
+                                                                                selectedWeightPosition = CGPoint(x: px, y: py)
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                        )
+                                                }
+                                            }
+
+                                            if let selDate = selectedWeightDate, let val = viewModel.weightSeries[selDate] {
+                                                let unit = isImperial ? "lbs" : "kg"
+                                                let text = String(format: "%.1f %@", val, unit)
+                                                Text(text)
+                                                    .font(.caption)
+                                                    .padding(8)
+                                                    .background(themeManager.currentTheme.surface)
+                                                    .foregroundColor(themeManager.currentTheme.primary)
+                                                    .cornerRadius(8)
+                                                    .shadow(radius: 4)
+                                                    .position(x: selectedWeightPosition.x, y: selectedWeightPosition.y + 30)
+                                                    .onTapGesture { selectedWeightDate = nil }
+                                            }
+                                        }
+                                    }
+                                    .padding()
+                                    .background(themeManager.currentTheme.surface)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                }
+
+                                // Body fat chart (conditional)
+                                if (authCoordinator.currentUser?.fat == true) && !viewModel.bodyFatSeries.isEmpty {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        HStack {
+                                            Text("Body Fat %")
+                                                .font(.headline)
+                                                .foregroundStyle(themeManager.currentTheme.textDefault)
+                                            Spacer()
+                                        }
+                                        ZStack {
+                                            Chart {
+                                                ForEach(viewModel.bodyFatSeries.sorted(by: { $0.key < $1.key }), id: \.key) { (date, value) in
+                                                    LineMark(
+                                                        x: .value("Date", date),
+                                                        y: .value("Body Fat", value)
+                                                    )
+                                                    .foregroundStyle(themeManager.currentTheme.secondary)
+                                                    .symbol(.square)
+                                                    .symbolSize(60)
+                                                }
+                                            }
+                                            .chartXScale(domain: viewModel.prDateDomain ?? {
+                                                let now = Date(); return (Calendar.current.date(byAdding: .day, value: -12, to: now) ?? now)...(Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now)
+                                            }())
+                                            .chartYScale(domain: {
+                                                let values = viewModel.bodyFatSeries.values
+                                                if let minV = values.min(), let maxV = values.max() {
+                                                    let lower = minV - 2.0
+                                                    let upper = maxV + 2.0
+                                                    return lower...upper
+                                                } else { return 0...50 }
+                                            }())
+                                            .chartXAxis {
+                                                AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                                                    AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
+                                                    AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
+                                                    AxisValueLabel(format: .dateTime.month().day())
+                                                        .foregroundStyle(themeManager.currentTheme.textDefault)
+                                                }
+                                            }
+                                            .chartYAxis {
+                                                AxisMarks() { value in
+                                                    AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
+                                                    AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
+                                                    AxisValueLabel().foregroundStyle(themeManager.currentTheme.textDefault)
+                                                }
+                                            }
+                                            .chartOverlay { proxy in
+                                                GeometryReader { geo in
+                                                    Rectangle()
+                                                        .fill(Color.clear)
+                                                        .contentShape(Rectangle())
+                                                        .simultaneousGesture(
+                                                            SpatialTapGesture()
+                                                                .onEnded { value in
+                                                                    let location = value.location
+                                                                    if let xDate: Date = proxy.value(atX: location.x) {
+                                                                        let sorted = viewModel.bodyFatSeries.sorted { $0.key < $1.key }
+                                                                        if let nearest = sorted.min(by: { abs($0.key.timeIntervalSince1970 - xDate.timeIntervalSince1970) < abs($1.key.timeIntervalSince1970 - xDate.timeIntervalSince1970) }) {
+                                                                            selectedFatDate = nearest.key
+                                                                            if let px = proxy.position(forX: nearest.key), let py = proxy.position(forY: nearest.value) {
+                                                                                selectedFatPosition = CGPoint(x: px, y: py)
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                        )
+                                                }
+                                            }
+
+                                            if let selDate = selectedFatDate, let val = viewModel.bodyFatSeries[selDate] {
+                                                let text = String(format: "%.1f%%", val)
+                                                Text(text)
+                                                    .font(.caption)
+                                                    .padding(8)
+                                                    .background(themeManager.currentTheme.surface)
+                                                    .foregroundColor(themeManager.currentTheme.secondary)
+                                                    .cornerRadius(8)
+                                                    .shadow(radius: 4)
+                                                    .position(x: selectedFatPosition.x, y: selectedFatPosition.y + 30)
+                                                    .onTapGesture { selectedFatDate = nil }
+                                            }
+                                        }
+                                    }
+                                    .padding()
+                                    .background(themeManager.currentTheme.surface)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                }
                             }
                             .padding()
                         }
@@ -193,7 +373,38 @@ struct DashboardView: View {
                 .padding()
                 .background(themeManager.currentTheme.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else if viewModel.hasWorkoutRoutines && !viewModel.hasAnySessions {
+                // Y: User has routines but no sessions yet
+                VStack(spacing: 12) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 40))
+                        .foregroundColor(themeManager.currentTheme.primary)
+                    Text("Start logging your workouts")
+                        .font(.headline)
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+                    Text("You have routines set up. Get your first workout session in to start tracking progress.")
+                        .font(.callout)
+                        .foregroundColor(themeManager.currentTheme.muted)
+                        .multilineTextAlignment(.center)
+                    Button {
+                        coordinator.currentStep = .calendar
+                    } label: {
+                        HStack {
+                            Image(systemName: "calendar")
+                            Text("Open Calendar")
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(themeManager.currentTheme.surface)
+                        .cornerRadius(8)
+                    }
+                    .padding(.top, 6)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal)
+                .padding(.top, 24)
             } else {
+                // Z: No routines yet — existing onboarding card
                 VStack(spacing: 8) {
                     Image(systemName: "dumbbell.fill")
                         .font(.system(size: 44))
@@ -207,7 +418,7 @@ struct DashboardView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.top, 16)
-                
+
                 Button {
                     coordinator.currentStep = .workout
                 } label: {
@@ -223,186 +434,6 @@ struct DashboardView: View {
                 }
                 .padding(16)
                 .padding(.top, 6)
-            }
-            
-            // Weight chart (conditional)
-            if (authCoordinator.currentUser?.weight == true) && !viewModel.weightSeries.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Body Weight")
-                            .font(.headline)
-                            .foregroundStyle(themeManager.currentTheme.textDefault)
-                        Spacer()
-                    }
-                    ZStack {
-                        Chart {
-                            ForEach(viewModel.weightSeries.sorted(by: { $0.key < $1.key }), id: \.key) { (date, value) in
-                                LineMark(
-                                    x: .value("Date", date),
-                                    y: .value("Weight", value)
-                                )
-                                .foregroundStyle(themeManager.currentTheme.primary)
-                                .symbol(.circle)
-                                .symbolSize(60)
-                            }
-                        }
-                        .chartXScale(domain: viewModel.prDateDomain ?? {
-                            let now = Date(); return (Calendar.current.date(byAdding: .day, value: -12, to: now) ?? now)...(Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now)
-                        }())
-                        .chartYScale(domain: {
-                            let values = viewModel.weightSeries.values
-                            if let minV = values.min(), let maxV = values.max() {
-                                let lower = minV - 5.0
-                                let upper = maxV + 5.0
-                                return lower...upper
-                            } else { return 0...100 }
-                        }())
-                        .chartXAxis {
-                            AxisMarks(values: .automatic(desiredCount: 5)) { value in
-                                AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
-                                AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
-                                AxisValueLabel(format: .dateTime.month().day())
-                                    .foregroundStyle(themeManager.currentTheme.textDefault)
-                            }
-                        }
-                        .chartYAxis {
-                            AxisMarks() { value in
-                                AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
-                                AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
-                                AxisValueLabel().foregroundStyle(themeManager.currentTheme.textDefault)
-                            }
-                        }
-                        .chartOverlay { proxy in
-                            GeometryReader { geo in
-                                Rectangle()
-                                    .fill(Color.clear)
-                                    .contentShape(Rectangle())
-                                    .simultaneousGesture(
-                                        SpatialTapGesture()
-                                            .onEnded { value in
-                                                let location = value.location
-                                                if let xDate: Date = proxy.value(atX: location.x) {
-                                                    // Find nearest by date
-                                                    let sorted = viewModel.weightSeries.sorted { $0.key < $1.key }
-                                                    if let nearest = sorted.min(by: { abs($0.key.timeIntervalSince1970 - xDate.timeIntervalSince1970) < abs($1.key.timeIntervalSince1970 - xDate.timeIntervalSince1970) }) {
-                                                        selectedWeightDate = nearest.key
-                                                        if let px = proxy.position(forX: nearest.key), let py = proxy.position(forY: nearest.value) {
-                                                            selectedWeightPosition = CGPoint(x: px, y: py)
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                    )
-                            }
-                        }
-
-                        if let selDate = selectedWeightDate, let val = viewModel.weightSeries[selDate] {
-                            let unit = isImperial ? "lbs" : "kg"
-                            let text = String(format: "%.1f %@", val, unit)
-                            Text(text)
-                                .font(.caption)
-                                .padding(8)
-                                .background(themeManager.currentTheme.surface)
-                                .foregroundColor(themeManager.currentTheme.primary)
-                                .cornerRadius(8)
-                                .shadow(radius: 4)
-                                .position(x: selectedWeightPosition.x, y: selectedWeightPosition.y + 30)
-                                .onTapGesture { selectedWeightDate = nil }
-                        }
-                    }
-                }
-                .padding()
-                .background(themeManager.currentTheme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-
-            // Body fat chart (conditional)
-            if (authCoordinator.currentUser?.fat == true) && !viewModel.bodyFatSeries.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Body Fat %")
-                            .font(.headline)
-                            .foregroundStyle(themeManager.currentTheme.textDefault)
-                        Spacer()
-                    }
-                    ZStack {
-                        Chart {
-                            ForEach(viewModel.bodyFatSeries.sorted(by: { $0.key < $1.key }), id: \.key) { (date, value) in
-                                LineMark(
-                                    x: .value("Date", date),
-                                    y: .value("Body Fat", value)
-                                )
-                                .foregroundStyle(themeManager.currentTheme.secondary)
-                                .symbol(.square)
-                                .symbolSize(60)
-                            }
-                        }
-                        .chartXScale(domain: viewModel.prDateDomain ?? {
-                            let now = Date(); return (Calendar.current.date(byAdding: .day, value: -12, to: now) ?? now)...(Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now)
-                        }())
-                        .chartYScale(domain: {
-                            let values = viewModel.bodyFatSeries.values
-                            if let minV = values.min(), let maxV = values.max() {
-                                let lower = minV - 2.0
-                                let upper = maxV + 2.0
-                                return lower...upper
-                            } else { return 0...50 }
-                        }())
-                        .chartXAxis {
-                            AxisMarks(values: .automatic(desiredCount: 5)) { value in
-                                AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
-                                AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
-                                AxisValueLabel(format: .dateTime.month().day())
-                                    .foregroundStyle(themeManager.currentTheme.textDefault)
-                            }
-                        }
-                        .chartYAxis {
-                            AxisMarks() { value in
-                                AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
-                                AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
-                                AxisValueLabel().foregroundStyle(themeManager.currentTheme.textDefault)
-                            }
-                        }
-                        .chartOverlay { proxy in
-                            GeometryReader { geo in
-                                Rectangle()
-                                    .fill(Color.clear)
-                                    .contentShape(Rectangle())
-                                    .simultaneousGesture(
-                                        SpatialTapGesture()
-                                            .onEnded { value in
-                                                let location = value.location
-                                                if let xDate: Date = proxy.value(atX: location.x) {
-                                                    let sorted = viewModel.bodyFatSeries.sorted { $0.key < $1.key }
-                                                    if let nearest = sorted.min(by: { abs($0.key.timeIntervalSince1970 - xDate.timeIntervalSince1970) < abs($1.key.timeIntervalSince1970 - xDate.timeIntervalSince1970) }) {
-                                                        selectedFatDate = nearest.key
-                                                        if let px = proxy.position(forX: nearest.key), let py = proxy.position(forY: nearest.value) {
-                                                            selectedFatPosition = CGPoint(x: px, y: py)
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                    )
-                            }
-                        }
-
-                        if let selDate = selectedFatDate, let val = viewModel.bodyFatSeries[selDate] {
-                            let text = String(format: "%.1f%%", val)
-                            Text(text)
-                                .font(.caption)
-                                .padding(8)
-                                .background(themeManager.currentTheme.surface)
-                                .foregroundColor(themeManager.currentTheme.secondary)
-                                .cornerRadius(8)
-                                .shadow(radius: 4)
-                                .position(x: selectedFatPosition.x, y: selectedFatPosition.y + 30)
-                                .onTapGesture { selectedFatDate = nil }
-                        }
-                    }
-                }
-                .padding()
-                .background(themeManager.currentTheme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
             }
         }
     }
