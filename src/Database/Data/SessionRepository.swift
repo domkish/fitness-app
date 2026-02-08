@@ -106,6 +106,8 @@ struct SessionRepository {
                 )
                 let sessionExerciseId = try exRepo.create(&sEx)
                 // Seed a single default set
+                let unitLower = (ex.unit ?? "").lowercased()
+                let initialCompleted = (unitLower == "none") ? 1 : 0
                 var sSet = SessionSetRecord(
                     id: nil,
                     sessionExerciseId: sessionExerciseId,
@@ -113,7 +115,7 @@ struct SessionRepository {
                     completedReps: nil,
                     value: nil,
                     unit: ex.unit,
-                    completed: 0,
+                    completed: initialCompleted,
                     deletedAt: nil,
                     createdAt: Date(),
                     updatedAt: Date()

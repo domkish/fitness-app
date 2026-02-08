@@ -85,8 +85,8 @@ struct SetRowView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("CustomNumericKeyboardNext"))) { _ in
             switch focusedField {
-            case .reps:
-                focusedField = .value
+            case .value:
+                focusedField = .reps
             default:
                 focusedField = nil
             }

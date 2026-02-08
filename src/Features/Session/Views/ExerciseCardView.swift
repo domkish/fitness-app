@@ -45,6 +45,10 @@ struct ExerciseCardView: View {
         return !isActive && !exItem.exerciseCompleted
     }
 
+    private var isNoneUnit: Bool {
+        return (exItem.exercise.unit ?? "").lowercased() == "none"
+    }
+
     var body: some View {
         ZStack {
             // Main card content
@@ -118,48 +122,52 @@ struct ExerciseCardView: View {
                 .frame(maxWidth: .infinity)
 
                 VStack(spacing: 8) {
-                    HStack(spacing: 8) {
-                        Text("Set").frame(maxWidth: 40, alignment: .center)
-                        Text("Previous").frame(maxWidth: .infinity, alignment: .leading)
-                        Text(exItem.exercise.unit ?? "Value").frame(maxWidth: 180, alignment: .leading)
-                        Text("Reps").frame(maxWidth: 60, alignment: .leading)
-                        Text("").frame(maxWidth: 24, alignment: .leading)
+                    if !isNoneUnit {
+                        HStack(spacing: 8) {
+                            Text("Set").frame(maxWidth: 40, alignment: .center)
+                            Text("Previous").frame(maxWidth: .infinity, alignment: .leading)
+                            Text(exItem.exercise.unit ?? "Value").frame(maxWidth: 180, alignment: .leading)
+                            Text("Reps").frame(maxWidth: 60, alignment: .leading)
+                            Text("").frame(maxWidth: 24, alignment: .leading)
+                        }
+                        .font(.caption)
+                        .foregroundColor(themeManager.currentTheme.textDefault)
+                        .frame(maxWidth: 600)
                     }
-                    .font(.caption)
-                    .foregroundColor(themeManager.currentTheme.textDefault)
-                    .frame(maxWidth: 600)
 
-                    List {
-                        ForEach(exItem.sets) { set in
-                            SetRowView(setItem: set, onUserInteraction: {
-                                if !exItem.exerciseCompleted {
-                                    onBecameActive?()
-                                }
-                            })
-                            .contentShape(Rectangle())
-                            .if(exItem.sets.count > 1) { view in
-                                view.swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) {
-                                        deleteSet(set)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
+                    if !isNoneUnit {
+                        List {
+                            ForEach(exItem.sets) { set in
+                                SetRowView(setItem: set, onUserInteraction: {
+                                    if !exItem.exerciseCompleted {
+                                        onBecameActive?()
+                                    }
+                                })
+                                .contentShape(Rectangle())
+                                .if(exItem.sets.count > 1) { view in
+                                    view.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        Button(role: .destructive) {
+                                            deleteSet(set)
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
                                     }
                                 }
+                                .listRowInsets(EdgeInsets(top: 3, leading: 0, bottom: 3, trailing: 0))
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
                             }
-                            .listRowInsets(EdgeInsets(top: 3, leading: 0, bottom: 3, trailing: 0))
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
                         }
+                        .listStyle(.plain)
+                        .listRowSeparator(.hidden)
+                        .scrollContentBackground(.hidden)
+                        .scrollDisabled(true)
+                        .frame(minHeight: CGFloat(max(1, exItem.sets.count)) * 55)
+                        .padding(.vertical, 0)
                     }
-                    .listStyle(.plain)
-                    .listRowSeparator(.hidden)
-                    .scrollContentBackground(.hidden)
-                    .scrollDisabled(true)
-                    .frame(minHeight: CGFloat(max(1, exItem.sets.count)) * 55)
-                    .padding(.vertical, 0)
 
                     HStack(spacing: 12) {
-                        if(!exItem.exerciseCompleted){
+                        if !exItem.exerciseCompleted && !isNoneUnit {
                             Button(action: { addSet() }) {
                                 HStack(spacing: 6) {
                                     Image(systemName: "plus")
