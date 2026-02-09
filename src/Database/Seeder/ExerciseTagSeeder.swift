@@ -26,11 +26,17 @@ struct ExerciseTagSeeder {
             ["name": "Chest", "type": "Group"],
             ["name": "Legs", "type": "Group"],
             ["name": "Quads", "type": "Group"],
+            ["name": "Glutes", "type": "Group"],
             ["name": "Hamstrings", "type": "Group"],
             ["name": "Shoulders", "type": "Group"],
             ["name": "Full Body", "type": "Group"],
             ["name": "Cardio", "type": "Group"],
             ["name": "Other", "type": "Group"],
+            ["name": "Hip Flexors", "type": "Group"],
+            ["name": "Adductors", "type": "Group"],
+            ["name": "Obliques", "type": "Group"],
+            ["name": "Calves", "type": "Group"],
+            ["name": "Groin", "type": "Group"],
 
             // =======================
             // Category Tags
@@ -41,7 +47,9 @@ struct ExerciseTagSeeder {
             ["name": "Bodyweight", "type": "Category"],
             ["name": "Reps Only", "type": "Category"],
             ["name": "Cardio", "type": "Category"],
+            ["name": "Kettlebell", "type": "Category"],
             ["name": "Duration", "type": "Category"],
+            ["name": "Other", "type": "Category"],
             
             // =======================
             // Category Tags
@@ -52,9 +60,12 @@ struct ExerciseTagSeeder {
             ["name": "Upper Body", "type": "Workout"],
             ["name": "Lower Body", "type": "Workout"],
             ["name": "Full Body", "type": "Workout"],
-            ["name": "Hiit", "type": "Workout"],
+            ["name": "HIIT", "type": "Workout"],
             ["name": "Recovery", "type": "Workout"],
             ["name": "Cardio", "type": "Workout"],
+            ["name": "Sport", "type": "Workout"],
+            ["name": "Yoga", "type": "Workout"],
+            ["name": "Core", "type": "Workout"],
         ]
 
         for tag in tags {
