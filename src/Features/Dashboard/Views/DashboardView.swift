@@ -7,6 +7,8 @@
 
 import SwiftUI
 import Charts
+import UIKit
+import Combine
 
 // MARK: - DashboardView
 
@@ -76,6 +78,92 @@ struct DashboardView: View {
                                 dateRangeButton
                                 metricTiles
                                 exerciseLogSection
+
+                                // Progress Photos carousel (conditional)
+                                if !viewModel.progressPhotos.isEmpty {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        HStack {
+                                            Text("Progress Photos")
+                                                .font(.headline)
+                                                .foregroundStyle(themeManager.currentTheme.textDefault)
+                                            Spacer()
+                                        }
+
+                                        ZStack {
+                                            let total = viewModel.progressPhotos.count
+                                            let clamped = max(0, min(Double(max(0, total - 1)), viewModel.currentPhotoIndex))
+                                            let baseIndex = Int(floor(clamped))
+                                            let nextIndex = min(baseIndex + 1, max(0, total - 1))
+                                            let fraction = clamped - Double(baseIndex)
+
+                                            // Base (current) image fades out as fraction increases
+                                            if total > 0 {
+                                                let baseItem = viewModel.progressPhotos[baseIndex]
+                                                if let img = viewModel.loadImage(from: baseItem.relativePath) {
+                                                    Image(uiImage: img)
+                                                        .resizable()
+                                                        .scaledToFit()
+                                                        .frame(maxWidth: .infinity)
+                                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                                        .opacity(1.0 - fraction)
+                                                } else {
+                                                    RoundedRectangle(cornerRadius: 12)
+                                                        .fill(themeManager.currentTheme.surface.opacity(0.5))
+                                                        .frame(height: 180)
+                                                        .opacity(1.0 - fraction)
+                                                }
+                                            }
+
+                                            // Next image fades in as fraction increases
+                                            if total > 0 {
+                                                let nextItem = viewModel.progressPhotos[nextIndex]
+                                                if let img = viewModel.loadImage(from: nextItem.relativePath) {
+                                                    Image(uiImage: img)
+                                                        .resizable()
+                                                        .scaledToFit()
+                                                        .frame(maxWidth: .infinity)
+                                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                                        .opacity(fraction)
+                                                } else {
+                                                    RoundedRectangle(cornerRadius: 12)
+                                                        .fill(themeManager.currentTheme.surface.opacity(0.5))
+                                                        .frame(height: 180)
+                                                        .opacity(fraction)
+                                                }
+                                            }
+                                        }
+
+                                        // Scrubber slider
+                                        Slider(value: $viewModel.currentPhotoIndex, in: 0...Double(max(0, viewModel.progressPhotos.count - 1))) {
+                                            Text("Photo Index")
+                                        } minimumValueLabel: {
+                                            let firstDateText: String = {
+                                                if let first = viewModel.progressPhotos.first?.date {
+                                                    let f = DateFormatter(); f.dateFormat = "M/d"; return f.string(from: first)
+                                                }
+                                                return "--"
+                                            }()
+                                            Text(firstDateText)
+                                                .foregroundStyle(themeManager.currentTheme.muted)
+                                        } maximumValueLabel: {
+                                            let lastDateText: String = {
+                                                if let last = viewModel.progressPhotos.last?.date {
+                                                    let f = DateFormatter(); f.dateFormat = "M/d"; return f.string(from: last)
+                                                }
+                                                return "--"
+                                            }()
+                                            Text(lastDateText)
+                                                .foregroundStyle(themeManager.currentTheme.muted)
+                                        }
+                                        .tint(themeManager.currentTheme.primary)
+                                        .onChange(of: viewModel.currentPhotoIndex) { _ in
+                                            withAnimation(.easeInOut(duration: 0.3)) { /* animate scrubbing fade */ }
+                                        }
+                                    }
+                                    .padding()
+                                    .background(themeManager.currentTheme.surface)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                }
 
                                 // Weight chart (conditional)
                                 if (authCoordinator.currentUser?.weight == true) && !viewModel.weightSeries.isEmpty {

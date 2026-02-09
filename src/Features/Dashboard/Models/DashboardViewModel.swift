@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import UIKit
 
 final class DashboardViewModel: ObservableObject {
 
@@ -30,6 +31,21 @@ final class DashboardViewModel: ObservableObject {
     @Published var hasWorkoutRoutines: Bool = false
     @Published var hasAnySessions: Bool = false
 
+    // Progress photos in selected date range
+    @Published var progressPhotos: [ProgressPhoto] = []
+    @Published var currentPhotoIndex: Double = 0 // slider-compatible
+
+    struct ExerciseOption: Identifiable, Hashable {
+        let id: Int64
+        let name: String
+    }
+
+    struct ProgressPhoto: Identifiable, Hashable {
+        let id = UUID()
+        let date: Date
+        let relativePath: String
+    }
+
     // MARK: - Dependencies
 
     private let sessionRepository: SessionRepository
@@ -45,11 +61,6 @@ final class DashboardViewModel: ObservableObject {
         self.userId = userId
         self.userCreatedAtProvider = userCreatedAtProvider
         self.isImperialProvider = isImperialProvider
-    }
-
-    struct ExerciseOption: Identifiable, Hashable {
-        let id: Int64
-        let name: String
     }
 
     // MARK: - Date Helpers
@@ -149,6 +160,29 @@ final class DashboardViewModel: ObservableObject {
                 self.hasAnySessions = false
             }
 
+            // Load progress photos within date range
+            if let start = range.start, let end = range.end {
+                do {
+                    let repo = CalendarEntryRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+                    let entries = try repo.entries(in: start...end, userId: userId)
+                    let photos = entries
+                        .compactMap { rec -> ProgressPhoto? in
+                            guard let path = rec.progressPhoto, !path.isEmpty,
+                                  let date = CalendarEntry.date(from: rec.date) else { return nil }
+                            return ProgressPhoto(date: date, relativePath: path)
+                        }
+                        .sorted { $0.date < $1.date }
+                    progressPhotos = photos
+                    currentPhotoIndex = 0
+                } catch {
+                    progressPhotos = []
+                    currentPhotoIndex = 0
+                }
+            } else {
+                progressPhotos = []
+                currentPhotoIndex = 0
+            }
+
         } catch {
             totalWeightLbs = 0
             totalDistanceMiles = 0
@@ -168,9 +202,9 @@ final class DashboardViewModel: ObservableObject {
             let range = try resolvedDateRange()
             
             if let start = range.start, let end = range.end {
-                let entries = try calendarEntryRepository.entries(in: start...end, userId: userId)
                 var w: [Date: Double] = [:]
                 var bf: [Date: Double] = [:]
+                let entries = try calendarEntryRepository.entries(in: start...end, userId: userId)
                 for e in entries {
                     let day = CalendarEntry.date(from: e.date) ?? Date()
                     if let val = e.weight { w[day] = val }
@@ -286,6 +320,18 @@ final class DashboardViewModel: ObservableObject {
 
     func updateUser(id: Int64) {
         userId = id
+    }
+
+    // MARK: - Image Loading
+
+    func loadImage(from relativePath: String) -> UIImage? {
+        let fm = FileManager.default
+        do {
+            let docs = try fm.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+            let url = docs.appendingPathComponent(relativePath)
+            if let data = try? Data(contentsOf: url) { return UIImage(data: data) }
+        } catch { }
+        return nil
     }
 
     // MARK: - Formatting
