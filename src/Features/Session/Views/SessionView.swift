@@ -38,6 +38,12 @@ struct SessionView: View {
                             .foregroundColor(themeManager.currentTheme.textDefault)
                     }
                     .padding(.horizontal)
+                    
+                    HStack {
+                        Text(session.description ?? "")
+                            .foregroundColor(themeManager.currentTheme.muted)
+                    }
+                    .padding(.horizontal)
 
                     Group {
                         if isLoading {

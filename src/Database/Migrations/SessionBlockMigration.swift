@@ -17,6 +17,7 @@ extension DatabaseMigrator {
                 t.foreignKey(["session_id"], references: "sessions", onDelete: .cascade)
                 t.column("workout_block_id", .integer).notNull().indexed()
                 t.foreignKey(["workout_block_id"], references: "workout_blocks", onDelete: .cascade)
+                t.column("description", .text)
                 t.column("duration", .integer).notNull().defaults(to: 0)
                 t.softDeletes()
                 t.timestamps()

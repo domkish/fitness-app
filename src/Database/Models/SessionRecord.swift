@@ -13,6 +13,7 @@ struct SessionRecord: Codable, FetchableRecord, PersistableRecord, Identifiable 
     var workoutId: Int64
     var calendarWorkoutId: Int64
     var workoutName: String
+    var description: String?
     var totalDuration: Int
     var startedAt: Date?
     var completedAt: Date?
@@ -28,6 +29,7 @@ struct SessionRecord: Codable, FetchableRecord, PersistableRecord, Identifiable 
         case workoutId = "workout_id"
         case calendarWorkoutId = "calendar_workout_id"
         case workoutName = "workout_name"
+        case description = "description"
         case totalDuration = "total_duration"
         case startedAt = "started_at"
         case completedAt = "completed_at"
@@ -43,6 +45,7 @@ struct SessionRecord: Codable, FetchableRecord, PersistableRecord, Identifiable 
         static let workoutId = Column("workout_id")
         static let calendarWorkoutId = Column("calendar_workout_id")
         static let workoutName = Column("workout_name")
+        static let description = Column("description")
         static let totalDuration = Column("total_duration")
         static let startedAt = Column("started_at")
         static let completedAt = Column("completed_at")
@@ -67,6 +70,7 @@ struct SessionRecord: Codable, FetchableRecord, PersistableRecord, Identifiable 
         self.workoutId = domain.workoutId
         self.calendarWorkoutId = domain.calendarWorkoutId
         self.workoutName = domain.workoutName
+        self.description = domain.description
         self.totalDuration = domain.totalDuration
         self.startedAt = domain.startedAt
         self.completedAt = domain.completedAt
@@ -82,6 +86,7 @@ struct SessionRecord: Codable, FetchableRecord, PersistableRecord, Identifiable 
             workoutId: workoutId,
             calendarWorkoutId: calendarWorkoutId,
             workoutName: workoutName,
+            description: description,
             totalDuration: totalDuration,
             startedAt: startedAt,
             completedAt: completedAt,
@@ -98,6 +103,7 @@ extension SessionRecord {
         workoutId: Int64,
         calendarWorkoutId: Int64,
         workoutName: String,
+        description: String? = nil,
         totalDuration: Int = 0,
         startedAt: Date? = nil,
         completedAt: Date? = nil,
@@ -110,6 +116,7 @@ extension SessionRecord {
         self.workoutId = workoutId
         self.calendarWorkoutId = calendarWorkoutId
         self.workoutName = workoutName
+        self.description = description
         self.totalDuration = totalDuration
         self.startedAt = startedAt
         self.completedAt = completedAt

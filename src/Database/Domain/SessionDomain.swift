@@ -12,6 +12,7 @@ struct SessionDomain {
     var workoutId: Int64
     var calendarWorkoutId: Int64
     var workoutName: String
+    var description: String?
     var totalDuration: Int
     var startedAt: Date?
     var completedAt: Date?
@@ -25,6 +26,7 @@ struct SessionDomain {
         workoutId: Int64,
         calendarWorkoutId: Int64,
         workoutName: String,
+        description: String? = nil,
         totalDuration: Int = 0,
         startedAt: Date? = nil,
         completedAt: Date? = nil,
@@ -37,6 +39,7 @@ struct SessionDomain {
         self.workoutId = workoutId
         self.calendarWorkoutId = calendarWorkoutId
         self.workoutName = workoutName
+        self.description = description
         self.totalDuration = totalDuration
         self.startedAt = startedAt
         self.completedAt = completedAt

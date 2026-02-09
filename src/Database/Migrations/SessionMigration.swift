@@ -24,6 +24,7 @@ extension DatabaseMigrator {
                 t.foreignKey(["calendar_workout_id"], references: "calendar_workouts", onDelete: .cascade)
 
                 t.column("workout_name", .text).notNull()
+                t.column("description", .text)
                 t.column("total_duration", .integer).notNull().defaults(to: 0)
                 t.column("started_at", .datetime)
                 t.column("completed_at", .datetime)

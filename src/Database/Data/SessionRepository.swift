@@ -65,8 +65,23 @@ struct SessionRepository {
         if let existing = try find(calendarWorkoutId: calendarWorkoutId, startedAt: startedAt) {
             return existing
         }
+        // Load workout description to seed sessions.description
+        let workoutDescription: String? = try dbQueue.read { db in
+            try WorkoutRecord
+                .filter(WorkoutRecord.Columns.id == workoutId)
+                .fetchOne(db)?
+                .description
+        }
         // Create session first
         let sessionId = try createSession(userId: userId, workoutId: workoutId, calendarWorkoutId: calendarWorkoutId, workoutName: workoutName, startedAt: startedAt, createdAt: createdAt)
+        // Seed sessions.description from workouts.description
+        try dbQueue.write { db in
+            if var rec = try SessionRecord.fetchOne(db, key: sessionId) {
+                rec.description = workoutDescription
+                rec.updatedAt = Date()
+                try rec.update(db)
+            }
+        }
         // Load workout blocks and exercises
         let blocks = try workoutRepo.fetchBlocks(forWorkoutId: workoutId).filter { $0.deletedAt == nil }
         let blockRepo = SessionBlockRepository(dbQueue: dbQueue)
@@ -80,6 +95,7 @@ struct SessionRepository {
                 id: nil,
                 sessionId: sessionId,
                 workoutBlockId: block.id ?? -1,
+                description: block.description,
                 duration: 0,
                 deletedAt: nil,
                 createdAt: Date(),

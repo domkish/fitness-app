@@ -13,9 +13,16 @@ struct BlockCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Circuit")
+            Text("Block")
                 .font(.headline)
-                .foregroundColor(themeManager.currentTheme.muted)
+                .foregroundColor(themeManager.currentTheme.textDefault)
+
+            if let notes = blockItem.block.description, !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(notes)
+                    .font(.subheadline)
+                    .foregroundColor(themeManager.currentTheme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             ForEach(Array(blockItem.exercises.enumerated()), id: \.element.id) { index, ex in
                 ExerciseCardView(

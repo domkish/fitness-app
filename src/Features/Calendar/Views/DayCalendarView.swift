@@ -246,11 +246,11 @@ struct DayCalendarView: View {
                             } label: {
                                 HStack(spacing: 10) {
                                     Text(taskName(for: t.taskId))
-                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                        .foregroundColor(isTodayOrPast ? themeManager.currentTheme.textDefault : themeManager.currentTheme.textDefault.opacity(0.5))
                                     Spacer()
                                     Image(systemName: t.isComplete ? "checkmark.square.fill" : "square")
                                         .font(.system(size: 22, weight: .semibold))
-                                        .foregroundColor(t.isComplete ? themeManager.currentTheme.primary : themeManager.currentTheme.muted)
+                                        .foregroundColor(isTodayOrPast ? (t.isComplete ? themeManager.currentTheme.primary : themeManager.currentTheme.muted) : themeManager.currentTheme.muted.opacity(0.5))
                                         .contentShape(Rectangle())
                                 }
                             }
@@ -258,6 +258,7 @@ struct DayCalendarView: View {
                             .background(themeManager.currentTheme.surface)
                             .cornerRadius(16)
                             .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                            .disabled(!isTodayOrPast)
                         }
 
                         // Scheduled tasks without daily instances
@@ -268,11 +269,11 @@ struct DayCalendarView: View {
                             } label: {
                                 HStack(spacing: 10) {
                                     Text(s.name)
-                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                        .foregroundColor(isTodayOrPast ? themeManager.currentTheme.textDefault : themeManager.currentTheme.textDefault.opacity(0.5))
                                     Spacer()
                                     Image(systemName: "square")
                                         .font(.system(size: 22, weight: .semibold))
-                                        .foregroundColor(themeManager.currentTheme.muted)
+                                        .foregroundColor(isTodayOrPast ? themeManager.currentTheme.muted : themeManager.currentTheme.muted.opacity(0.5))
                                         .contentShape(Rectangle())
                                 }
                             }
@@ -280,6 +281,7 @@ struct DayCalendarView: View {
                             .background(themeManager.currentTheme.surface)
                             .cornerRadius(16)
                             .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                            .disabled(!isTodayOrPast)
                         }
                     }
                 }

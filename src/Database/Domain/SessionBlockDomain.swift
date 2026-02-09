@@ -10,6 +10,7 @@ struct SessionBlockDomain {
     var id: Int64?
     var sessionId: Int64
     var workoutBlockId: Int64
+    var description: String?
     var duration: Int
     var deletedAt: Date?
     var createdAt: Date
@@ -19,6 +20,7 @@ struct SessionBlockDomain {
         id: Int64? = nil,
         sessionId: Int64,
         workoutBlockId: Int64,
+        description: String? = nil,
         duration: Int = 0,
         deletedAt: Date? = nil,
         createdAt: Date = Date(),
@@ -27,6 +29,7 @@ struct SessionBlockDomain {
         self.id = id
         self.sessionId = sessionId
         self.workoutBlockId = workoutBlockId
+        self.description = description
         self.duration = duration
         self.deletedAt = deletedAt
         self.createdAt = createdAt

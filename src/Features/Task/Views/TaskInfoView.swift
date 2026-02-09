@@ -302,10 +302,10 @@ struct TaskInfoView: View {
     
     private func deleteTask(id: Int64) async {
         do {
-            try taskRepo.delete(id: id)
+            try taskRepo.softDelete(id: id)
             await MainActor.run { dismiss() }
         } catch {
-            await MainActor.run { self.errorMessage = "Failed to delete task: \(error.localizedDescription)" }
+            await MainActor.run { self.errorMessage = "Failed to archive task: \(error.localizedDescription)" }
         }
     }
 }
