@@ -16,6 +16,7 @@ struct DashboardView: View {
     @ObservedObject var coordinator: AppShellCoordinator
     @EnvironmentObject var authCoordinator: AuthCoordinator
     @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.scenePhase) private var scenePhase
 
     @StateObject var viewModel: DashboardViewModel
 
@@ -156,6 +157,34 @@ struct DashboardView: View {
                                                                 .opacity(fraction)
                                                         }
                                                     }
+                                                    
+                                                    // Date overlay for the currently displayed photo
+                                                    VStack {
+                                                        Spacer()
+                                                        HStack {
+                                                            Spacer()
+                                                            let total = viewModel.progressPhotos.count
+                                                            let clamped = max(0, min(Double(max(0, total - 1)), viewModel.currentPhotoIndex))
+                                                            let baseIndex = Int(floor(clamped))
+                                                            let nextIndex = min(baseIndex + 1, max(0, total - 1))
+                                                            let fraction = clamped - Double(baseIndex)
+                                                            let displayIndex = (fraction > 0.5 ? nextIndex : baseIndex)
+                                                            if total > 0 {
+                                                                let item = viewModel.progressPhotos[displayIndex]
+                                                                let dateText: String = {
+                                                                    let f = DateFormatter(); f.dateStyle = .medium; return f.string(from: item.date)
+                                                                }()
+                                                                Text(dateText)
+                                                                    .font(.caption)
+                                                                    .foregroundColor(.white)
+                                                                    .padding(6)
+                                                                    .background(Color.black.opacity(0.35))
+                                                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                                                    .padding(8)
+                                                            }
+                                                        }
+                                                    }
+                                                    
                                                     // Tap to present full screen photo
                                                     Color.clear
                                                         .contentShape(Rectangle())
@@ -206,19 +235,18 @@ struct DashboardView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                                     .onAppear {
                                         let total = viewModel.progressPhotos.count
-                                        if total > 0 {
-                                            viewModel.currentPhotoIndex = Double(total - 1)
+                                        guard total > 0 else { return }
+                                        let last = Double(total - 1)
+                                        if viewModel.currentPhotoIndex.isNaN || viewModel.currentPhotoIndex < 0 || viewModel.currentPhotoIndex > last || viewModel.currentPhotoIndex == 0 {
+                                            viewModel.currentPhotoIndex = last
                                         }
                                     }
                                     .onChange(of: viewModel.progressPhotos.count) { _ in
                                         let total = viewModel.progressPhotos.count
-                                        if total > 0 {
-                                            viewModel.currentPhotoIndex = min(viewModel.currentPhotoIndex, Double(total - 1))
-                                            if viewModel.currentPhotoIndex.isNaN || viewModel.currentPhotoIndex < 0 {
-                                                viewModel.currentPhotoIndex = Double(total - 1)
-                                            }
-                                        } else {
-                                            viewModel.currentPhotoIndex = 0
+                                        guard total > 0 else { return }
+                                        let last = Double(total - 1)
+                                        if viewModel.currentPhotoIndex.isNaN || viewModel.currentPhotoIndex < 0 || viewModel.currentPhotoIndex > last || viewModel.currentPhotoIndex == 0 {
+                                            viewModel.currentPhotoIndex = last
                                         }
                                     }
                                     .fullScreenCover(isPresented: $showingFullScreenPhoto) {
@@ -441,11 +469,27 @@ struct DashboardView: View {
                             AuthCoordinatorProvider.instance = authCoordinator
                             await viewModel.loadDashboardData()
                             await viewModel.loadExerciseLog()
+                            DispatchQueue.main.async { 
+                                let total = viewModel.progressPhotos.count
+                                guard total > 0 else { return }
+                                let last = Double(total - 1)
+                                if viewModel.currentPhotoIndex.isNaN || viewModel.currentPhotoIndex < 0 || viewModel.currentPhotoIndex > last || viewModel.currentPhotoIndex == 0 {
+                                    viewModel.currentPhotoIndex = last
+                                }
+                            }
                         }
                         .onChange(of: viewModel.dateSelection) { _ in
                             Task {
                                 await viewModel.loadDashboardData()
                                 await viewModel.loadExerciseLog()
+                                DispatchQueue.main.async { 
+                                    let total = viewModel.progressPhotos.count
+                                    guard total > 0 else { return }
+                                    let last = Double(total - 1)
+                                    if viewModel.currentPhotoIndex.isNaN || viewModel.currentPhotoIndex < 0 || viewModel.currentPhotoIndex > last || viewModel.currentPhotoIndex == 0 {
+                                        viewModel.currentPhotoIndex = last
+                                    }
+                                }
                             }
                         }
                         .onReceive(authCoordinator.$currentUser) { user in
@@ -459,6 +503,26 @@ struct DashboardView: View {
                         }
                     }
                     Spacer()
+                }
+            }
+            .onChange(of: coordinator.currentStep) { step in
+                // When navigating back to Dashboard, prefer newest photo
+                if case .dashboard = step {
+                    let total = viewModel.progressPhotos.count
+                    guard total > 0 else { return }
+                    let last = Double(total - 1)
+                    if viewModel.currentPhotoIndex.isNaN || viewModel.currentPhotoIndex < 0 || viewModel.currentPhotoIndex > last || viewModel.currentPhotoIndex == 0 {
+                        viewModel.currentPhotoIndex = last
+                    }
+                }
+            }
+            .onChange(of: scenePhase) { phase in
+                guard phase == .active else { return }
+                let total = viewModel.progressPhotos.count
+                guard total > 0 else { return }
+                let last = Double(total - 1)
+                if viewModel.currentPhotoIndex.isNaN || viewModel.currentPhotoIndex < 0 || viewModel.currentPhotoIndex > last || viewModel.currentPhotoIndex == 0 {
+                    viewModel.currentPhotoIndex = last
                 }
             }
         }
