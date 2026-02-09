@@ -6,6 +6,7 @@
 //
 import SwiftUI
 import PhotosUI
+import UIKit
 
 struct DailyCheckinSheet: View {
     @EnvironmentObject var themeManager: ThemeManager
@@ -36,6 +37,20 @@ struct DailyCheckinSheet: View {
                     .ignoresSafeArea()
                 Form {
                     metricsSection
+                    
+                    if let path = localPhotoPath ?? existing?.progressPhoto, !path.isEmpty, let uiImage = loadProgressPhoto(from: path) {
+                        Section("Current Photo") {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: .infinity)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .scrollContentBackground(.hidden)
+                        .listRowBackground(themeManager.currentTheme.surface)
+                        .foregroundColor(themeManager.currentTheme.muted)
+                    }
+                    
                     Section("Progress Photo") {
                         PhotosPicker(selection: $pickedPhoto, matching: .images) {
                             HStack {
@@ -43,6 +58,9 @@ struct DailyCheckinSheet: View {
                                 Text(localPhotoPath == nil ? "Select Photo" : "Replace Photo")
                                     .foregroundColor(themeManager.currentTheme.textDefault)
                             }
+                        }
+                        .onChange(of: pickedPhoto) { _, newValue in
+                            Task { await savePickedPhoto(newValue) }
                         }
                     }
                     .scrollContentBackground(.hidden)
@@ -153,6 +171,20 @@ struct DailyCheckinSheet: View {
         let url = folder.appendingPathComponent(filename)
         try data.write(to: url, options: .atomic)
         return "progress_photos/\(filename)"
+    }
+
+    private func loadProgressPhoto(from relativePath: String) -> UIImage? {
+        let fm = FileManager.default
+        do {
+            let docs = try fm.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+            let url = docs.appendingPathComponent(relativePath)
+            if let data = try? Data(contentsOf: url), let img = UIImage(data: data) {
+                return img
+            }
+        } catch {
+            // ignore errors and return nil
+        }
+        return nil
     }
 
     private func save() async {
