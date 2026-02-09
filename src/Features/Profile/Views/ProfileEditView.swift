@@ -41,6 +41,9 @@ struct ProfileEditView: View {
                     email: "",
                     isPremium: false,
                     isImperial: true,
+                    weight: true,
+                    fat: true,
+                    photo: true,
                     theme: "classic",
                     emailVerifiedAt: nil,
                     createdAt: Date(),
@@ -150,6 +153,32 @@ struct ProfileEditView: View {
                                         
                                         Button("Hide") {
                                             viewModel.fat = false
+                                        }
+                                        .padding(.vertical, 6)
+                                        .padding(.horizontal)
+                                        .frame(maxWidth: .infinity)
+                                        .background(!viewModel.fat ? themeManager.currentTheme.primary : themeManager.currentTheme.primary.opacity(0.1))
+                                        .foregroundColor(!viewModel.fat ? .white : themeManager.currentTheme.textDefault)
+                                    }
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Display Photo Progress Map")
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                    
+                                    HStack(spacing: 0) {
+                                        Button("Show") {
+                                            viewModel.photo = true
+                                        }
+                                        .padding(.vertical, 6)
+                                        .padding(.horizontal)
+                                        .frame(maxWidth: .infinity)
+                                        .background(viewModel.photo ? themeManager.currentTheme.primary : themeManager.currentTheme.primary.opacity(0.1))
+                                        .foregroundColor(viewModel.photo ? .white : themeManager.currentTheme.textDefault)
+                                        
+                                        Button("Hide") {
+                                            viewModel.photo = false
                                         }
                                         .padding(.vertical, 6)
                                         .padding(.horizontal)

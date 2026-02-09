@@ -18,6 +18,7 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
     var isImperial: Bool
     var weight: Bool
     var fat: Bool
+    var photo: Bool
     var log: Int?
     var theme: String
     var emailVerifiedAt: Date?
@@ -33,6 +34,7 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
         static let isImperial = Column("is_imperial")
         static let weight = Column("weight")
         static let fat = Column("fat")
+        static let photo = Column("photo")
         static let log = Column("log")
         static let theme = Column("theme")
         static let emailVerifiedAt = Column("email_verified_at")
@@ -49,6 +51,7 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
         container[Columns.isImperial] = isImperial
         container[Columns.weight] = weight
         container[Columns.fat] = fat
+        container[Columns.photo] = photo
         container[Columns.log] = log
         container[Columns.theme] = theme
         container[Columns.emailVerifiedAt] = emailVerifiedAt
@@ -64,6 +67,7 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
         isImperial = row[Columns.isImperial] ?? true
         weight = row[Columns.weight] ?? true
         fat = row[Columns.fat] ?? true
+        photo = row[Columns.photo] ?? true
         log = row[Columns.log]
         theme = row[Columns.theme] ?? "classic"
         emailVerifiedAt = row[Columns.emailVerifiedAt]
@@ -79,6 +83,7 @@ struct UserRecord: Codable, FetchableRecord, PersistableRecord {
         isImperial = user.isImperial
         weight = user.weight
         fat = user.fat
+        photo = user.photo
         log = user.log
         theme = user.theme
         emailVerifiedAt = user.emailVerifiedAt

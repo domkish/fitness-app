@@ -36,6 +36,7 @@ public struct UserRepository {
                 isPremium: record.isPremium,
                 weight: record.weight,
                 fat: record.fat,
+                photo: record.photo,
                 log: record.log,
                 theme: record.theme,
                 emailVerifiedAt: record.emailVerifiedAt,

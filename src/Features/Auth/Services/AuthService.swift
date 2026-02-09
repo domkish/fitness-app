@@ -176,6 +176,7 @@ struct User: Decodable {
     let isImperial: Bool
     let weight: Bool
     let fat: Bool
+    let photo: Bool
     let log: Int?
     let theme: String
     let emailVerifiedAt: Date?
@@ -190,6 +191,7 @@ struct User: Decodable {
         isImperial: Bool = true,
         weight: Bool = true,
         fat: Bool = true,
+        photo: Bool = true,
         log: Int? = nil,
         theme: String = "classic",
         emailVerifiedAt: Date?,
@@ -203,6 +205,7 @@ struct User: Decodable {
         self.isImperial = isImperial
         self.weight = weight
         self.fat = fat
+        self.photo = photo
         self.log = log
         self.theme = theme
         self.emailVerifiedAt = emailVerifiedAt
@@ -218,6 +221,7 @@ struct User: Decodable {
         case isImperial
         case weight
         case fat
+        case photo
         case log
         case theme
         case emailVerifiedAt = "email_verified_at"
@@ -235,6 +239,7 @@ struct User: Decodable {
         isImperial = (try container.decodeIfPresent(Bool.self, forKey: .isImperial)) ?? true
         weight = (try container.decodeIfPresent(Bool.self, forKey: .weight)) ?? true
         fat = (try container.decodeIfPresent(Bool.self, forKey: .fat)) ?? true
+        photo = (try container.decodeIfPresent(Bool.self, forKey: .photo)) ?? true
         log = try container.decodeIfPresent(Int.self, forKey: .log)
         // Theme defaults to "classic" if missing
         theme = (try container.decodeIfPresent(String.self, forKey: .theme)) ?? "classic"

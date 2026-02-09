@@ -23,6 +23,7 @@ struct DashboardView: View {
     @State private var selectedWeightPosition: CGPoint = .zero
     @State private var selectedFatDate: Date? = nil
     @State private var selectedFatPosition: CGPoint = .zero
+    @State private var showingFullScreenPhoto = false
 
     init(
         coordinator: AppShellCoordinator,
@@ -80,7 +81,7 @@ struct DashboardView: View {
                                 exerciseLogSection
 
                                 // Progress Photos carousel (conditional)
-                                if !viewModel.progressPhotos.isEmpty {
+                                if(authCoordinator.currentUser?.photo == true) && !viewModel.progressPhotos.isEmpty {
                                     VStack(alignment: .leading, spacing: 12) {
                                         HStack {
                                             Text("Progress Photos")
@@ -89,49 +90,89 @@ struct DashboardView: View {
                                             Spacer()
                                         }
 
-                                        ZStack {
-                                            let total = viewModel.progressPhotos.count
-                                            let clamped = max(0, min(Double(max(0, total - 1)), viewModel.currentPhotoIndex))
-                                            let baseIndex = Int(floor(clamped))
-                                            let nextIndex = min(baseIndex + 1, max(0, total - 1))
-                                            let fraction = clamped - Double(baseIndex)
+                                        // Wrap HStack in container limiting width
+                                        GeometryReader { geo in
+                                            let totalWidth = geo.size.width
+                                            let spacing: CGFloat = 12
+                                            let columnWidth = max(0, (totalWidth - spacing) / 2)
+                                            let aspect: CGFloat = 3.0 / 4.0 // portrait w:h
+                                            let columnHeight = columnWidth / aspect
 
-                                            // Base (current) image fades out as fraction increases
-                                            if total > 0 {
-                                                let baseItem = viewModel.progressPhotos[baseIndex]
-                                                if let img = viewModel.loadImage(from: baseItem.relativePath) {
-                                                    Image(uiImage: img)
+                                            HStack(alignment: .top, spacing: spacing) {
+                                                // Left: Static first image in range
+                                                if let firstItem = viewModel.progressPhotos.first, let firstImg = viewModel.loadImage(from: firstItem.relativePath) {
+                                                    Image(uiImage: firstImg)
                                                         .resizable()
-                                                        .scaledToFit()
-                                                        .frame(maxWidth: .infinity)
+                                                        .scaledToFill()
+                                                        .frame(width: columnWidth, height: columnHeight, alignment: .top)
+                                                        .clipped(antialiased: true)
                                                         .clipShape(RoundedRectangle(cornerRadius: 12))
-                                                        .opacity(1.0 - fraction)
                                                 } else {
                                                     RoundedRectangle(cornerRadius: 12)
                                                         .fill(themeManager.currentTheme.surface.opacity(0.5))
-                                                        .frame(height: 180)
-                                                        .opacity(1.0 - fraction)
+                                                        .frame(width: columnWidth, height: columnHeight)
                                                 }
-                                            }
 
-                                            // Next image fades in as fraction increases
-                                            if total > 0 {
-                                                let nextItem = viewModel.progressPhotos[nextIndex]
-                                                if let img = viewModel.loadImage(from: nextItem.relativePath) {
-                                                    Image(uiImage: img)
-                                                        .resizable()
-                                                        .scaledToFit()
-                                                        .frame(maxWidth: .infinity)
-                                                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                                                        .opacity(fraction)
-                                                } else {
-                                                    RoundedRectangle(cornerRadius: 12)
-                                                        .fill(themeManager.currentTheme.surface.opacity(0.5))
-                                                        .frame(height: 180)
-                                                        .opacity(fraction)
+                                                // Right: Interactive crossfade current/next image
+                                                ZStack {
+                                                    let total = viewModel.progressPhotos.count
+                                                    let clamped = max(0, min(Double(max(0, total - 1)), viewModel.currentPhotoIndex))
+                                                    let baseIndex = Int(floor(clamped))
+                                                    let nextIndex = min(baseIndex + 1, max(0, total - 1))
+                                                    let fraction = clamped - Double(baseIndex)
+
+                                                    if total > 0 {
+                                                        let baseItem = viewModel.progressPhotos[baseIndex]
+                                                        if let img = viewModel.loadImage(from: baseItem.relativePath) {
+                                                            Image(uiImage: img)
+                                                                .resizable()
+                                                                .scaledToFill()
+                                                                .frame(width: columnWidth, height: columnHeight, alignment: .top)
+                                                                .clipped(antialiased: true)
+                                                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                                                .opacity(1.0 - fraction)
+                                                        } else {
+                                                            RoundedRectangle(cornerRadius: 12)
+                                                                .fill(themeManager.currentTheme.surface.opacity(0.5))
+                                                                .frame(width: columnWidth, height: columnHeight)
+                                                                .opacity(1.0 - fraction)
+                                                        }
+                                                    }
+
+                                                    if total > 0 {
+                                                        let nextItem = viewModel.progressPhotos[nextIndex]
+                                                        if let img = viewModel.loadImage(from: nextItem.relativePath) {
+                                                            Image(uiImage: img)
+                                                                .resizable()
+                                                                .scaledToFill()
+                                                                .frame(width: columnWidth, height: columnHeight, alignment: .top)
+                                                                .clipped(antialiased: true)
+                                                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                                                .opacity(fraction)
+                                                        } else {
+                                                            RoundedRectangle(cornerRadius: 12)
+                                                                .fill(themeManager.currentTheme.surface.opacity(0.5))
+                                                                .frame(width: columnWidth, height: columnHeight)
+                                                                .opacity(fraction)
+                                                        }
+                                                    }
+                                                    // Tap to present full screen photo
+                                                    Color.clear
+                                                        .contentShape(Rectangle())
+                                                        .onTapGesture {
+                                                            showingFullScreenPhoto = true
+                                                        }
                                                 }
                                             }
+                                            .frame(width: totalWidth, height: columnHeight, alignment: .top)
                                         }
+                                        .frame(height: {
+                                            // Provide a height so GeometryReader collapses to content
+                                            // Use the available width from the parent by approximating half of the card width with spacing.
+                                            // This outer frame will be overridden by the inner calculation when laid out.
+                                            // Setting a placeholder height here ensures no overflow during initial layout.
+                                            200
+                                        }())
 
                                         // Scrubber slider
                                         Slider(value: $viewModel.currentPhotoIndex, in: 0...Double(max(0, viewModel.progressPhotos.count - 1))) {
@@ -163,6 +204,55 @@ struct DashboardView: View {
                                     .padding()
                                     .background(themeManager.currentTheme.surface)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .onAppear {
+                                        let total = viewModel.progressPhotos.count
+                                        if total > 0 {
+                                            viewModel.currentPhotoIndex = Double(total - 1)
+                                        }
+                                    }
+                                    .onChange(of: viewModel.progressPhotos.count) { _ in
+                                        let total = viewModel.progressPhotos.count
+                                        if total > 0 {
+                                            viewModel.currentPhotoIndex = min(viewModel.currentPhotoIndex, Double(total - 1))
+                                            if viewModel.currentPhotoIndex.isNaN || viewModel.currentPhotoIndex < 0 {
+                                                viewModel.currentPhotoIndex = Double(total - 1)
+                                            }
+                                        } else {
+                                            viewModel.currentPhotoIndex = 0
+                                        }
+                                    }
+                                    .fullScreenCover(isPresented: $showingFullScreenPhoto) {
+                                        ZStack {
+                                            themeManager.currentTheme.background.ignoresSafeArea()
+                                            let total = viewModel.progressPhotos.count
+                                            let clamped = max(0, min(Double(max(0, total - 1)), viewModel.currentPhotoIndex))
+                                            let baseIndex = Int(floor(clamped))
+                                            let nextIndex = min(baseIndex + 1, max(0, total - 1))
+                                            let fraction = clamped - Double(baseIndex)
+                                            let displayIndex = (fraction > 0.5 ? nextIndex : baseIndex)
+                                            if total > 0 {
+                                                let item = viewModel.progressPhotos[displayIndex]
+                                                if let img = viewModel.loadImage(from: item.relativePath) {
+                                                    Image(uiImage: img)
+                                                        .resizable()
+                                                        .scaledToFit()
+                                                        .ignoresSafeArea()
+                                                }
+                                            }
+                                            VStack {
+                                                HStack {
+                                                    Spacer()
+                                                    Button(action: { showingFullScreenPhoto = false }) {
+                                                        Image(systemName: "xmark.circle.fill")
+                                                            .font(.system(size: 28))
+                                                            .foregroundStyle(themeManager.currentTheme.textDefault)
+                                                            .padding()
+                                                    }
+                                                }
+                                                Spacer()
+                                            }
+                                        }
+                                    }
                                 }
 
                                 // Weight chart (conditional)
