@@ -54,7 +54,7 @@ struct SetsChartView: View {
                 }
             }
             .chartYAxis {
-                AxisMarks(values: yAxisTicks) { value in
+                AxisMarks(position: .leading, values: yAxisTicks) { value in
                     AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
                     AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
                     AxisValueLabel().foregroundStyle(themeManager.currentTheme.textDefault)
@@ -110,7 +110,7 @@ struct SetsChartView: View {
                 }
             }
             .chartYAxis {
-                AxisMarks(values: yAxisTicks) { value in
+                AxisMarks(position: .leading, values: yAxisTicks) { value in
                     AxisGridLine().foregroundStyle(themeManager.currentTheme.textDefault.opacity(0.2))
                     AxisTick().foregroundStyle(themeManager.currentTheme.textDefault)
                     AxisValueLabel().foregroundStyle(themeManager.currentTheme.textDefault)
