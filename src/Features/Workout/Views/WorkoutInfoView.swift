@@ -56,6 +56,7 @@ struct WorkoutInfoView: View {
     @State private var selectedGroupTagId: Int64? = nil
     @State private var selectedCategoryTagId: Int64? = nil
     @State private var selectedWorkoutTagId: Int64? = nil
+    @State private var showAdvancedFilters: Bool = false
 
     @State private var unitsByExercise: [Int64: [String]] = [:]
 
@@ -546,71 +547,87 @@ struct WorkoutInfoView: View {
                         }
                         .padding(.horizontal)
                         
-                        // Tag filters
-                        VStack(spacing: 8) {
-                            // Muscle Group
-                            HStack {
-                                Text("Muscle Group").foregroundColor(themeManager.currentTheme.textDefault)
+                        // Advanced Filters Toggle
+                        Button(action: { withAnimation(.easeInOut) { showAdvancedFilters.toggle() } }) {
+                            HStack(spacing: 6) {
+                                Text("Advanced Filters")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(themeManager.currentTheme.textDefault)
                                 Spacer()
-                                Picker("Muscle Group", selection: Binding<Int64?>(
-                                    get: { selectedGroupTagId },
-                                    set: { selectedGroupTagId = $0 }
-                                )) {
-                                    Text("Any").tag(Int64?.none)
-                                    ForEach(groupTags.compactMap { tag -> (id: Int64, name: String)? in
-                                        guard let id = tag.id else { return nil }
-                                        return (id: id, name: tag.name)
-                                    }, id: \.id) { item in
-                                        Text(item.name).tag(Int64?.some(item.id))
+                                Image(systemName: showAdvancedFilters ? "chevron.up" : "chevron.down")
+                                    .foregroundColor(themeManager.currentTheme.muted)
+                            }
+                        }
+                        .padding(.leading, 24)
+                        .padding(.trailing, 24)
+
+                        if showAdvancedFilters {
+                            VStack(spacing: 12) {
+                                VStack(spacing: 12) {
+                                    // Muscle Group
+                                    HStack {
+                                        Text("Muscle Group").foregroundColor(themeManager.currentTheme.textDefault)
+                                        Spacer()
+                                        Picker("Muscle Group", selection: Binding<Int64?>(
+                                            get: { selectedGroupTagId },
+                                            set: { selectedGroupTagId = $0 }
+                                        )) {
+                                            Text("Any").tag(Int64?.none)
+                                            ForEach(groupTags.compactMap { tag -> (id: Int64, name: String)? in
+                                                guard let id = tag.id else { return nil }
+                                                return (id: id, name: tag.name)
+                                            }, id: \.id) { item in
+                                                Text(item.name).tag(Int64?.some(item.id))
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        .labelsHidden()
+                                    }
+                                    // Category
+                                    HStack {
+                                        Text("Category").foregroundColor(themeManager.currentTheme.textDefault)
+                                        Spacer()
+                                        Picker("Category", selection: Binding<Int64?>(
+                                            get: { selectedCategoryTagId },
+                                            set: { selectedCategoryTagId = $0 }
+                                        )) {
+                                            Text("Any").tag(Int64?.none)
+                                            ForEach(categoryTags.compactMap { tag -> (id: Int64, name: String)? in
+                                                guard let id = tag.id else { return nil }
+                                                return (id: id, name: tag.name)
+                                            }, id: \.id) { item in
+                                                Text(item.name).tag(Int64?.some(item.id))
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        .labelsHidden()
+                                    }
+                                    // Workout
+                                    HStack {
+                                        Text("Workout").foregroundColor(themeManager.currentTheme.textDefault)
+                                        Spacer()
+                                        Picker("Workout", selection: Binding<Int64?>(
+                                            get: { selectedWorkoutTagId },
+                                            set: { selectedWorkoutTagId = $0 }
+                                        )) {
+                                            Text("Any").tag(Int64?.none)
+                                            ForEach(workoutTags.compactMap { tag -> (id: Int64, name: String)? in
+                                                guard let id = tag.id else { return nil }
+                                                return (id: id, name: tag.name)
+                                            }, id: \.id) { item in
+                                                Text(item.name).tag(Int64?.some(item.id))
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        .labelsHidden()
                                     }
                                 }
-                                .pickerStyle(.menu)
-                                .labelsHidden()
+                                .padding()
+                                .background(themeManager.currentTheme.surface)
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                                .padding(.horizontal)
                             }
-                            .padding(.horizontal)
-                            .padding(.leading, 16)
-                            // Category
-                            HStack {
-                                Text("Category").foregroundColor(themeManager.currentTheme.textDefault)
-                                Spacer()
-                                Picker("Category", selection: Binding<Int64?>(
-                                    get: { selectedCategoryTagId },
-                                    set: { selectedCategoryTagId = $0 }
-                                )) {
-                                    Text("Any").tag(Int64?.none)
-                                    ForEach(categoryTags.compactMap { tag -> (id: Int64, name: String)? in
-                                        guard let id = tag.id else { return nil }
-                                        return (id: id, name: tag.name)
-                                    }, id: \.id) { item in
-                                        Text(item.name).tag(Int64?.some(item.id))
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .labelsHidden()
-                            }
-                            .padding(.horizontal)
-                            .padding(.leading, 16)
-                            // Workout
-                            HStack {
-                                Text("Workout").foregroundColor(themeManager.currentTheme.textDefault)
-                                Spacer()
-                                Picker("Workout", selection: Binding<Int64?>(
-                                    get: { selectedWorkoutTagId },
-                                    set: { selectedWorkoutTagId = $0 }
-                                )) {
-                                    Text("Any").tag(Int64?.none)
-                                    ForEach(workoutTags.compactMap { tag -> (id: Int64, name: String)? in
-                                        guard let id = tag.id else { return nil }
-                                        return (id: id, name: tag.name)
-                                    }, id: \.id) { item in
-                                        Text(item.name).tag(Int64?.some(item.id))
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .labelsHidden()
-                            }
-                            .padding(.horizontal)
-                            .padding(.leading, 16)
                         }
 
                         // Exercise list

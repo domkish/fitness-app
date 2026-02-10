@@ -17,6 +17,15 @@ struct ExerciseView: View {
     @StateObject private var viewModel = ExerciseListViewModel()
     @State private var searchText: String = ""
 
+    // Tag filter state
+    @State private var groupTags: [(id: Int64, name: String)] = []
+    @State private var categoryTags: [(id: Int64, name: String)] = []
+    @State private var workoutTags: [(id: Int64, name: String)] = []
+    @State private var selectedGroupTagId: Int64? = nil
+    @State private var selectedCategoryTagId: Int64? = nil
+    @State private var selectedWorkoutTagId: Int64? = nil
+    @State private var showAdvancedFilters: Bool = false
+
     private enum TopSegment: Hashable { case routines, exercises }
     @State private var topSegmentSelection: TopSegment = .exercises
 
@@ -112,12 +121,83 @@ struct ExerciseView: View {
                     // MARK: - Search Bar (MOVED ABOVE LIST)
                     searchBar
 
+                    // MARK: - Advanced Filters Toggle
+                    Button(action: { withAnimation(.easeInOut) { showAdvancedFilters.toggle() } }) {
+                        HStack(spacing: 6) {
+                            Text("Advanced Filters")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(themeManager.currentTheme.textDefault)
+                            Spacer()
+                            Image(systemName: showAdvancedFilters ? "chevron.up" : "chevron.down")
+                                .foregroundColor(themeManager.currentTheme.muted)
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    if showAdvancedFilters {
+                        VStack(spacing: 12) {
+                            // Card content
+                            VStack(spacing: 12) {
+                                HStack {
+                                    Text("Muscle Group").foregroundColor(themeManager.currentTheme.textDefault)
+                                    Spacer()
+                                    Picker("Muscle Group", selection: Binding<Int64?>(
+                                        get: { selectedGroupTagId },
+                                        set: { selectedGroupTagId = $0 }
+                                    )) {
+                                        Text("Any").tag(Int64?.none)
+                                        ForEach(groupTags, id: \.id) { item in
+                                            Text(item.name).tag(Int64?.some(item.id))
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .labelsHidden()
+                                }
+                                HStack {
+                                    Text("Category").foregroundColor(themeManager.currentTheme.textDefault)
+                                    Spacer()
+                                    Picker("Category", selection: Binding<Int64?>(
+                                        get: { selectedCategoryTagId },
+                                        set: { selectedCategoryTagId = $0 }
+                                    )) {
+                                        Text("Any").tag(Int64?.none)
+                                        ForEach(categoryTags, id: \.id) { item in
+                                            Text(item.name).tag(Int64?.some(item.id))
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .labelsHidden()
+                                }
+                                HStack {
+                                    Text("Workout").foregroundColor(themeManager.currentTheme.textDefault)
+                                    Spacer()
+                                    Picker("Workout", selection: Binding<Int64?>(
+                                        get: { selectedWorkoutTagId },
+                                        set: { selectedWorkoutTagId = $0 }
+                                    )) {
+                                        Text("Any").tag(Int64?.none)
+                                        ForEach(workoutTags, id: \.id) { item in
+                                            Text(item.name).tag(Int64?.some(item.id))
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .labelsHidden()
+                                }
+                            }
+                            .padding()
+                            .background(themeManager.currentTheme.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                            .padding(.horizontal)
+                        }
+                    }
+
                     // MARK: - Table Container
                     VStack(spacing: 0) {
                         tableBody
                             .background(themeManager.currentTheme.surface)
                     }
-                    .frame(maxHeight: .infinity) 
+                    .frame(maxHeight: .infinity)
                     .background(themeManager.currentTheme.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
@@ -130,11 +210,26 @@ struct ExerciseView: View {
                 Task {
                     try? await Task.sleep(nanoseconds: 250_000_000)
                     guard newValue == searchText else { return }
-                    await viewModel.refresh(search: newValue)
+                    await viewModel.refresh(
+                        search: newValue,
+                        groupTagId: selectedGroupTagId,
+                        categoryTagId: selectedCategoryTagId,
+                        workoutTagId: selectedWorkoutTagId
+                    )
                 }
             }
+            .onChange(of: selectedGroupTagId) { _ in
+                Task { await viewModel.refresh(search: searchText, groupTagId: selectedGroupTagId, categoryTagId: selectedCategoryTagId, workoutTagId: selectedWorkoutTagId) }
+            }
+            .onChange(of: selectedCategoryTagId) { _ in
+                Task { await viewModel.refresh(search: searchText, groupTagId: selectedGroupTagId, categoryTagId: selectedCategoryTagId, workoutTagId: selectedWorkoutTagId) }
+            }
+            .onChange(of: selectedWorkoutTagId) { _ in
+                Task { await viewModel.refresh(search: searchText, groupTagId: selectedGroupTagId, categoryTagId: selectedCategoryTagId, workoutTagId: selectedWorkoutTagId) }
+            }
             .task {
-                await viewModel.refresh(search: searchText)
+                await loadFilterTags()
+                await viewModel.refresh(search: searchText, groupTagId: selectedGroupTagId, categoryTagId: selectedCategoryTagId, workoutTagId: selectedWorkoutTagId)
             }
         }
     }
@@ -175,6 +270,42 @@ struct ExerciseView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
         .padding(.horizontal)
+    }
+
+    private func loadFilterTags() async {
+        do {
+            try await DatabaseQueueProvider.shared.dbQueue.read { db in
+                let groups = try ExerciseTagRecord
+                    .filter(ExerciseTagRecord.Columns.type == "Group")
+                    .order(ExerciseTagRecord.Columns.name.asc)
+                    .fetchAll(db)
+                    .compactMap { rec -> (Int64, String)? in
+                        guard let id = rec.id else { return nil }
+                        return (id, rec.name)
+                    }
+                let categories = try ExerciseTagRecord
+                    .filter(ExerciseTagRecord.Columns.type == "Category")
+                    .order(ExerciseTagRecord.Columns.name.asc)
+                    .fetchAll(db)
+                    .compactMap { rec -> (Int64, String)? in
+                        guard let id = rec.id else { return nil }
+                        return (id, rec.name)
+                    }
+                let workouts = try ExerciseTagRecord
+                    .filter(ExerciseTagRecord.Columns.type == "Workout")
+                    .order(ExerciseTagRecord.Columns.name.asc)
+                    .fetchAll(db)
+                    .compactMap { rec -> (Int64, String)? in
+                        guard let id = rec.id else { return nil }
+                        return (id, rec.name)
+                    }
+                self.groupTags = groups.map { (id: $0.0, name: $0.1) }
+                self.categoryTags = categories.map { (id: $0.0, name: $0.1) }
+                self.workoutTags = workouts.map { (id: $0.0, name: $0.1) }
+            }
+        } catch {
+            // ignore for now
+        }
     }
 
     // MARK: - Table Body
@@ -226,7 +357,12 @@ struct ExerciseView: View {
                         .listRowBackground(themeManager.currentTheme.surface)
                         .onAppear {
                             Task {
-                                await viewModel.loadMore(search: searchText)
+                                await viewModel.loadMore(
+                                    search: searchText,
+                                    groupTagId: selectedGroupTagId,
+                                    categoryTagId: selectedCategoryTagId,
+                                    workoutTagId: selectedWorkoutTagId
+                                )
                             }
                         }
                 }
@@ -277,16 +413,21 @@ final class ExerciseListViewModel: ObservableObject {
         self.userRepo = UserRepository(dbQueue: dbQueue)
     }
 
-    func refresh(search: String) async {
+    func refresh(search: String, groupTagId: Int64? = nil, categoryTagId: Int64? = nil, workoutTagId: Int64? = nil) async {
         isLoadingInitial = true
         currentPage = 0
         canLoadMore = true
         exercises = []
         defer { isLoadingInitial = false }
-        await loadMore(search: search)
+        await loadMore(search: search, groupTagId: groupTagId, categoryTagId: categoryTagId, workoutTagId: workoutTagId)
     }
 
-    func loadMore(search: String) async {
+    func loadMore(
+        search: String,
+        groupTagId: Int64? = nil,
+        categoryTagId: Int64? = nil,
+        workoutTagId: Int64? = nil
+    ) async {
         guard !isLoadingPage, canLoadMore else { return }
         isLoadingPage = true
         defer { isLoadingPage = false }
@@ -300,7 +441,50 @@ final class ExerciseListViewModel: ObservableObject {
 
             let all = try await exerciseRepo.fetchAll(for: Int64(user.id))
 
-            let mapped: [ExerciseRow] = all.map { ex in
+            let filteredByTags: [ExerciseDomain]
+            if groupTagId == nil && categoryTagId == nil && workoutTagId == nil {
+                filteredByTags = all
+            } else {
+                // Build a set of exercise IDs matching ALL selected tags using exercise_tag_pivots
+                let matchingIds: Set<Int64> = try await withCheckedThrowingContinuation { cont in
+                    Task {
+                        do {
+                            try await DatabaseQueueProvider.shared.dbQueue.read { db in
+                                var selected: [Int64] = []
+                                if let g = groupTagId { selected.append(g) }
+                                if let c = categoryTagId { selected.append(c) }
+                                if let w = workoutTagId { selected.append(w) }
+                                if selected.isEmpty {
+                                    cont.resume(returning: Set(all.compactMap { $0.id }))
+                                    return
+                                }
+                                struct Row: FetchableRecord, Decodable { let exercise_id: Int64 }
+                                let placeholders = Array(repeating: "?", count: selected.count).joined(separator: ",")
+                                let rows = try Row.fetchAll(
+                                    db,
+                                    sql: """
+                                    SELECT exercise_id
+                                    FROM exercise_tag_pivots
+                                    WHERE exercise_tag_id IN (\(placeholders))
+                                    GROUP BY exercise_id
+                                    HAVING COUNT(DISTINCT exercise_tag_id) = ?
+                                    """,
+                                    arguments: StatementArguments(Array(selected) + [Int64(selected.count)])
+                                )
+                                cont.resume(returning: Set(rows.map { $0.exercise_id }))
+                            }
+                        } catch {
+                            cont.resume(throwing: error)
+                        }
+                    }
+                }
+                filteredByTags = all.filter { ex in
+                    if let id = ex.id { return matchingIds.contains(id) }
+                    return false
+                }
+            }
+
+            let mapped: [ExerciseRow] = filteredByTags.map { ex in
                 let groupNames = ex.tags
                     .filter { $0.kind == .group }
                     .map { $0.name }
@@ -373,3 +557,4 @@ final class DatabaseQueueProvider {
 
     var dbQueue: DatabaseQueue = try! DatabaseQueue()
 }
+
