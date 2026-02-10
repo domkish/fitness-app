@@ -217,6 +217,7 @@ struct SessionView: View {
             }
             
             try updateSessionCompletion(totalDuration: total)
+
             await MainActor.run { onCompleted?(session) }
         } catch {
             print("[SessionView] completeWorkout error: \(error)")
@@ -244,3 +245,4 @@ struct SessionView: View {
         }
     }
 }
+

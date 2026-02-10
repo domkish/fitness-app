@@ -63,357 +63,369 @@ struct DayCalendarView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                // MARK: - Header with date navigation
-                HStack {
-                    Button(action: { shiftDay(-1) }) { Image(systemName: "chevron.left") }
-                    Spacer()
-                    Text(selectedDate.formatted(date: .abbreviated, time: .omitted))
-                        .font(.headline)
-                        .foregroundColor(themeManager.currentTheme.textDefault)
-                    Spacer()
-                    Button(action: { shiftDay(1) }) { Image(systemName: "chevron.right") }
-                }
-                .padding(.bottom, 8)
-
-                // MARK: - Today button / Check-in / Add Workout
-                ZStack {
-                    // Center: Go to Today
-                    switch relativeDay {
-                    case .yesterday:
-                        Text("Yesterday")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundColor(themeManager.currentTheme.muted)
-
-                    case .today:
-                        Text("Today")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundColor(themeManager.currentTheme.muted)
-
-                    case .tomorrow:
-                        Text("Tomorrow")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundColor(themeManager.currentTheme.muted)
-
-                    case .other:
-                        Button("Go to Today") {
-                            selectedDate = Calendar.current.startOfDay(for: Date())
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(themeManager.currentTheme.muted)
-                    }
-
-                    // Leading: Check-in button (today or past)
-                    HStack {
-                        if isTodayOrPast {
-                            Button(action: {
-                                // Cancel any in-flight exercise load
-                                self.exerciseLoadTask?.cancel()
-                                self.exerciseLoadTask = nil
-                                self.exerciseLoadError = nil
-                                self.selectedWorkoutRow = nil
-                                showingCheckin = true
-                            }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: entry != nil ? "checkmark.seal.fill" : "pencil.and.list.clipboard")
+            ZStack {
+                themeManager.currentTheme.background
+                    .ignoresSafeArea()
+                VStack(spacing: 30) {
+                    VStack(spacing: 0) {
+                        ScrollView {
+                            VStack(spacing: 16) {
+                                // MARK: - Header with date navigation
+                                HStack {
+                                    Button(action: { shiftDay(-1) }) { Image(systemName: "chevron.left") }
+                                    Spacer()
+                                    Text(selectedDate.formatted(date: .abbreviated, time: .omitted))
+                                        .font(.headline)
+                                        .foregroundColor(themeManager.currentTheme.textDefault)
+                                    Spacer()
+                                    Button(action: { shiftDay(1) }) { Image(systemName: "chevron.right") }
                                 }
-                                .padding(.horizontal, 12)
-                                .foregroundColor(entry != nil ? themeManager.currentTheme.primary : themeManager.currentTheme.muted)
-                                .clipShape(Capsule())
-                            }
-                        }
-                        Spacer()
-                    }
-
-                    // Trailing: + Workout button (always shown)
-                    HStack {
-                        Spacer()
-                        Button(action: {
-                            let isPremium = authCoordinator.currentUser?.isPremium ?? false
-                            if !isPremium {
-                                // Enforce only 1 workout per day for non-premium
-                                if workouts.count >= 1 {
-                                    nonPremiumAlertMessage = "Free members can add one workout per day. Upgrade to Premium to schedule more."
-                                    showNonPremiumAlert = true
-                                    return
-                                }
-                            }
-                            showingRoutinePicker = true
-                        }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "plus")
-                                Text("Workout")
-                            }
-                        }
-                    }
-                }
-                .padding(.bottom, 16)
-
-                // MARK: - Scheduled Workouts
-                if !workouts.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Scheduled Workouts")
-                            .bold()
-                            .foregroundColor(themeManager.currentTheme.textDefault)
-                            .padding(.bottom, 8)
-
-                        ForEach(workouts, id: \.id) { w in
-                            let c = colorForKey(w.workoutColor)
-                            Button {
-                                self.exerciseLoadTask?.cancel()
-                                self.exerciseLoadTask = nil
-                                self.exerciseLoadError = nil
-                                self.selectedWorkoutRow = nil
-                                self.selectedWorkoutExercises = []
-
-                                // Use cachedExercises method and new loadExercisesForWorkout(row:) method
-                                if let cached = cachedExercises(for: w), !cached.isEmpty {
-                                    Task { @MainActor in
-                                        self.selectedWorkoutRow = w
-                                        self.selectedWorkoutExercises = cached
-                                        self.showingWorkoutPopover = true
+                                .padding(.bottom, 8)
+                                
+                                // MARK: - Today button / Check-in / Add Workout
+                                ZStack {
+                                    // Center: Go to Today
+                                    switch relativeDay {
+                                    case .yesterday:
+                                        Text("Yesterday")
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundColor(themeManager.currentTheme.muted)
+                                        
+                                    case .today:
+                                        Text("Today")
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundColor(themeManager.currentTheme.muted)
+                                        
+                                    case .tomorrow:
+                                        Text("Tomorrow")
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundColor(themeManager.currentTheme.muted)
+                                        
+                                    case .other:
+                                        Button("Go to Today") {
+                                            selectedDate = Calendar.current.startOfDay(for: Date())
+                                        }
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundColor(themeManager.currentTheme.muted)
                                     }
-                                    // Optionally refresh cache in background without affecting UI
-                                    self.exerciseLoadTask = Task {
-                                        await loadExercisesForWorkout(row: w)
-                                        await MainActor.run { self.exerciseLoadTask = nil }
+                                    
+                                    // Leading: Check-in button (today or past)
+                                    HStack {
+                                        if isTodayOrPast {
+                                            Button(action: {
+                                                // Cancel any in-flight exercise load
+                                                self.exerciseLoadTask?.cancel()
+                                                self.exerciseLoadTask = nil
+                                                self.exerciseLoadError = nil
+                                                self.selectedWorkoutRow = nil
+                                                showingCheckin = true
+                                            }) {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: entry != nil ? "checkmark.seal.fill" : "pencil.and.list.clipboard")
+                                                }
+                                                .padding(.horizontal, 12)
+                                                .foregroundColor(entry != nil ? themeManager.currentTheme.primary : themeManager.currentTheme.muted)
+                                                .clipShape(Capsule())
+                                            }
+                                        }
+                                        Spacer()
                                     }
-                                } else {
-                                    // No cache yet: fetch first, then present
-                                    self.exerciseLoadTask = Task {
-                                        await loadExercisesForWorkout(row: w)
-                                        await MainActor.run {
-                                            self.selectedWorkoutRow = w
-                                            self.selectedWorkoutExercises = cachedExercises(for: w) ?? []
-                                            self.showingWorkoutPopover = true
-                                            self.exerciseLoadTask = nil
+                                    
+                                    // Trailing: + Workout button (always shown)
+                                    HStack {
+                                        Spacer()
+                                        Button(action: {
+                                            let isPremium = authCoordinator.currentUser?.isPremium ?? false
+                                            if !isPremium {
+                                                // Enforce only 1 workout per day for non-premium
+                                                if workouts.count >= 1 {
+                                                    nonPremiumAlertMessage = "Free members can add one workout per day. Upgrade to Premium to schedule more."
+                                                    showNonPremiumAlert = true
+                                                    return
+                                                }
+                                            }
+                                            showingRoutinePicker = true
+                                        }) {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: "plus")
+                                                Text("Workout")
+                                            }
                                         }
                                     }
                                 }
-                            } label: {
-                                HStack(spacing: 10) {
-                                    Circle()
-                                        .fill(c)
-                                        .frame(width: 14, height: 14)
-                                    Text(w.workoutName)
-                                        .font(.headline)
-                                        .foregroundColor(c)
-                                    if isWorkoutRowCompleted(w) {
-                                        Spacer()
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(c)
+                                .padding(.bottom, 16)
+                                
+                                // MARK: - Scheduled Workouts
+                                if !workouts.isEmpty {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Scheduled Workouts")
+                                            .bold()
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
+                                            .padding(.bottom, 8)
+                                        
+                                        ForEach(workouts, id: \.id) { w in
+                                            let c = colorForKey(w.workoutColor)
+                                            Button {
+                                                self.exerciseLoadTask?.cancel()
+                                                self.exerciseLoadTask = nil
+                                                self.exerciseLoadError = nil
+                                                self.selectedWorkoutRow = nil
+                                                self.selectedWorkoutExercises = []
+                                                
+                                                // Use cachedExercises method and new loadExercisesForWorkout(row:) method
+                                                if let cached = cachedExercises(for: w), !cached.isEmpty {
+                                                    Task { @MainActor in
+                                                        self.selectedWorkoutRow = w
+                                                        self.selectedWorkoutExercises = cached
+                                                        self.showingWorkoutPopover = true
+                                                    }
+                                                    // Optionally refresh cache in background without affecting UI
+                                                    self.exerciseLoadTask = Task {
+                                                        await loadExercisesForWorkout(row: w)
+                                                        await MainActor.run { self.exerciseLoadTask = nil }
+                                                    }
+                                                } else {
+                                                    // No cache yet: fetch first, then present
+                                                    self.exerciseLoadTask = Task {
+                                                        await loadExercisesForWorkout(row: w)
+                                                        await MainActor.run {
+                                                            self.selectedWorkoutRow = w
+                                                            self.selectedWorkoutExercises = cachedExercises(for: w) ?? []
+                                                            self.showingWorkoutPopover = true
+                                                            self.exerciseLoadTask = nil
+                                                        }
+                                                    }
+                                                }
+                                            } label: {
+                                                HStack(spacing: 10) {
+                                                    Circle()
+                                                        .fill(c)
+                                                        .frame(width: 14, height: 14)
+                                                    Text(w.workoutName)
+                                                        .font(.headline)
+                                                        .foregroundColor(c)
+                                                    if isWorkoutRowCompleted(w) {
+                                                        Spacer()
+                                                        Image(systemName: "checkmark.circle.fill")
+                                                            .foregroundColor(c)
+                                                    }
+                                                }
+                                                .padding(12)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                                .background(RoundedRectangle(cornerRadius: 6).fill(c.opacity(0.1)))
+                                            }
+                                            .buttonStyle(.plain)
+                                            // Removed .allowsHitTesting(isTodayOrPast) to make future workouts tappable
+                                        }
+                                    }
+                                    .padding(.bottom, 16)
+                                } else {
+                                    VStack(alignment: .center, spacing: 8) {
+                                        Image(systemName: "calendar.badge.exclamationmark")
+                                            .font(.system(size: 40))
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
+                                        Text("No workout routines assigned for this day")
+                                            .font(.headline)
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
+                                        Text("To add a session, use the + Workout button above.")
+                                            .font(.callout)
+                                            .foregroundColor(themeManager.currentTheme.muted)
+                                            .multilineTextAlignment(.center)
+                                            .padding(.horizontal)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                                }
+                                
+                                // MARK: - Tasks Section
+                                if !dailyTasks.isEmpty || !scheduledTasks.isEmpty {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Tasks")
+                                            .bold()
+                                            .foregroundColor(themeManager.currentTheme.textDefault)
+                                            .padding(.bottom, 8)
+                                        
+                                        // Daily instances first
+                                        ForEach(Array(dailyTasks.enumerated()), id: \.element.id) { _, t in
+                                            Button {
+                                                Task { await toggleTask(taskId: t.taskId) }
+                                            } label: {
+                                                HStack(spacing: 10) {
+                                                    Text(taskName(for: t.taskId))
+                                                        .foregroundColor(isTodayOrPast ? themeManager.currentTheme.textDefault : themeManager.currentTheme.textDefault.opacity(0.5))
+                                                    Spacer()
+                                                    Image(systemName: t.isComplete ? "checkmark.square.fill" : "square")
+                                                        .font(.system(size: 22, weight: .semibold))
+                                                        .foregroundColor(isTodayOrPast ? (t.isComplete ? themeManager.currentTheme.primary : themeManager.currentTheme.muted) : themeManager.currentTheme.muted.opacity(0.5))
+                                                        .contentShape(Rectangle())
+                                                }
+                                            }
+                                            .padding()
+                                            .background(themeManager.currentTheme.surface)
+                                            .cornerRadius(16)
+                                            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                                            .disabled(!isTodayOrPast)
+                                        }
+                                        
+                                        // Scheduled tasks without daily instances
+                                        let pending = scheduledTasks.filter { hasDailyInstance(for: $0.id) == nil }
+                                        ForEach(Array(pending.enumerated()), id: \.element.id) { _, s in
+                                            Button {
+                                                Task { await toggleTask(taskId: s.id) }
+                                            } label: {
+                                                HStack(spacing: 10) {
+                                                    Text(s.name)
+                                                        .foregroundColor(isTodayOrPast ? themeManager.currentTheme.textDefault : themeManager.currentTheme.textDefault.opacity(0.5))
+                                                    Spacer()
+                                                    Image(systemName: "square")
+                                                        .font(.system(size: 22, weight: .semibold))
+                                                        .foregroundColor(isTodayOrPast ? themeManager.currentTheme.muted : themeManager.currentTheme.muted.opacity(0.5))
+                                                        .contentShape(Rectangle())
+                                                }
+                                            }
+                                            .padding()
+                                            .background(themeManager.currentTheme.surface)
+                                            .cornerRadius(16)
+                                            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                                            .disabled(!isTodayOrPast)
+                                        }
                                     }
                                 }
-                                .padding(12)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(RoundedRectangle(cornerRadius: 6).fill(c.opacity(0.1)))
-                            }
-                            .buttonStyle(.plain)
-                            // Removed .allowsHitTesting(isTodayOrPast) to make future workouts tappable
-                        }
-                    }
-                    .padding(.bottom, 16)
-                } else {
-                    VStack(alignment: .center, spacing: 8) {
-                        Image(systemName: "calendar.badge.exclamationmark")
-                            .font(.system(size: 40))
-                            .foregroundColor(themeManager.currentTheme.textDefault)
-                        Text("No workout routines assigned for this day")
-                            .font(.headline)
-                            .foregroundColor(themeManager.currentTheme.textDefault)
-                        Text("To add a session, use the + Workout button above.")
-                            .font(.callout)
-                            .foregroundColor(themeManager.currentTheme.muted)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                }
-
-                // MARK: - Tasks Section
-                if !dailyTasks.isEmpty || !scheduledTasks.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Tasks")
-                            .bold()
-                            .foregroundColor(themeManager.currentTheme.textDefault)
-                            .padding(.bottom, 8)
-
-                        // Daily instances first
-                        ForEach(Array(dailyTasks.enumerated()), id: \.element.id) { _, t in
-                            Button {
-                                Task { await toggleTask(taskId: t.taskId) }
-                            } label: {
-                                HStack(spacing: 10) {
-                                    Text(taskName(for: t.taskId))
-                                        .foregroundColor(isTodayOrPast ? themeManager.currentTheme.textDefault : themeManager.currentTheme.textDefault.opacity(0.5))
-                                    Spacer()
-                                    Image(systemName: t.isComplete ? "checkmark.square.fill" : "square")
-                                        .font(.system(size: 22, weight: .semibold))
-                                        .foregroundColor(isTodayOrPast ? (t.isComplete ? themeManager.currentTheme.primary : themeManager.currentTheme.muted) : themeManager.currentTheme.muted.opacity(0.5))
-                                        .contentShape(Rectangle())
-                                }
-                            }
-                            .padding()
-                            .background(themeManager.currentTheme.surface)
-                            .cornerRadius(16)
-                            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
-                            .disabled(!isTodayOrPast)
-                        }
-
-                        // Scheduled tasks without daily instances
-                        let pending = scheduledTasks.filter { hasDailyInstance(for: $0.id) == nil }
-                        ForEach(Array(pending.enumerated()), id: \.element.id) { _, s in
-                            Button {
-                                Task { await toggleTask(taskId: s.id) }
-                            } label: {
-                                HStack(spacing: 10) {
-                                    Text(s.name)
-                                        .foregroundColor(isTodayOrPast ? themeManager.currentTheme.textDefault : themeManager.currentTheme.textDefault.opacity(0.5))
-                                    Spacer()
-                                    Image(systemName: "square")
-                                        .font(.system(size: 22, weight: .semibold))
-                                        .foregroundColor(isTodayOrPast ? themeManager.currentTheme.muted : themeManager.currentTheme.muted.opacity(0.5))
-                                        .contentShape(Rectangle())
-                                }
-                            }
-                            .padding()
-                            .background(themeManager.currentTheme.surface)
-                            .cornerRadius(16)
-                            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
-                            .disabled(!isTodayOrPast)
-                        }
-                    }
-                }
-
-                Spacer()
-
-                // MARK: - Hidden NavigationLink to SessionView
-                NavigationLink(
-                    destination: sessionDestinationView,
-                    isActive: $navigateToSession,
-                    label: { EmptyView() }
-                )
-                .hidden()
-
-                NavigationLink(
-                    destination: summaryDestinationView,
-                    isActive: $navigateToSessionSummary,
-                    label: { EmptyView() }
-                )
-                .hidden()
-            }
-            .padding()
-            .alert("Premium Feature", isPresented: $showNonPremiumAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(nonPremiumAlertMessage)
-            }
-            .task(id: selectedDate) {
-                await loadData()
-            }
-            .sheet(isPresented: $showingCheckin) {
-                DailyCheckinSheet(
-                    date: selectedDate,
-                    existing: entry,
-                    prior: priorEntry,
-                    repository: repository
-                ) { saved in
-                    showingCheckin = false
-                    Task { await loadData() }
-                }
-                .environmentObject(themeManager)
-                .environmentObject(authCoordinator)
-            }
-            .sheet(isPresented: $showingRoutinePicker) {
-                RoutinePickerSheet(coordinator: coordinator) { pickedId in
-                    if pickedId <= 0 { showingRoutinePicker = false; return }
-                    pendingWorkoutId = pickedId
-                    showingRoutinePicker = false
-                    showingFrequencyPicker = true
-                }
-                .environmentObject(themeManager)
-                .environmentObject(authCoordinator)
-            }
-            .sheet(isPresented: $showingFrequencyPicker) {
-                FrequencyPickerSheet(disableRepeatingOptions: !(authCoordinator.currentUser?.isPremium ?? false)) { freq in
-                    let isPremium = authCoordinator.currentUser?.isPremium ?? false
-                    if !isPremium {
-                        // Non-premium: only allow one-time (Just selected date)
-                        showingFrequencyPicker = false
-                        pendingFrequency = nil
-                        Task { await createOneTimeCalendarWorkout() }
-                        return
-                    }
-
-                    if let f = freq, f == -1 { showingFrequencyPicker = false; return }
-                    pendingFrequency = (freq == -1 ? nil : freq)
-                    showingFrequencyPicker = false
-                    if pendingFrequency == nil {
-                        Task { await createOneTimeCalendarWorkout() }
-                    } else {
-                        showingWeekdayPicker = true
-                    }
-                }
-                .environmentObject(themeManager)
-                .overlay(
-                    Group {
-                        let isPremium = authCoordinator.currentUser?.isPremium ?? false
-                        if !isPremium {
-                            VStack {
+                                
                                 Spacer()
-                                Text("Setting workout frequency is available for Premium members only.")
-                                    .font(.footnote)
-                                    .foregroundColor(themeManager.currentTheme.muted)
-                                    .padding(.horizontal)
-                                    .padding(.bottom, 12)
+                                
+                                // MARK: - Hidden NavigationLink to SessionView
+                                NavigationLink(
+                                    destination: sessionDestinationView,
+                                    isActive: $navigateToSession,
+                                    label: { EmptyView() }
+                                )
+                                .hidden()
+                                
+                                NavigationLink(
+                                    destination: summaryDestinationView,
+                                    isActive: $navigateToSessionSummary,
+                                    label: { EmptyView() }
+                                )
+                                .hidden()
+                            }
+                            .padding()
+                            .alert("Premium Feature", isPresented: $showNonPremiumAlert) {
+                                Button("OK", role: .cancel) { }
+                            } message: {
+                                Text(nonPremiumAlertMessage)
+                            }
+                            .task(id: selectedDate) {
+                                await loadData()
+                            }
+                            .sheet(isPresented: $showingCheckin) {
+                                DailyCheckinSheet(
+                                    date: selectedDate,
+                                    existing: entry,
+                                    prior: priorEntry,
+                                    repository: repository
+                                ) { saved in
+                                    showingCheckin = false
+                                    Task { await loadData() }
+                                }
+                                .environmentObject(themeManager)
+                                .environmentObject(authCoordinator)
+                            }
+                            .sheet(isPresented: $showingRoutinePicker) {
+                                RoutinePickerSheet(coordinator: coordinator) { pickedId in
+                                    if pickedId <= 0 { showingRoutinePicker = false; return }
+                                    pendingWorkoutId = pickedId
+                                    showingRoutinePicker = false
+                                    showingFrequencyPicker = true
+                                }
+                                .environmentObject(themeManager)
+                                .environmentObject(authCoordinator)
+                            }
+                            .sheet(isPresented: $showingFrequencyPicker) {
+                                FrequencyPickerSheet(disableRepeatingOptions: !(authCoordinator.currentUser?.isPremium ?? false)) { freq in
+                                    let isPremium = authCoordinator.currentUser?.isPremium ?? false
+                                    if !isPremium {
+                                        // Non-premium: only allow one-time (Just selected date)
+                                        showingFrequencyPicker = false
+                                        pendingFrequency = nil
+                                        Task { await createOneTimeCalendarWorkout() }
+                                        return
+                                    }
+                                    
+                                    if let f = freq, f == -1 { showingFrequencyPicker = false; return }
+                                    pendingFrequency = (freq == -1 ? nil : freq)
+                                    showingFrequencyPicker = false
+                                    if pendingFrequency == nil {
+                                        Task { await createOneTimeCalendarWorkout() }
+                                    } else {
+                                        showingWeekdayPicker = true
+                                    }
+                                }
+                                .environmentObject(themeManager)
+                                .overlay(
+                                    Group {
+                                        let isPremium = authCoordinator.currentUser?.isPremium ?? false
+                                        if !isPremium {
+                                            VStack {
+                                                Spacer()
+                                                Text("Setting workout frequency is available for Premium members only.")
+                                                    .font(.footnote)
+                                                    .foregroundColor(themeManager.currentTheme.muted)
+                                                    .padding(.horizontal)
+                                                    .padding(.bottom, 12)
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                            .sheet(isPresented: $showingWeekdayPicker) {
+                                let weekday = Calendar.current.component(.weekday, from: selectedDate)
+                                WeekdayPickerSheet(initialSelectedWeekday: weekday) { days in
+                                    showingWeekdayPicker = false
+                                    Task { await createRepeatingCalendarWorkout(days: days) }
+                                }
+                                .environmentObject(themeManager)
+                            }
+                            .popover(isPresented: Binding(get: { showingWorkoutPopover && selectedWorkoutRow != nil }, set: { showingWorkoutPopover = $0 }), arrowEdge: .top) {
+                                if let row = selectedWorkoutRow {
+                                    WorkoutQuickActionsPopover(
+                                        themeManager: themeManager,
+                                        workoutRow: row,
+                                        exercises: selectedWorkoutExercises,
+                                        canEnterSession: isTodayOrPast,
+                                        error: exerciseLoadError,
+                                        onEnterSession: {
+                                            self.exerciseLoadTask?.cancel()
+                                            self.exerciseLoadTask = nil
+                                            showingWorkoutPopover = false
+                                            Task { await ensureSessionForWorkoutRow(row) }
+                                        },
+                                        onDeleteSingle: {
+                                            Task {
+                                                await MainActor.run {
+                                                    self.showingWorkoutPopover = false
+                                                    self.selectedWorkoutRow = nil
+                                                }
+                                                await deleteSingleOccurrence(row)
+                                            }
+                                        },
+                                        onDeleteThisAndFuture: {
+                                            Task {
+                                                await MainActor.run {
+                                                    self.showingWorkoutPopover = false
+                                                    self.selectedWorkoutRow = nil
+                                                }
+                                                await deleteThisAndFuture(row)
+                                            }
+                                        }
+                                    )
+                                    .environmentObject(authCoordinator)
+                                }
                             }
                         }
                     }
-                )
-            }
-            .sheet(isPresented: $showingWeekdayPicker) {
-                let weekday = Calendar.current.component(.weekday, from: selectedDate)
-                WeekdayPickerSheet(initialSelectedWeekday: weekday) { days in
-                    showingWeekdayPicker = false
-                    Task { await createRepeatingCalendarWorkout(days: days) }
-                }
-                .environmentObject(themeManager)
-            }
-            .popover(isPresented: Binding(get: { showingWorkoutPopover && selectedWorkoutRow != nil }, set: { showingWorkoutPopover = $0 }), arrowEdge: .top) {
-                if let row = selectedWorkoutRow {
-                    WorkoutQuickActionsPopover(
-                        themeManager: themeManager,
-                        workoutRow: row,
-                        exercises: selectedWorkoutExercises,
-                        canEnterSession: isTodayOrPast,
-                        error: exerciseLoadError,
-                        onEnterSession: {
-                            self.exerciseLoadTask?.cancel()
-                            self.exerciseLoadTask = nil
-                            showingWorkoutPopover = false
-                            Task { await ensureSessionForWorkoutRow(row) }
-                        },
-                        onDeleteSingle: {
-                            Task {
-                                await MainActor.run {
-                                    self.showingWorkoutPopover = false
-                                    self.selectedWorkoutRow = nil
-                                }
-                                await deleteSingleOccurrence(row)
-                            }
-                        },
-                        onDeleteThisAndFuture: {
-                            Task {
-                                await MainActor.run {
-                                    self.showingWorkoutPopover = false
-                                    self.selectedWorkoutRow = nil
-                                }
-                                await deleteThisAndFuture(row)
-                            }
-                        }
-                    )
-                    .environmentObject(authCoordinator)
+                    
+                    Spacer()
                 }
             }
         }

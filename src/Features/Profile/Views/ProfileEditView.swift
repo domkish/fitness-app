@@ -183,8 +183,8 @@ struct ProfileEditView: View {
                                         .padding(.vertical, 6)
                                         .padding(.horizontal)
                                         .frame(maxWidth: .infinity)
-                                        .background(!viewModel.fat ? themeManager.currentTheme.primary : themeManager.currentTheme.primary.opacity(0.1))
-                                        .foregroundColor(!viewModel.fat ? .white : themeManager.currentTheme.textDefault)
+                                        .background(!viewModel.photo ? themeManager.currentTheme.primary : themeManager.currentTheme.primary.opacity(0.1))
+                                        .foregroundColor(!viewModel.photo ? .white : themeManager.currentTheme.textDefault)
                                     }
                                     .clipShape(RoundedRectangle(cornerRadius: 8))
                                 }
