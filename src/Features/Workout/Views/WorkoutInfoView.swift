@@ -48,6 +48,15 @@ struct WorkoutInfoView: View {
 
     @State private var exerciseItems: [ExerciseItem] = []
     @State private var exerciseSearchText: String = ""
+
+    // Tag filter state
+    @State private var groupTags: [ExerciseTagRecord] = []
+    @State private var categoryTags: [ExerciseTagRecord] = []
+    @State private var workoutTags: [ExerciseTagRecord] = []
+    @State private var selectedGroupTagId: Int64? = nil
+    @State private var selectedCategoryTagId: Int64? = nil
+    @State private var selectedWorkoutTagId: Int64? = nil
+
     @State private var unitsByExercise: [Int64: [String]] = [:]
 
     @State private var blockDescriptions: [Int64: String] = [:]
@@ -536,6 +545,73 @@ struct WorkoutInfoView: View {
                             }
                         }
                         .padding(.horizontal)
+                        
+                        // Tag filters
+                        VStack(spacing: 8) {
+                            // Muscle Group
+                            HStack {
+                                Text("Muscle Group").foregroundColor(themeManager.currentTheme.textDefault)
+                                Spacer()
+                                Picker("Muscle Group", selection: Binding<Int64?>(
+                                    get: { selectedGroupTagId },
+                                    set: { selectedGroupTagId = $0 }
+                                )) {
+                                    Text("Any").tag(Int64?.none)
+                                    ForEach(groupTags.compactMap { tag -> (id: Int64, name: String)? in
+                                        guard let id = tag.id else { return nil }
+                                        return (id: id, name: tag.name)
+                                    }, id: \.id) { item in
+                                        Text(item.name).tag(Int64?.some(item.id))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .labelsHidden()
+                            }
+                            .padding(.horizontal)
+                            .padding(.leading, 16)
+                            // Category
+                            HStack {
+                                Text("Category").foregroundColor(themeManager.currentTheme.textDefault)
+                                Spacer()
+                                Picker("Category", selection: Binding<Int64?>(
+                                    get: { selectedCategoryTagId },
+                                    set: { selectedCategoryTagId = $0 }
+                                )) {
+                                    Text("Any").tag(Int64?.none)
+                                    ForEach(categoryTags.compactMap { tag -> (id: Int64, name: String)? in
+                                        guard let id = tag.id else { return nil }
+                                        return (id: id, name: tag.name)
+                                    }, id: \.id) { item in
+                                        Text(item.name).tag(Int64?.some(item.id))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .labelsHidden()
+                            }
+                            .padding(.horizontal)
+                            .padding(.leading, 16)
+                            // Workout
+                            HStack {
+                                Text("Workout").foregroundColor(themeManager.currentTheme.textDefault)
+                                Spacer()
+                                Picker("Workout", selection: Binding<Int64?>(
+                                    get: { selectedWorkoutTagId },
+                                    set: { selectedWorkoutTagId = $0 }
+                                )) {
+                                    Text("Any").tag(Int64?.none)
+                                    ForEach(workoutTags.compactMap { tag -> (id: Int64, name: String)? in
+                                        guard let id = tag.id else { return nil }
+                                        return (id: id, name: tag.name)
+                                    }, id: \.id) { item in
+                                        Text(item.name).tag(Int64?.some(item.id))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .labelsHidden()
+                            }
+                            .padding(.horizontal)
+                            .padding(.leading, 16)
+                        }
 
                         // Exercise list
                         List {
@@ -579,8 +655,19 @@ struct WorkoutInfoView: View {
                         await filterExercises()
                     }
                 }
+                .onChange(of: selectedGroupTagId) { _ in
+                    Task { await refreshAllowedExerciseIDsForTagFilters() }
+                }
+                .onChange(of: selectedCategoryTagId) { _ in
+                    Task { await refreshAllowedExerciseIDsForTagFilters() }
+                }
+                .onChange(of: selectedWorkoutTagId) { _ in
+                    Task { await refreshAllowedExerciseIDsForTagFilters() }
+                }
                 .task {
+                    await loadFilterTags()
                     await filterExercises()
+                    await refreshAllowedExerciseIDsForTagFilters()
                 }
             }
         }
@@ -778,9 +865,60 @@ struct WorkoutInfoView: View {
     private struct ExerciseInBlock: Identifiable { let id: Int64; let exerciseId: Int64; let name: String; var unit: String?; let sortOrder: Int }
     
     private var filteredExerciseItems: [ExerciseItem] {
+        var items = exerciseItems
         let q = exerciseSearchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !q.isEmpty else { return exerciseItems }
-        return exerciseItems.filter { $0.name.lowercased().contains(q) }
+        if !q.isEmpty {
+            items = items.filter { $0.name.lowercased().contains(q) }
+        }
+        if selectedGroupTagId == nil && selectedCategoryTagId == nil && selectedWorkoutTagId == nil {
+            return items
+        }
+        let allowed = allowedExerciseIDsForCurrentTagFilters
+        if allowed.isEmpty { return [] }
+        return items.filter { allowed.contains($0.id) }
+    }
+
+    // Cache of exercise IDs that match current tag filters
+    @State private var allowedExerciseIDsForCurrentTagFilters: Set<Int64> = []
+
+    private func refreshAllowedExerciseIDsForTagFilters() async {
+        // If no filters, allow all
+        if selectedGroupTagId == nil && selectedCategoryTagId == nil && selectedWorkoutTagId == nil {
+            await MainActor.run { self.allowedExerciseIDsForCurrentTagFilters = Set(self.exerciseItems.map { $0.id }) }
+            return
+        }
+        do {
+            try await dbQueue.read { db in
+                // Build list of selected tag IDs
+                var selected: [Int64] = []
+                if let g = selectedGroupTagId { selected.append(g) }
+                if let c = selectedCategoryTagId { selected.append(c) }
+                if let w = selectedWorkoutTagId { selected.append(w) }
+                if selected.isEmpty {
+                    self.allowedExerciseIDsForCurrentTagFilters = Set(self.exerciseItems.map { $0.id })
+                    return
+                }
+                struct Row: FetchableRecord, Decodable { let exercise_id: Int64 }
+                // We require exercises to match ALL selected tags (intersection). Query counts per exercise.
+                let placeholders = Array(repeating: "?", count: selected.count).joined(separator: ",")
+                let rows = try Row.fetchAll(
+                    db,
+                    sql: """
+                    SELECT exercise_id
+                    FROM exercise_tag_pivots
+                    WHERE exercise_tag_id IN (\(placeholders))
+                    GROUP BY exercise_id
+                    HAVING COUNT(DISTINCT exercise_tag_id) = ?
+                    """,
+                    arguments: StatementArguments(Array(selected) + [Int64(selected.count)])
+                )
+                let ids = Set(rows.map { $0.exercise_id })
+                self.allowedExerciseIDsForCurrentTagFilters = ids
+            }
+        } catch {
+            // On error, fall back to no results to be safe
+            await MainActor.run { self.allowedExerciseIDsForCurrentTagFilters = [] }
+        }
     }
 
     private func filterExercises() async {
@@ -793,6 +931,27 @@ struct WorkoutInfoView: View {
             self.exerciseItems = rows.map { ExerciseItem(id: $0.id, name: $0.name) }
         } catch {
             print("[WorkoutInfo] Failed to load exercises: \(error)")
+        }
+    }
+
+    private func loadFilterTags() async {
+        do {
+            try await dbQueue.read { db in
+                self.groupTags = try ExerciseTagRecord
+                    .filter(ExerciseTagRecord.Columns.type == "Group")
+                    .order(ExerciseTagRecord.Columns.name.asc)
+                    .fetchAll(db)
+                self.categoryTags = try ExerciseTagRecord
+                    .filter(ExerciseTagRecord.Columns.type == "Category")
+                    .order(ExerciseTagRecord.Columns.name.asc)
+                    .fetchAll(db)
+                self.workoutTags = try ExerciseTagRecord
+                    .filter(ExerciseTagRecord.Columns.type == "Workout")
+                    .order(ExerciseTagRecord.Columns.name.asc)
+                    .fetchAll(db)
+            }
+        } catch {
+            print("[WorkoutInfo] Failed to load filter tags: \(error)")
         }
     }
 

@@ -294,20 +294,7 @@ struct DayCalendarView: View {
                                 
                                 Spacer()
                                 
-                                // MARK: - Hidden NavigationLink to SessionView
-                                NavigationLink(
-                                    destination: sessionDestinationView,
-                                    isActive: $navigateToSession,
-                                    label: { EmptyView() }
-                                )
-                                .hidden()
-                                
-                                NavigationLink(
-                                    destination: summaryDestinationView,
-                                    isActive: $navigateToSessionSummary,
-                                    label: { EmptyView() }
-                                )
-                                .hidden()
+                                // Removed the two hidden NavigationLinks from here
                             }
                             .padding()
                             .alert("Premium Feature", isPresented: $showNonPremiumAlert) {
@@ -427,6 +414,21 @@ struct DayCalendarView: View {
                     
                     Spacer()
                 }
+
+                // Persistent hidden navigation links (outside ScrollView content)
+                NavigationLink(
+                    destination: sessionDestinationView,
+                    isActive: $navigateToSession,
+                    label: { EmptyView() }
+                )
+                .hidden()
+
+                NavigationLink(
+                    destination: summaryDestinationView,
+                    isActive: $navigateToSessionSummary,
+                    label: { EmptyView() }
+                )
+                .hidden()
             }
         }
     }
@@ -435,11 +437,13 @@ struct DayCalendarView: View {
     private var sessionDestinationView: some View {
         if let session = activeSession {
             SessionView(coordinator: coordinator, session: session, sessionRepo: sessionRepository, onCompleted: { completed in
-                // Pop back to DayCalendarView
-                self.navigateToSession = false
-                // Present summary
-                self.summarySession = completed
-                self.navigateToSessionSummary = true
+                Task { @MainActor in
+                    // Pop back to DayCalendarView
+                    self.navigateToSession = false
+                    // Present summary
+                    self.summarySession = completed
+                    self.navigateToSessionSummary = true
+                }
             })
                 .environmentObject(themeManager)
                 .environmentObject(authCoordinator)
