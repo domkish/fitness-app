@@ -12,7 +12,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		B002AECA2F2695B60011607A /* fitness-app.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "fitness-app.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B002AECA2F2695B60011607A /* SimplyFitness.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SimplyFitness.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -47,7 +47,7 @@
 		B002AECB2F2695B60011607A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				B002AECA2F2695B60011607A /* fitness-app.app */,
+				B002AECA2F2695B60011607A /* SimplyFitness.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -55,9 +55,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		B002AEC92F2695B60011607A /* fitness-app */ = {
+		B002AEC92F2695B60011607A /* SimplyFitness */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = B002AED52F2695B70011607A /* Build configuration list for PBXNativeTarget "fitness-app" */;
+			buildConfigurationList = B002AED52F2695B70011607A /* Build configuration list for PBXNativeTarget "SimplyFitness" */;
 			buildPhases = (
 				B002AEC62F2695B60011607A /* Sources */,
 				B002AEC72F2695B60011607A /* Frameworks */,
@@ -70,13 +70,13 @@
 			fileSystemSynchronizedGroups = (
 				B002AECC2F2695B60011607A /* src */,
 			);
-			name = "fitness-app";
+			name = SimplyFitness;
 			packageProductDependencies = (
 				B04287BD2F26B43200EB052A /* GRDB */,
 				B04287E82F2705EE00EB052A /* KeychainAccess */,
 			);
 			productName = "fitness-app";
-			productReference = B002AECA2F2695B60011607A /* fitness-app.app */;
+			productReference = B002AECA2F2695B60011607A /* SimplyFitness.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -94,7 +94,7 @@
 					};
 				};
 			};
-			buildConfigurationList = B002AEC52F2695B60011607A /* Build configuration list for PBXProject "fitness-app" */;
+			buildConfigurationList = B002AEC52F2695B60011607A /* Build configuration list for PBXProject "SimplyFitness" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -112,7 +112,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				B002AEC92F2695B60011607A /* fitness-app */,
+				B002AEC92F2695B60011607A /* SimplyFitness */,
 			);
 		};
 /* End PBXProject section */
@@ -276,7 +276,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.domkish.fitness-app";
+				PRODUCT_BUNDLE_IDENTIFIER = com.domkish.fitVault;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -307,7 +307,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.domkish.fitness-app";
+				PRODUCT_BUNDLE_IDENTIFIER = com.domkish.fitVault;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -322,7 +322,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		B002AEC52F2695B60011607A /* Build configuration list for PBXProject "fitness-app" */ = {
+		B002AEC52F2695B60011607A /* Build configuration list for PBXProject "SimplyFitness" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B002AED32F2695B70011607A /* Debug */,
@@ -331,7 +331,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		B002AED52F2695B70011607A /* Build configuration list for PBXNativeTarget "fitness-app" */ = {
+		B002AED52F2695B70011607A /* Build configuration list for PBXNativeTarget "SimplyFitness" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B002AED62F2695B70011607A /* Debug */,
