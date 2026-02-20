@@ -2,14 +2,10 @@
 //  ExerciseCardView.swift
 //  SimplyFitness
 //
-//  Created by Dominic Kish on 2/1/26.
+//  Created by Dominic Kish on 2/1/26
 //
-//
-//  ExerciseCardView.swift
-//  SimplyFitness
-//
-//  Created by Dominic Kish on 2/1/26.
-//
+
+
 import SwiftUI
 import Combine
 
@@ -186,11 +182,30 @@ struct ExerciseCardView: View {
                         Spacer(minLength: 0)
 
                         Button(action: {
+                            // Toggle exercise completion
                             exItem.exerciseCompleted.toggle()
-                            let repo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+
+                            let exRepo = SessionExerciseRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
                             if let exId = exItem.exercise.id {
-                                try? repo.markCompleted(id: exId, completed: exItem.exerciseCompleted)
+                                // Persist exercise completed flag
+                                try? exRepo.markCompleted(id: exId, completed: exItem.exerciseCompleted)
+
+                                // Persist all sets completion to match the exercise
+                                let setRepo = SessionSetRepository(dbQueue: DatabaseQueueProvider.shared.dbQueue)
+                                if let records = try? setRepo.bySessionExercise(exId) {
+                                    for rec in records {
+                                        if let sid = rec.id {
+                                            try? setRepo.markCompleted(id: sid, completed: exItem.exerciseCompleted)
+                                        }
+                                    }
+                                }
                             }
+
+                            // Update in-memory set items to reflect completion immediately
+                            for item in exItem.sets {
+                                item.completed = exItem.exerciseCompleted
+                            }
+
                             if exItem.exerciseCompleted == false { onBecameActive?() }
                             if exItem.exerciseCompleted { onCompleted?() }
                         }) {
@@ -584,3 +599,4 @@ extension View {
         }
     }
 }
+
