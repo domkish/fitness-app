@@ -1,6 +1,6 @@
 //
 //  MonthCalendarView.swift
-//  fitness-app
+//  SimplyFitness
 //
 //  Created by Assistant on 1/30/26.
 //

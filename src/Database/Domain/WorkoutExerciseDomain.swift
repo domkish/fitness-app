@@ -1,6 +1,6 @@
 //
 //  WorkoutExerciseDomain.swift
-//  fitness-app
+//  SimplyFitness
 //
 //  Created by Assistant on 1/27/26.
 //

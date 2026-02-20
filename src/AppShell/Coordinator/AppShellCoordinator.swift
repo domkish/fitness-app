@@ -1,6 +1,6 @@
 //
 //  AppShellCoordinator.swift
-//  fitness-app
+//  SimplyFitness
 //
 //  Created by Dominic Kish on 1/25/26.
 //

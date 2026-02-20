@@ -1,12 +1,12 @@
 //
 //  ExerciseCardView.swift
-//  fitness-app
+//  SimplyFitness
 //
 //  Created by Dominic Kish on 2/1/26.
 //
 //
 //  ExerciseCardView.swift
-//  fitness-app
+//  SimplyFitness
 //
 //  Created by Dominic Kish on 2/1/26.
 //

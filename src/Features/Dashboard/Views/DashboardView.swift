@@ -1,6 +1,6 @@
 //
 //  DashboardView.swift
-//  fitness-app
+//  SimplyFitness
 //
 //  Created by Dominic Kish on 1/25/26.
 //
@@ -651,7 +651,7 @@ struct DashboardView: View {
                     Image(systemName: "dumbbell.fill")
                         .font(.system(size: 44))
                         .foregroundColor(themeManager.currentTheme.textDefault)
-                    Text("Welcome to fitness-app")
+                    Text("Welcome to SimplyFitness")
                         .font(.title3).bold()
                         .foregroundColor(themeManager.currentTheme.textDefault)
                     Text("Looking to get started? Let's create a workout routine!")

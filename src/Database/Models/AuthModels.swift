@@ -1,6 +1,6 @@
 //
 //  AuthModels.swift
-//  fitness-app
+//  SimplyFitness
 //
 //  Created by Dominic Kish on 1/24/26.
 //

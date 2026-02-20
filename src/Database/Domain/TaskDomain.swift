@@ -1,6 +1,6 @@
 //
 //  TaskDomain.swift
-//  fitness-app
+//  SimplyFitness
 //
 //  Created by Dominic Kish on 1/29/26.
 //

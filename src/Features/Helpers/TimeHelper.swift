@@ -1,6 +1,6 @@
 //
 //  TimeHelper.swift
-//  fitness-app
+//  SimplyFitness
 //
 //  Created by Dominic Kish on 2/3/26.
 //

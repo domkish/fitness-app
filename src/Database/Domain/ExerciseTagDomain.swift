@@ -1,6 +1,6 @@
 //
 //  ExerciseTagDomain.swift
-//  fitness-app
+//  SimplyFitness
 //  Domain/ExerciseTagDoman
 //
 //  Created by Dominic Kish on 1/26/26.

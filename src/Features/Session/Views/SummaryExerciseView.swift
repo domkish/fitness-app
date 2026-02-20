@@ -1,6 +1,6 @@
 //
 //  SummaryExerciseView.swift
-//  fitness-app
+//  SimplyFitness
 //
 //  Created by Dominic Kish on 2/2/26.
 //

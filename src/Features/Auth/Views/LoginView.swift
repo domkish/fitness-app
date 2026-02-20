@@ -1,6 +1,6 @@
 //
 //  LoginView.swift
-//  fitness-app
+//  SimplyFitness
 //
 //  Created by Dominic Kish on 1/24/26.
 //
@@ -32,7 +32,7 @@ struct LoginView: View {
                     VStack(spacing: 32) {
                         // App Branding
                         VStack(spacing: 8) {
-                            Text("Fitness-App")
+                            Text("SimplyFitness")
                                 .font(.largeTitle)
                                 .fontWeight(.bold)
                                 .foregroundColor(themeManager.currentTheme.surface)
@@ -120,20 +120,20 @@ struct LoginView: View {
                             .controlSize(.large)
                             .disabled(repo.isLoading)
 
-                            Divider()
+//                            Divider()
 
-                            HStack {
-                                Button("Create Account") {
-                                    coordinator.goToRegister()
-                                }
-
-                                Spacer()
-
-                                Button("Forgot Password?") {
-                                    coordinator.goToResetPassword()
-                                }
-                            }
-                            .font(.footnote)
+//                            HStack {
+//                                Button("Create Account") {
+//                                    coordinator.goToRegister()
+//                                }
+//
+//                                Spacer()
+//
+//                                Button("Forgot Password?") {
+//                                    coordinator.goToResetPassword()
+//                                }
+//                            }
+//                            .font(.footnote)
                         }
                         .padding(24)
                         .background(

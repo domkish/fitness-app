@@ -1,6 +1,6 @@
 //
 //  CalendarViewModel.swift
-//  fitness-app
+//  SimplyFitness
 //
 //  Created by Dominic Kish on 2/4/26.
 //

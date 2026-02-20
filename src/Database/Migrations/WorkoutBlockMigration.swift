@@ -1,6 +1,6 @@
 //
 //  WorkoutBlock.swift
-//  fitness-app
+//  SimplyFitness
 //
 //  Created by Dominic Kish on 1/27/26.
 //
