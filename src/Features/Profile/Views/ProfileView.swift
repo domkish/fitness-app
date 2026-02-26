@@ -13,7 +13,7 @@ struct ProfileView: View {
     @EnvironmentObject var themeManager: ThemeManager
     
     @State private var showThemes = false
-    @State private var showPremium = false
+    @State private var navigateToPremium = false
     @State private var showUpgradeAlert = false
     
     var body: some View {
@@ -69,7 +69,7 @@ struct ProfileView: View {
                                             .foregroundColor(themeManager.currentTheme.textDefault)
 
                                         Button("(upgrade)") {
-                                            showPremium = true
+                                            navigateToPremium = true
                                         }
                                         .font(.subheadline)
                                         .foregroundColor(themeManager.currentTheme.primary)
@@ -210,6 +210,15 @@ struct ProfileView: View {
                         Spacer()
                     }
                     .padding()
+                
+                NavigationLink(
+                    destination: PremiumView(coordinator: coordinator)
+                        .environmentObject(authCoordinator)
+                        .environmentObject(themeManager),
+                    isActive: $navigateToPremium,
+                    label: { EmptyView() }
+                )
+                .hidden()
             }
         } else {
             // Lightweight placeholder when user is nil (e.g., during logout)

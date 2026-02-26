@@ -70,9 +70,9 @@ final class AuthCoordinator: ObservableObject {
         }
     }
 
-    func register(email: String, password: String) async {
+    func register(email: String, name: String) async {
         do {
-            let user = try await authService.register(email: email, password: password)
+            let user = try await authService.register(email: email, name: name)
             await MainActor.run {
                 self.currentUser = user
                 self.userRepository.setCurrentUserId(user.id)

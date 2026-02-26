@@ -9,7 +9,7 @@ import Foundation
 
 protocol AuthServicing {
     func login(email: String, password: String) async throws -> User
-    func register(email: String, password: String) async throws -> User
+    func register(email: String, name: String) async throws -> User
     func resetPassword(email: String) async throws
     func changePassword(current: String, new: String, confirm: String) async throws
     func updateProfile(name: String) async throws -> User
@@ -44,11 +44,11 @@ final class AuthService: AuthServicing {
         return user
     }
 
-    func register(email: String, password: String) async throws -> User {
+    func register(email: String, name: String) async throws -> User {
         let endpoint = URL(string: "auth/register", relativeTo: baseURL)!
         let request = try makeRequest(
             url: endpoint,
-            body: ["email": email, "password": password]
+            body: ["email": email, "name": name]
         )
 
         let (data, response) = try await URLSession.shared.data(for: request)

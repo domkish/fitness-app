@@ -23,6 +23,7 @@ struct SessionView: View {
     @State private var isLoading = true
     @State private var showingCompleteAlert = false
     @State private var showSummary = false
+    @State private var summarySession: SessionRecord? = nil
 
     var body: some View {
         ZStack {
@@ -89,6 +90,14 @@ struct SessionView: View {
                 }
                 .padding(.vertical)
             }
+
+            // Hidden navigation to summary when this view owns completion flow
+            NavigationLink(isActive: $showSummary) {
+                summaryDestinationView
+            } label: {
+                EmptyView()
+            }
+            .hidden()
 
             // MARK: - Complete Workout Confirmation Popup
             if showingCompleteAlert {
@@ -157,6 +166,17 @@ struct SessionView: View {
         }
     }
 
+    @ViewBuilder
+    private var summaryDestinationView: some View {
+        if let s = summarySession {
+            SessionSummaryView(coordinator: coordinator, session: s)
+                .environmentObject(themeManager)
+                .environmentObject(authCoordinator)
+        } else {
+            EmptyView()
+        }
+    }
+
     // MARK: - Data Loading
 
     private func loadSessionTree() {
@@ -219,6 +239,12 @@ struct SessionView: View {
             try updateSessionCompletion(totalDuration: total)
 
             await MainActor.run { onCompleted?(session) }
+            await MainActor.run {
+                if onCompleted == nil {
+                    self.summarySession = session
+                    self.showSummary = true
+                }
+            }
         } catch {
             print("[SessionView] completeWorkout error: \(error)")
         }

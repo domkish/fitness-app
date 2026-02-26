@@ -20,12 +20,20 @@ struct LoginView: View {
     var body: some View {
         ZStack {
             // Background
+            // Animated gradient background
             LinearGradient(
-                colors: [themeManager.currentTheme.important.opacity(0.6), themeManager.currentTheme.primary.opacity(0.6)],
+                colors: [
+                    themeManager.currentTheme.important.opacity(0.85),
+                    themeManager.currentTheme.primary.opacity(0.85)
+                ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
+
+            // Subtle particles / bubbles overlay
+            BubblesOverlay()
+                .allowsHitTesting(false)
 
             GeometryReader { geo in
                 ScrollView {
@@ -120,20 +128,20 @@ struct LoginView: View {
                             .controlSize(.large)
                             .disabled(repo.isLoading)
 
-//                            Divider()
+                            Divider()
 
-//                            HStack {
-//                                Button("Create Account") {
-//                                    coordinator.goToRegister()
-//                                }
-//
-//                                Spacer()
-//
-//                                Button("Forgot Password?") {
-//                                    coordinator.goToResetPassword()
-//                                }
-//                            }
-//                            .font(.footnote)
+                            HStack {
+                                Button("Create Account") {
+                                    coordinator.goToRegister()
+                                }
+
+                                Spacer()
+
+                                Button("Forgot Password?") {
+                                    coordinator.goToResetPassword()
+                                }
+                            }
+                            .font(.footnote)
                         }
                         .padding(24)
                         .background(

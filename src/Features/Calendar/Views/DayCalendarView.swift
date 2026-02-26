@@ -35,8 +35,8 @@ struct DayCalendarView: View {
     @State private var activeSession: SessionRecord? = nil
     @State private var navigateToSession = false
 
-    @State private var navigateToSessionSummary = false
     @State private var summarySession: SessionRecord? = nil
+    @State private var showSummarySheet = false
 
     @State private var showingWorkoutPopover = false
     @State private var selectedWorkoutRow: CalendarWorkoutRepository.ScheduledWorkoutRow? = nil
@@ -422,13 +422,9 @@ struct DayCalendarView: View {
                     label: { EmptyView() }
                 )
                 .hidden()
-
-                NavigationLink(
-                    destination: summaryDestinationView,
-                    isActive: $navigateToSessionSummary,
-                    label: { EmptyView() }
-                )
-                .hidden()
+                .sheet(isPresented: $showSummarySheet) {
+                    summaryDestinationView
+                }
             }
         }
     }
@@ -438,11 +434,9 @@ struct DayCalendarView: View {
         if let session = activeSession {
             SessionView(coordinator: coordinator, session: session, sessionRepo: sessionRepository, onCompleted: { completed in
                 Task { @MainActor in
-                    // Pop back to DayCalendarView
                     self.navigateToSession = false
-                    // Present summary
                     self.summarySession = completed
-                    self.navigateToSessionSummary = true
+                    self.showSummarySheet = true
                 }
             })
                 .environmentObject(themeManager)
@@ -682,7 +676,7 @@ struct DayCalendarView: View {
             await MainActor.run {
                 if isCompleted {
                     self.summarySession = session
-                    self.navigateToSessionSummary = true
+                    self.showSummarySheet = true
                     self.activeSession = nil
                     self.navigateToSession = false
                 } else {

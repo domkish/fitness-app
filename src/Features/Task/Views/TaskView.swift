@@ -53,7 +53,7 @@ struct TaskView: View {
                         
                         Spacer()
                         
-                        let maxTasks = isPremiumUser ? 10 : 3
+                        let maxTasks = isPremiumUser ? 20 : 3
                         Button {
                             if tasks.count >= maxTasks {
                                 showLimitPopover = true

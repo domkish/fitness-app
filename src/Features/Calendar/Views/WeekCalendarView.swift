@@ -31,7 +31,6 @@ struct WeekCalendarView: View {
     @State private var activeSession: SessionRecord? = nil
     @State private var navigateToSession = false
     @State private var summarySession: SessionRecord? = nil
-    @State private var navigateToSessionSummary = false
 
     // Quick actions popover state (mirror DayCalendarView)
     @State private var showingWorkoutPopover = false
@@ -240,12 +239,11 @@ struct WeekCalendarView: View {
             )
             .hidden()
 
-            NavigationLink(
-                destination: summaryDestinationView,
-                isActive: $navigateToSessionSummary,
-                label: { EmptyView() }
-            )
-            .hidden()
+            .sheet(item: $summarySession) { s in
+                SessionSummaryView(coordinator: AppShellCoordinator(), session: s)
+                    .environmentObject(themeManager)
+                    .environmentObject(authCoordinator)
+            }
             
             .task(id: startOfWeek) {
                 await loadWeekData()
@@ -560,10 +558,10 @@ struct WeekCalendarView: View {
             let isCompleted = sessionIsCompleted(session)
             await MainActor.run {
                 if isCompleted {
-                    self.summarySession = session
-                    self.navigateToSessionSummary = true
-                    self.activeSession = nil
+                    // Pop back to WeekCalendarView by turning off navigation
                     self.navigateToSession = false
+                    // Present summary as a sheet
+                    self.summarySession = session
                 } else {
                     self.activeSession = session
                     self.navigateToSession = true
@@ -637,23 +635,11 @@ struct WeekCalendarView: View {
             SessionView(coordinator: AppShellCoordinator(), session: session, sessionRepo: sessionRepository, onCompleted: { completed in
                 // Pop back to WeekCalendarView by turning off navigation
                 self.navigateToSession = false
-                // Push summary
+                // Present summary as a sheet
                 self.summarySession = completed
-                self.navigateToSessionSummary = true
             })
             .environmentObject(themeManager)
             .environmentObject(authCoordinator)
-        } else {
-            EmptyView()
-        }
-    }
-
-    @ViewBuilder
-    private var summaryDestinationView: some View {
-        if let s = summarySession {
-            SessionSummaryView(coordinator: AppShellCoordinator(), session: s)
-                .environmentObject(themeManager)
-                .environmentObject(authCoordinator)
         } else {
             EmptyView()
         }

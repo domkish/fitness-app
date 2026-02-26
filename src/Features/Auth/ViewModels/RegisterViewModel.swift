@@ -11,7 +11,7 @@ import Combine
 @MainActor
 final class RegisterViewModel: ObservableObject {
     @Published var email: String = ""
-    @Published var password: String = ""
+    @Published var name: String = ""
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
 
@@ -27,7 +27,7 @@ final class RegisterViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            try await authService.register(email: email, password: password)
+            try await authService.register(email: email, name: name)
         } catch {
             errorMessage = error.localizedDescription
             throw error
