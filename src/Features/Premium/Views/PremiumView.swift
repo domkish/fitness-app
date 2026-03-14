@@ -14,6 +14,8 @@ struct PremiumView: View {
     @EnvironmentObject private var themeManager: ThemeManager
     @EnvironmentObject var authCoordinator: AuthCoordinator
     @StateObject private var purchaseManager = PurchaseManager.shared
+    @State private var navigateToProfileAfterPurchase = false
+    @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         NavigationStack {
@@ -110,6 +112,18 @@ struct PremiumView: View {
                         }
                     }
                     .padding()
+                    .onAppear {
+                        if authCoordinator.currentUser?.isPremium == true {
+                            coordinator.currentStep = .profile
+                            dismiss()
+                        }
+                    }
+                    .onReceive(purchaseManager.$didCompleteLifetimePurchase) { completed in
+                        if completed {
+                            coordinator.currentStep = .profile
+                            dismiss()
+                        }
+                    }
                 }
             }
         }
@@ -119,18 +133,35 @@ struct PremiumView: View {
 private extension PremiumView {
     func handlePurchaseTapped() async {
         do {
-            let verified = try await purchaseManager.purchaseAndVerifyPremium()
-            if verified {
-                await applyPremiumEntitlement()
-            } else {
-                // Either cancelled/pending or server responded with failure
-                print("[PremiumView] Purchase not verified (cancelled/pending or server failure)")
+            // Perform local purchase first (non-blocking on server verification)
+            guard let outcome = try await purchaseManager.purchasePremium() else {
+                // User cancelled or pending
+                return
+            }
+
+            // Immediately apply entitlement and navigate to Profile
+            await applyPremiumEntitlement()
+            await MainActor.run {
+                coordinator.currentStep = .profile
+                dismiss()
+            }
+
+            // Fire off server verification in the background (non-blocking)
+            Task.detached {
+                do {
+                    let result = try await purchaseManager.verify(transactionId: outcome.transaction.id)
+                    if !result.isPremium {
+                        print("[PremiumView] Server verification indicates not premium; consider reconciling state.")
+                    }
+                } catch {
+                    print("[PremiumView] Server verification failed: \(error)")
+                }
             }
         } catch {
             if (error as NSError).code == 1 {
                 // User cancelled
             } else {
-                print("[PremiumView] Purchase/verification failed: \(error)")
+                print("[PremiumView] Purchase failed: \(error)")
             }
         }
     }

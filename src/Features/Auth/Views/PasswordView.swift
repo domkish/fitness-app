@@ -1,15 +1,19 @@
-//
-//  RegiserView.swift
-//  SimplyFitness
-//
-//  Created by Dominic Kish on 1/24/26.
-//
 import SwiftUI
 
-struct RegisterView: View {
+struct PasswordView: View {
     @EnvironmentObject var coordinator: AuthCoordinator
-    @StateObject private var repo: LoginViewRepository = LoginViewRepository()
+    @StateObject private var repo: LoginViewRepository
     @EnvironmentObject var themeManager: ThemeManager
+
+    let onFinished: () -> Void
+
+    @State private var password: String = ""
+    @State private var confirmPassword: String = ""
+
+    init(onFinished: @escaping () -> Void = {}) {
+        self.onFinished = onFinished
+        _repo = StateObject(wrappedValue: LoginViewRepository())
+    }
 
     var body: some View {
         ZStack {
@@ -35,7 +39,7 @@ struct RegisterView: View {
                                 .fontWeight(.bold)
                                 .foregroundColor(themeManager.currentTheme.surface)
 
-                            Text("Thanks for downloading SimplyFitness! Enter your name and email. We'll send you a 6-digit security token to finish setting up your account.")
+                            Text("Create a secure password to finish setting up your account.")
                                 .font(.subheadline)
                                 .foregroundColor(themeManager.currentTheme.surface.opacity(0.9))
                                 .padding(.horizontal)
@@ -44,18 +48,16 @@ struct RegisterView: View {
 
                         VStack(spacing: 16) {
                             VStack(alignment: .leading, spacing: 12) {
-                                Label("Name", systemImage: "person")
+                                Label("Set Password", systemImage: "lock")
                                     .font(.caption)
                                     .foregroundColor(themeManager.currentTheme.textDefault)
 
-                                TextField("", text: $repo.name)
+                                SecureField("", text: $password)
                                     .themedPlaceholder(
-                                        "Your name",
-                                        when: repo.name.isEmpty,
+                                        "Enter your password",
+                                        when: password.isEmpty,
                                         color: themeManager.currentTheme.muted
                                     )
-                                    .textInputAutocapitalization(.words)
-                                    .autocorrectionDisabled(true)
                                     .foregroundColor(themeManager.currentTheme.textDefault)
                                     .padding()
                                     .background(themeManager.currentTheme.formDefault)
@@ -67,19 +69,16 @@ struct RegisterView: View {
                             }
 
                             VStack(alignment: .leading, spacing: 12) {
-                                Label("Email", systemImage: "envelope")
+                                Label("Confirm Password", systemImage: "lock.shield")
                                     .font(.caption)
                                     .foregroundColor(themeManager.currentTheme.textDefault)
 
-                                TextField("", text: $repo.email)
+                                SecureField("", text: $confirmPassword)
                                     .themedPlaceholder(
-                                        "Your email address",
-                                        when: repo.email.isEmpty,
+                                        "Re-enter your password",
+                                        when: confirmPassword.isEmpty,
                                         color: themeManager.currentTheme.muted
                                     )
-                                    .textInputAutocapitalization(.never)
-                                    .keyboardType(.emailAddress)
-                                    .autocorrectionDisabled(true)
                                     .foregroundColor(themeManager.currentTheme.textDefault)
                                     .padding()
                                     .background(themeManager.currentTheme.formDefault)
@@ -88,9 +87,6 @@ struct RegisterView: View {
                                             .stroke(themeManager.currentTheme.borderDefault, lineWidth: 1)
                                     )
                                     .cornerRadius(8)
-                                    .onChange(of: repo.email) { _, newValue in
-                                        repo.email = newValue.lowercased()
-                                    }
                             }
 
                             if let error = repo.errorMessage {
@@ -102,14 +98,42 @@ struct RegisterView: View {
 
                             Button {
                                 Task {
-                                    await createAccount()
+                                    repo.errorMessage = nil
+
+                                    guard validate() else { return }
+
+                                    repo.isLoading = true
+                                    defer { repo.isLoading = false }
+
+                                    do {
+                                        guard let email = coordinator.pendingEmail else {
+                                            repo.errorMessage = "Missing email from reset flow."
+                                            return
+                                        }
+
+                                        try await coordinator.submitPassword(
+                                            email: email,
+                                            password: password,
+                                            confirm: confirmPassword
+                                        )
+
+                                        await MainActor.run {
+                                            password = ""
+                                            confirmPassword = ""
+                                            coordinator.pendingEmail = nil
+                                            coordinator.currentStep = .login
+                                            onFinished()
+                                        }
+                                    } catch {
+                                        repo.errorMessage = error.localizedDescription
+                                    }
                                 }
                             } label: {
                                 HStack {
                                     if repo.isLoading {
                                         ProgressView()
                                     } else {
-                                        Text("Create Account")
+                                        Text("Set")
                                             .fontWeight(.semibold)
                                     }
                                 }
@@ -119,17 +143,6 @@ struct RegisterView: View {
                             .tint(themeManager.currentTheme.important)
                             .controlSize(.large)
                             .disabled(repo.isLoading)
-
-                            Divider()
-
-                            HStack {
-                                Button("Back to Login") {
-                                    coordinator.goToLogin()
-                                }
-
-                                Spacer()
-                            }
-                            .font(.footnote)
                         }
                         .padding(24)
                         .background(
@@ -144,43 +157,30 @@ struct RegisterView: View {
                 }
             }
         }
+        .navigationBarBackButtonHidden(true)
     }
 
-    private func createAccount() async {
-        repo.isLoading = true
-        repo.errorMessage = nil
-        defer { repo.isLoading = false }
-
-        let email = repo.email
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-
-        let name = repo.name
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !name.isEmpty else {
-            repo.errorMessage = "Please enter your name."
-            return
+    private func validate() -> Bool {
+        guard !password.isEmpty else {
+            repo.errorMessage = "Please enter a password."
+            return false
         }
 
-        guard isValidEmail(email) else {
-            repo.errorMessage = "Please enter a valid email address."
-            return
+        guard !confirmPassword.isEmpty else {
+            repo.errorMessage = "Please confirm your password."
+            return false
         }
 
-        do {
-            try await coordinator.register(email: email, name: name)
-            coordinator.pendingEmail = email
-            coordinator.tokenFlow = .registration
-            coordinator.currentStep = .token
-        } catch {
-            repo.errorMessage = error.localizedDescription
+        guard password == confirmPassword else {
+            repo.errorMessage = "Passwords do not match."
+            return false
         }
-    }
 
-    private func isValidEmail(_ s: String) -> Bool {
-        let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        return trimmed.contains("@") && trimmed.contains(".")
+        guard password.count >= 8 else {
+            repo.errorMessage = "Password must be at least 8 characters long."
+            return false
+        }
+
+        return true
     }
 }

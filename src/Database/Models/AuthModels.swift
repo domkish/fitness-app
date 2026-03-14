@@ -12,5 +12,8 @@ enum AuthStep {
     case login
     case register
     case resetPassword
+    case token
+    case password
+    case success
     case done
 }

@@ -7,15 +7,22 @@
 import SwiftUI
 import Combine
 
+enum TokenFlow {
+    case registration
+    case resetPassword
+}
+
 @MainActor
 final class AuthCoordinator: ObservableObject {
 
     @Published var currentStep: AuthStep = .login
+    @Published var pendingEmail: String?
+    @Published var pendingName: String?
+    @Published var tokenFlow: TokenFlow = .registration
+
     @Published var currentUser: User? {
         didSet {
-            // Broadcast theme change so app root can react immediately if needed
             NotificationCenter.default.post(name: .userThemeDidChange, object: currentUser?.theme)
-            // Persist current user id so repositories continue to scope correctly
             userRepository.setCurrentUserId(currentUser?.id)
         }
     }
@@ -34,10 +41,10 @@ final class AuthCoordinator: ObservableObject {
     private func restoreSavedUser() async {
         userRepository.diagnosticsLog("AuthCoordinator.restoreSavedUser")
         do {
-            // Require a valid token AND a non-system user
-            if let token = TokenStore.token, !token.isEmpty,
+            if let token = TokenStore.token,
+               !token.isEmpty,
                let savedUser = try await userRepository.fetchUser(),
-               savedUser.id != 0 { // ignore system user
+               savedUser.id != 0 {
                 self.currentUser = savedUser
                 self.currentStep = .done
                 self.userRepository.setCurrentUserId(savedUser.id)
@@ -54,7 +61,13 @@ final class AuthCoordinator: ObservableObject {
     func goToLogin() { currentStep = .login }
     func goToRegister() { currentStep = .register }
     func goToResetPassword() { currentStep = .resetPassword }
+    func goToToken(flow: TokenFlow) {
+        tokenFlow = flow
+        currentStep = .token
+    }
+    func goToPassword() { currentStep = .password }
     func finishAuth() { currentStep = .done }
+    func goToSuccess() { currentStep = .success }
 
     // MARK: - Actions
     func login(email: String, password: String) async {
@@ -70,33 +83,88 @@ final class AuthCoordinator: ObservableObject {
         }
     }
 
-    func register(email: String, name: String) async {
+    func register(email: String, name: String) async throws {
         do {
-            let user = try await authService.register(email: email, name: name)
+            let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let result = try await authService.register(email: normalizedEmail, name: normalizedName)
+
             await MainActor.run {
-                self.currentUser = user
-                self.userRepository.setCurrentUserId(user.id)
-                self.finishAuth()
+                self.pendingEmail = result.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                self.pendingName = normalizedName
+                self.tokenFlow = .registration
             }
         } catch {
             print("Registration failed:", error.localizedDescription)
+            throw error
         }
     }
 
-    func resetPassword(email: String) async {
+    func resendRegistrationToken() async throws {
+        guard let email = pendingEmail, !email.isEmpty else {
+            throw AuthError.server(message: "Missing email for token resend.")
+        }
+
+        guard let name = pendingName, !name.isEmpty else {
+            throw AuthError.server(message: "Missing name for token resend.")
+        }
+
+        try await register(email: email, name: name)
+    }
+
+    func resetPassword(email: String) async throws {
         do {
-            try await authService.resetPassword(email: email)
-            await MainActor.run { goToLogin() }
+            let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            try await authService.resetPassword(email: normalizedEmail)
+
+            await MainActor.run {
+                self.pendingEmail = normalizedEmail
+                self.tokenFlow = .resetPassword
+            }
         } catch {
             print("Reset password failed:", error.localizedDescription)
+            throw error
+        }
+    }
+
+    func verifyToken(email: String, token: String) async -> Bool {
+        do {
+            let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let normalizedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let ok = try await authService.verifyToken(email: normalizedEmail, token: normalizedToken)
+
+            if ok {
+                await MainActor.run {
+                    self.pendingEmail = normalizedEmail
+                }
+            }
+
+            return ok
+        } catch {
+            print("Verify token failed:", error.localizedDescription)
+            return false
+        }
+    }
+
+    func submitPassword(email: String, password: String, confirm: String) async throws {
+        try await authService.setPassword(email: email, new: password, confirm: confirm)
+
+        await MainActor.run {
+            self.pendingEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            self.pendingName = nil
+            self.goToLogin()
         }
     }
 
     // MARK: - Logout
     func logout() {
-        // Purely local logout: do not modify SQLite or repository
         TokenStore.token = nil
         self.currentUser = nil
+        self.pendingEmail = nil
+        self.pendingName = nil
+        self.tokenFlow = .registration
         self.goToLogin()
     }
 
@@ -106,7 +174,6 @@ final class AuthCoordinator: ObservableObject {
 
     // MARK: - Profile Updates
 
-    /// Update local user only (SQLite), keeps isImperial
     func updateCurrentUser(name: String, isImperial: Bool, weight: Bool, fat: Bool, photo: Bool) {
         guard let user = currentUser else { return }
 
@@ -115,7 +182,7 @@ final class AuthCoordinator: ObservableObject {
             name: name,
             email: user.email,
             isPremium: user.isPremium,
-            isImperial: isImperial, // local-only
+            isImperial: isImperial,
             weight: weight,
             fat: fat,
             photo: photo,
@@ -128,28 +195,25 @@ final class AuthCoordinator: ObservableObject {
         self.currentUser = updatedUser
 
         do {
-            try userRepository.createOrUpdate(updatedUser) // ✅ repository
+            try userRepository.createOrUpdate(updatedUser)
         } catch {
             print("Failed to persist user locally:", error)
         }
     }
 
-    /// Update backend (name only) and merge with local isImperial
     func updateProfileNameOnServer(name: String) async throws {
         guard let currentUser = currentUser else {
             throw AuthError.server(message: "No current user")
         }
 
-        // Call backend with name only
         let updatedUser = try await authService.updateProfile(name: name)
 
-        // Merge backend response with local-only isImperial
         let mergedUser = User(
             id: updatedUser.id,
             name: updatedUser.name,
             email: updatedUser.email,
             isPremium: updatedUser.isPremium,
-            isImperial: currentUser.isImperial, // local-only
+            isImperial: currentUser.isImperial,
             weight: currentUser.weight,
             fat: currentUser.fat,
             photo: currentUser.photo,
@@ -159,9 +223,8 @@ final class AuthCoordinator: ObservableObject {
             updatedAt: updatedUser.updatedAt
         )
 
-        // Update state & database
         self.currentUser = mergedUser
-        try userRepository.createOrUpdate(mergedUser) // ✅ repository
+        try userRepository.createOrUpdate(mergedUser)
     }
 }
 

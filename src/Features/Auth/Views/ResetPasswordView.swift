@@ -1,15 +1,20 @@
 //
-//  RegiserView.swift
+//  ResetPasswordView.swift
 //  SimplyFitness
 //
 //  Created by Dominic Kish on 1/24/26.
 //
 import SwiftUI
 
-struct RegisterView: View {
-    @EnvironmentObject var coordinator: AuthCoordinator
-    @StateObject private var repo: LoginViewRepository = LoginViewRepository()
+struct ResetPasswordView: View {
+    @ObservedObject var coordinator: AuthCoordinator
     @EnvironmentObject var themeManager: ThemeManager
+
+    @StateObject private var repo = LoginViewRepository()
+
+    init(coordinator: AuthCoordinator) {
+        self.coordinator = coordinator
+    }
 
     var body: some View {
         ZStack {
@@ -35,7 +40,7 @@ struct RegisterView: View {
                                 .fontWeight(.bold)
                                 .foregroundColor(themeManager.currentTheme.surface)
 
-                            Text("Thanks for downloading SimplyFitness! Enter your name and email. We'll send you a 6-digit security token to finish setting up your account.")
+                            Text("Enter your account email to receive a 6-digit reset code.")
                                 .font(.subheadline)
                                 .foregroundColor(themeManager.currentTheme.surface.opacity(0.9))
                                 .padding(.horizontal)
@@ -44,42 +49,19 @@ struct RegisterView: View {
 
                         VStack(spacing: 16) {
                             VStack(alignment: .leading, spacing: 12) {
-                                Label("Name", systemImage: "person")
-                                    .font(.caption)
-                                    .foregroundColor(themeManager.currentTheme.textDefault)
-
-                                TextField("", text: $repo.name)
-                                    .themedPlaceholder(
-                                        "Your name",
-                                        when: repo.name.isEmpty,
-                                        color: themeManager.currentTheme.muted
-                                    )
-                                    .textInputAutocapitalization(.words)
-                                    .autocorrectionDisabled(true)
-                                    .foregroundColor(themeManager.currentTheme.textDefault)
-                                    .padding()
-                                    .background(themeManager.currentTheme.formDefault)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(themeManager.currentTheme.borderDefault, lineWidth: 1)
-                                    )
-                                    .cornerRadius(8)
-                            }
-
-                            VStack(alignment: .leading, spacing: 12) {
                                 Label("Email", systemImage: "envelope")
                                     .font(.caption)
                                     .foregroundColor(themeManager.currentTheme.textDefault)
 
                                 TextField("", text: $repo.email)
+                                    .keyboardType(.emailAddress)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled(true)
                                     .themedPlaceholder(
                                         "Your email address",
                                         when: repo.email.isEmpty,
                                         color: themeManager.currentTheme.muted
                                     )
-                                    .textInputAutocapitalization(.never)
-                                    .keyboardType(.emailAddress)
-                                    .autocorrectionDisabled(true)
                                     .foregroundColor(themeManager.currentTheme.textDefault)
                                     .padding()
                                     .background(themeManager.currentTheme.formDefault)
@@ -88,9 +70,6 @@ struct RegisterView: View {
                                             .stroke(themeManager.currentTheme.borderDefault, lineWidth: 1)
                                     )
                                     .cornerRadius(8)
-                                    .onChange(of: repo.email) { _, newValue in
-                                        repo.email = newValue.lowercased()
-                                    }
                             }
 
                             if let error = repo.errorMessage {
@@ -101,25 +80,19 @@ struct RegisterView: View {
                             }
 
                             Button {
-                                Task {
-                                    await createAccount()
-                                }
+                                Task { await sendCode() }
                             } label: {
                                 HStack {
-                                    if repo.isLoading {
-                                        ProgressView()
-                                    } else {
-                                        Text("Create Account")
-                                            .fontWeight(.semibold)
-                                    }
+                                    if repo.isLoading { ProgressView() }
+                                    Text(repo.isLoading ? "Sending…" : "Request Code")
+                                        .fontWeight(.semibold)
                                 }
                                 .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(themeManager.currentTheme.important)
                             .controlSize(.large)
-                            .disabled(repo.isLoading)
-
+                            .disabled(repo.isLoading || !isValidEmail(repo.email))
                             Divider()
 
                             HStack {
@@ -146,32 +119,24 @@ struct RegisterView: View {
         }
     }
 
-    private func createAccount() async {
-        repo.isLoading = true
+    private func sendCode() async {
         repo.errorMessage = nil
-        defer { repo.isLoading = false }
 
         let email = repo.email
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
-
-        let name = repo.name
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !name.isEmpty else {
-            repo.errorMessage = "Please enter your name."
-            return
-        }
 
         guard isValidEmail(email) else {
             repo.errorMessage = "Please enter a valid email address."
             return
         }
 
+        repo.isLoading = true
+        defer { repo.isLoading = false }
+
         do {
-            try await coordinator.register(email: email, name: name)
+            try await coordinator.resetPassword(email: email)
             coordinator.pendingEmail = email
-            coordinator.tokenFlow = .registration
             coordinator.currentStep = .token
         } catch {
             repo.errorMessage = error.localizedDescription

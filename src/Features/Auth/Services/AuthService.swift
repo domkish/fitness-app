@@ -9,10 +9,12 @@ import Foundation
 
 protocol AuthServicing {
     func login(email: String, password: String) async throws -> User
-    func register(email: String, name: String) async throws -> User
+    func register(email: String, name: String) async throws -> RegisterResponse
     func resetPassword(email: String) async throws
     func changePassword(current: String, new: String, confirm: String) async throws
     func updateProfile(name: String) async throws -> User
+    func verifyToken(email: String, token: String) async throws -> Bool
+    func setPassword(email: String, new: String, confirm: String) async throws
 }
 
 final class AuthService: AuthServicing {
@@ -31,20 +33,19 @@ final class AuthService: AuthServicing {
             body: ["email": email, "password": password]
         )
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response: response, data: data)
+
         let result = try JSONDecoder.api.decode(AuthResponse.self, from: data)
 
         guard let user = result.user else {
             throw AuthError.server(message: "User missing in response")
         }
 
-        TokenStore.token = result.token
-        try userRepository.createOrUpdate(user) // ✅ use repository
-
         return user
     }
 
-    func register(email: String, name: String) async throws -> User {
+    func register(email: String, name: String) async throws -> RegisterResponse {
         let endpoint = URL(string: "auth/register", relativeTo: baseURL)!
         let request = try makeRequest(
             url: endpoint,
@@ -54,16 +55,12 @@ final class AuthService: AuthServicing {
         let (data, response) = try await URLSession.shared.data(for: request)
         try validate(response: response, data: data)
 
-        let result = try JSONDecoder.api.decode(AuthResponse.self, from: data)
-
-        guard let user = result.user else {
-            throw AuthError.server(message: "Registration succeeded but user missing")
+        if let raw = String(data: data, encoding: .utf8) {
+            print("📦 Register response:")
+            print(raw)
         }
 
-        TokenStore.token = result.token
-        try userRepository.createOrUpdate(user) // ✅ use repository
-
-        return user
+        return try JSONDecoder.api.decode(RegisterResponse.self, from: data)
     }
 
     func updateProfile(name: String) async throws -> User {
@@ -86,7 +83,7 @@ final class AuthService: AuthServicing {
             throw AuthError.server(message: "User missing in response")
         }
 
-        try userRepository.createOrUpdate(user) // ✅ repository call
+        try userRepository.createOrUpdate(user)
         return user
     }
 
@@ -117,6 +114,57 @@ final class AuthService: AuthServicing {
         try validate(response: response, data: data)
     }
     
+    func verifyToken(email: String, token: String) async throws -> Bool {
+        let endpoint = URL(string: "auth/verify-token", relativeTo: baseURL)!
+        let request = try makeRequest(url: endpoint, body: ["email": email, "token": token])
+
+        print("🔐 VERIFY TOKEN REQUEST")
+        print("Email:", email)
+        print("Token:", token)
+        print("URL:", endpoint.absoluteString)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        if let httpResponse = response as? HTTPURLResponse {
+            print("📡 Status Code:", httpResponse.statusCode)
+        }
+
+        if let responseBody = String(data: data, encoding: .utf8) {
+            print("📦 Response Body:")
+            print(responseBody)
+        } else {
+            print("📦 Response Body: <unable to decode>")
+        }
+
+        do {
+            try validate(response: response, data: data)
+        } catch {
+            print("❌ Validation Failed:", error)
+            return false
+        }
+
+        print("✅ Token verified successfully")
+        return true
+    }
+    
+    func setPassword(email: String, new: String, confirm: String) async throws {
+        let endpoint = URL(string: "auth/set-password", relativeTo: baseURL)!
+        let body: [String: Any] = [
+            "email": email,
+            "password": new,
+            "password_confirmation": confirm
+        ]
+
+        let request = try makeRequest(url: endpoint, body: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        try validate(response: response, data: data)
+
+        if let raw = String(data: data, encoding: .utf8), !raw.isEmpty {
+            print("setPassword success body:", raw)
+        }
+    }
+    
     // MARK: - Helpers
     
     private func makeRequest(url: URL, body: [String: Any]) throws -> URLRequest {
@@ -124,7 +172,6 @@ final class AuthService: AuthServicing {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        
         request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
         return request
     }
@@ -135,12 +182,10 @@ final class AuthService: AuthServicing {
         }
 
         guard (200..<300).contains(http.statusCode) else {
-            // If there's no body at all
             guard let data = data, !data.isEmpty else {
                 throw AuthError.server(message: "Request failed (\(http.statusCode))")
             }
 
-            // Try decoding known error format
             if let error = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
                 let message =
                     error.errors?
@@ -151,14 +196,12 @@ final class AuthService: AuthServicing {
                 throw AuthError.server(message: message)
             }
 
-            // Fallback: show raw server response
             let raw = String(data: data, encoding: .utf8)
                 ?? "Unknown server error"
 
             throw AuthError.server(message: raw)
         }
     }
-
 }
 
 // MARK: - Responses
@@ -166,6 +209,11 @@ final class AuthService: AuthServicing {
 struct AuthResponse: Decodable {
     let token: String
     let user: User?
+}
+
+struct RegisterResponse: Decodable {
+    let email: String
+    let token: Int
 }
 
 struct User: Decodable {
@@ -235,13 +283,11 @@ struct User: Decodable {
         name = try container.decode(String.self, forKey: .name)
         email = try container.decode(String.self, forKey: .email)
         isPremium = try container.decode(Bool.self, forKey: .isPremium)
-        // Optional imperial flag defaults to true if missing
         isImperial = (try container.decodeIfPresent(Bool.self, forKey: .isImperial)) ?? true
         weight = (try container.decodeIfPresent(Bool.self, forKey: .weight)) ?? true
         fat = (try container.decodeIfPresent(Bool.self, forKey: .fat)) ?? true
         photo = (try container.decodeIfPresent(Bool.self, forKey: .photo)) ?? true
         log = try container.decodeIfPresent(Int.self, forKey: .log)
-        // Theme defaults to "classic" if missing
         theme = (try container.decodeIfPresent(String.self, forKey: .theme)) ?? "classic"
         emailVerifiedAt = try container.decodeIfPresent(Date.self, forKey: .emailVerifiedAt)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
@@ -291,4 +337,3 @@ extension JSONDecoder {
         return d
     }()
 }
-
